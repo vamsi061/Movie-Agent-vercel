@@ -578,7 +578,53 @@ def get_extraction_status(extraction_id):
     if extraction_id not in extraction_results:
         return jsonify({'error': f'Invalid extraction ID: {extraction_id}. Available: {list(extraction_results.keys())}'}), 404
     
-    return jsonify(extraction_results[extraction_id])
+    result = extraction_results[extraction_id]
+    
+    # Auto-trigger health check when extraction is completed
+    if result.get('status') == 'completed' and not result.get('health_check_started', False):
+        links_data = result.get('result', [])
+        
+        if links_data:
+            import threading
+            def auto_health_check():
+                try:
+                    print(f"DEBUG: Starting auto health check for {len(links_data)} links")
+                    # Prepare links for health checking
+                    health_results = {}
+                    for i, link in enumerate(links_data):
+                        url = link.get('url', '')
+                        if url:
+                            print(f"DEBUG: Checking health for link {i}: {url}")
+                            health_result = check_download_link_health(url)
+                            health_results[str(i)] = health_result
+                    
+                    # Store health results globally
+                    global health_check_results
+                    if 'health_check_results' not in globals():
+                        health_check_results = {}
+                    health_check_results[extraction_id] = health_results
+                    
+                    # Mark health check as completed
+                    extraction_results[extraction_id]['health_check_completed'] = True
+                    print(f"DEBUG: Auto health check completed for extraction_id: {extraction_id}")
+                    
+                except Exception as e:
+                    print(f"ERROR: Auto health check failed: {e}")
+            
+            # Start health check in background thread
+            health_thread = threading.Thread(target=auto_health_check)
+            health_thread.daemon = True
+            health_thread.start()
+            
+            # Mark that health check has been started
+            extraction_results[extraction_id]['health_check_started'] = True
+            print(f"DEBUG: Auto health check thread started for extraction_id: {extraction_id}")
+    
+    # Add auto health check flag to response if completed
+    if result.get('status') == 'completed':
+        result['auto_health_check'] = True
+    
+    return jsonify(result)
 
 @app.route('/health')
 def health_check():
@@ -1367,3 +1413,35 @@ def extract_video_sources_aggressive(movie_page_url):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
+@app.route('/auto_health_results/<extraction_id>')
+def get_auto_health_results(extraction_id):
+    """Get auto health check results"""
+    global health_check_results
+    
+    if 'health_check_results' not in globals():
+        health_check_results = {}
+    
+    print(f"DEBUG: Checking auto health results for extraction_id: {extraction_id}")
+    print(f"DEBUG: Available health results: {list(health_check_results.keys()) if 'health_check_results' in globals() else 'None'}")
+    
+    if extraction_id in health_check_results:
+        return jsonify({
+            'results': health_check_results[extraction_id],
+            'completed': True
+        })
+    else:
+        # Check if health check is still in progress
+        if extraction_id in extraction_results:
+            extraction_result = extraction_results[extraction_id]
+            if extraction_result.get('health_check_started', False):
+                return jsonify({
+                    'results': {},
+                    'completed': False,
+                    'in_progress': True
+                })
+        
+        return jsonify({
+            'results': {},
+            'completed': False,
+            'in_progress': False
+        })
