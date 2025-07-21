@@ -532,14 +532,18 @@ def extract_download_links():
         # Start extraction in background
         def extract_in_background():
             try:
+                print(f"DEBUG: Starting extraction for {extraction_id}")
                 agent = initialize_agent()
+                print(f"DEBUG: Agent initialized, extracting from {selected_movie['detail_url']}")
                 result = agent.get_download_links(selected_movie['detail_url'])
+                print(f"DEBUG: Extraction completed for {extraction_id}")
                 extraction_results[extraction_id] = {
                     'status': 'completed',
                     'progress': 100,
                     'result': result
                 }
             except Exception as e:
+                print(f"DEBUG: Extraction failed for {extraction_id}: {str(e)}")
                 extraction_results[extraction_id] = {
                     'status': 'error',
                     'progress': 0,
@@ -568,8 +572,11 @@ def extract_download_links():
 @app.route('/status/<extraction_id>')
 def get_extraction_status(extraction_id):
     """Get extraction status"""
+    print(f"DEBUG: Checking extraction_id: {extraction_id}")
+    print(f"DEBUG: Available extraction_results: {list(extraction_results.keys())}")
+    
     if extraction_id not in extraction_results:
-        return jsonify({'error': 'Invalid extraction ID'}), 404
+        return jsonify({'error': f'Invalid extraction ID: {extraction_id}. Available: {list(extraction_results.keys())}'}), 404
     
     return jsonify(extraction_results[extraction_id])
 
@@ -713,7 +720,7 @@ def is_valid_video_source(url):
 def check_download_link_health(url, timeout=10):
     """
     Check the health of a download link
-    Returns status with color indicator
+    Returns status with color indicator, including locked link detection
     """
     try:
         # Handle different types of URLs
@@ -723,8 +730,27 @@ def check_download_link_health(url, timeout=10):
                 'color': 'red',
                 'message': 'Invalid URL',
                 'response_code': None,
-                'response_time': None
+                'response_time': None,
+                'is_locked': False
             }
+        
+        # Check if it's a known shortlink/unlock service
+        shortlink_services = [
+            'shortlinkto.onl',
+            'uptobhai.blog',
+            'shortlink.to',
+            'short.link',
+            'unlock.link',
+            'linkvertise.com',
+            'adf.ly',
+            'bit.ly',
+            'tinyurl.com',
+            'ow.ly',
+            'goo.gl'
+        ]
+        
+        url_lower = url.lower()
+        is_shortlink = any(service in url_lower for service in shortlink_services)
         
         start_time = time.time()
         
@@ -738,7 +764,72 @@ def check_download_link_health(url, timeout=10):
             'Upgrade-Insecure-Requests': '1',
         }
         
-        # Make HEAD request first (faster than GET)
+        # For shortlinks, we need to get the page content to check if it's locked
+        if is_shortlink:
+            try:
+                response = requests.get(url, headers=headers, timeout=timeout)
+                response_time = round((time.time() - start_time) * 1000, 2)
+                
+                if response.status_code == 200:
+                    page_content = response.text.lower()
+                    
+                    # Check for common unlock button patterns
+                    unlock_patterns = [
+                        'click to unlock',
+                        'unlock download',
+                        'get download link',
+                        'continue to download',
+                        'verify you are human',
+                        'complete captcha',
+                        'wait for timer',
+                        'skip ad',
+                        'get link',
+                        'unlock link',
+                        'download will start',
+                        'please wait'
+                    ]
+                    
+                    has_unlock_pattern = any(pattern in page_content for pattern in unlock_patterns)
+                    
+                    if has_unlock_pattern:
+                        return {
+                            'status': 'locked',
+                            'color': 'yellow',
+                            'message': f'Locked - Click to Unlock ({response_time}ms)',
+                            'response_code': response.status_code,
+                            'response_time': response_time,
+                            'is_locked': True,
+                            'unlock_url': url
+                        }
+                    else:
+                        return {
+                            'status': 'shortlink_active',
+                            'color': 'orange',
+                            'message': f'Shortlink Active ({response_time}ms)',
+                            'response_code': response.status_code,
+                            'response_time': response_time,
+                            'is_locked': False
+                        }
+                else:
+                    return {
+                        'status': 'shortlink_error',
+                        'color': 'red',
+                        'message': f'Shortlink Error ({response_time}ms)',
+                        'response_code': response.status_code,
+                        'response_time': response_time,
+                        'is_locked': False
+                    }
+            except Exception as e:
+                return {
+                    'status': 'shortlink_error',
+                    'color': 'red',
+                    'message': f'Shortlink Check Failed',
+                    'response_code': None,
+                    'response_time': None,
+                    'is_locked': False
+                }
+        
+        # For regular links, use the original logic
         try:
             response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
         except:
@@ -766,7 +857,8 @@ def check_download_link_health(url, timeout=10):
                     'response_code': status_code,
                     'response_time': response_time,
                     'content_type': content_type,
-                    'file_size': content_length
+                    'file_size': content_length,
+                    'is_locked': False
                 }
             else:
                 return {
@@ -775,7 +867,8 @@ def check_download_link_health(url, timeout=10):
                     'message': f'Redirect/Page ({response_time}ms)',
                     'response_code': status_code,
                     'response_time': response_time,
-                    'content_type': content_type
+                    'content_type': content_type,
+                    'is_locked': False
                 }
         
         elif status_code in [301, 302, 303, 307, 308]:
@@ -784,7 +877,8 @@ def check_download_link_health(url, timeout=10):
                 'color': 'orange',
                 'message': f'Redirect ({response_time}ms)',
                 'response_code': status_code,
-                'response_time': response_time
+                'response_time': response_time,
+                'is_locked': False
             }
         
         elif status_code == 403:
@@ -793,7 +887,8 @@ def check_download_link_health(url, timeout=10):
                 'color': 'red',
                 'message': f'Access Denied ({response_time}ms)',
                 'response_code': status_code,
-                'response_time': response_time
+                'response_time': response_time,
+                'is_locked': False
             }
         
         elif status_code == 404:
@@ -802,7 +897,8 @@ def check_download_link_health(url, timeout=10):
                 'color': 'red',
                 'message': f'Not Found ({response_time}ms)',
                 'response_code': status_code,
-                'response_time': response_time
+                'response_time': response_time,
+                'is_locked': False
             }
         
         elif status_code >= 500:
@@ -811,7 +907,8 @@ def check_download_link_health(url, timeout=10):
                 'color': 'red',
                 'message': f'Server Error ({response_time}ms)',
                 'response_code': status_code,
-                'response_time': response_time
+                'response_time': response_time,
+                'is_locked': False
             }
         
         else:
@@ -820,7 +917,8 @@ def check_download_link_health(url, timeout=10):
                 'color': 'orange',
                 'message': f'Status {status_code} ({response_time}ms)',
                 'response_code': status_code,
-                'response_time': response_time
+                'response_time': response_time,
+                'is_locked': False
             }
     
     except requests.exceptions.Timeout:
@@ -829,7 +927,8 @@ def check_download_link_health(url, timeout=10):
             'color': 'red',
             'message': 'Timeout',
             'response_code': None,
-            'response_time': timeout * 1000
+            'response_time': timeout * 1000,
+            'is_locked': False
         }
     
     except requests.exceptions.ConnectionError:
@@ -838,7 +937,8 @@ def check_download_link_health(url, timeout=10):
             'color': 'red',
             'message': 'Connection Failed',
             'response_code': None,
-            'response_time': None
+            'response_time': None,
+            'is_locked': False
         }
     
     except Exception as e:
@@ -847,7 +947,8 @@ def check_download_link_health(url, timeout=10):
             'color': 'red',
             'message': f'Error: {str(e)[:50]}',
             'response_code': None,
-            'response_time': None
+            'response_time': None,
+            'is_locked': False
         }
 
 def extract_video_sources_aggressive(movie_page_url):

@@ -319,6 +319,111 @@
             box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
         }
 
+        .download-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .health-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            position: relative;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.3);
+            background-color: #666;
+        }
+
+        .health-indicator.green {
+            background-color: #4CAF50;
+            box-shadow: 0 0 6px rgba(76, 175, 80, 0.6);
+        }
+
+        .health-indicator.orange {
+            background-color: #FF9800;
+            box-shadow: 0 0 6px rgba(255, 152, 0, 0.6);
+        }
+
+        .health-indicator.red {
+            background-color: #f44336;
+            box-shadow: 0 0 6px rgba(244, 67, 54, 0.6);
+        }
+
+        .health-indicator.yellow {
+            background-color: #FFC107;
+            box-shadow: 0 0 6px rgba(255, 193, 7, 0.6);
+        }
+
+        .health-indicator.checking {
+            background-color: #2196F3;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .health-tooltip {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .health-indicator:hover .health-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .check-all-btn {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .check-all-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .unlock-btn {
+            background: linear-gradient(45deg, #FFC107, #FF9800);
+            color: #333;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .unlock-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(255, 193, 7, 0.3);
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -704,9 +809,11 @@
                 return;
             }
             
-            downloadLinksDiv.innerHTML = '<h4>Download Links Found</h4>';
+            downloadLinksDiv.innerHTML = 
+                '<h4>Download Links Found</h4>' +
+                '<button class="check-all-btn" onclick="checkAllLinksHealth()">Check All Links Health</button>';
             
-            result.download_links.forEach(link => {
+            result.download_links.forEach((link, index) => {
                 const linkDiv = document.createElement('div');
                 linkDiv.className = 'download-link';
                 
@@ -719,10 +826,150 @@
                             'Size: ' + (link.file_size || 'Unknown') +
                         '</div>' +
                     '</div>' +
-                    '<a href="' + link.url + '" target="_blank" class="download-btn">Download</a>';
+                    '<div class="download-actions">' +
+                        '<div class="health-indicator" id="health-' + index + '" onclick="checkSingleLinkHealth(' + index + ', \'' + encodeURIComponent(link.url) + '\')">' +
+                            '<div class="health-tooltip" id="tooltip-' + index + '">Click to check health</div>' +
+                        '</div>' +
+                        '<div id="unlock-section-' + index + '" style="display: none;">' +
+                            '<button class="unlock-btn" onclick="unlockLink(' + index + ')">Unlock</button>' +
+                        '</div>' +
+                        '<a href="' + link.url + '" target="_blank" class="download-btn" id="download-btn-' + index + '">Download</a>' +
+                    '</div>';
                 
                 downloadLinksDiv.appendChild(linkDiv);
             });
+            
+            // Store links for health checking
+            window.currentDownloadLinks = result.download_links;
+        }
+
+        function checkSingleLinkHealth(index, encodedUrl) {
+            const url = decodeURIComponent(encodedUrl);
+            const indicator = document.getElementById('health-' + index);
+            const tooltip = document.getElementById('tooltip-' + index);
+            
+            // Set checking state
+            indicator.className = 'health-indicator checking';
+            tooltip.textContent = 'Checking...';
+            
+            fetch('/check_link_health', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateHealthIndicator(index, data);
+            })
+            .catch(error => {
+                console.error('Health check error:', error);
+                indicator.className = 'health-indicator red';
+                tooltip.textContent = 'Check failed';
+            });
+        }
+
+        function checkAllLinksHealth() {
+            if (!window.currentDownloadLinks) return;
+            
+            const links = window.currentDownloadLinks.map(link => ({ url: link.url }));
+            
+            // Set all indicators to checking state
+            links.forEach((_, index) => {
+                const indicator = document.getElementById('health-' + index);
+                const tooltip = document.getElementById('tooltip-' + index);
+                if (indicator && tooltip) {
+                    indicator.className = 'health-indicator checking';
+                    tooltip.textContent = 'Checking...';
+                }
+            });
+            
+            fetch('/check_multiple_links_health', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ links: links })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.results) {
+                    Object.keys(data.results).forEach(index => {
+                        updateHealthIndicator(parseInt(index), data.results[index]);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Bulk health check error:', error);
+                links.forEach((_, index) => {
+                    const indicator = document.getElementById('health-' + index);
+                    const tooltip = document.getElementById('tooltip-' + index);
+                    if (indicator && tooltip) {
+                        indicator.className = 'health-indicator red';
+                        tooltip.textContent = 'Check failed';
+                    }
+                });
+            });
+        }
+
+        function updateHealthIndicator(index, healthData) {
+            const indicator = document.getElementById('health-' + index);
+            const tooltip = document.getElementById('tooltip-' + index);
+            const unlockSection = document.getElementById('unlock-section-' + index);
+            const downloadBtn = document.getElementById('download-btn-' + index);
+            
+            if (!indicator || !tooltip) return;
+            
+            // Update indicator color based on health status
+            indicator.className = 'health-indicator ' + healthData.color;
+            
+            // Handle locked links
+            if (healthData.is_locked && healthData.status === 'locked') {
+                // Show unlock button
+                if (unlockSection) {
+                    unlockSection.style.display = 'inline-block';
+                }
+                
+                // Store unlock URL for later use
+                if (healthData.unlock_url) {
+                    window.unlockUrls = window.unlockUrls || {};
+                    window.unlockUrls[index] = healthData.unlock_url;
+                }
+                
+                // Update download button text
+                if (downloadBtn) {
+                    downloadBtn.textContent = 'Locked';
+                    downloadBtn.style.background = 'linear-gradient(45deg, #FFC107, #FF9800)';
+                    downloadBtn.style.color = '#333';
+                }
+            } else {
+                // Hide unlock button
+                if (unlockSection) {
+                    unlockSection.style.display = 'none';
+                }
+                
+                // Reset download button
+                if (downloadBtn) {
+                    downloadBtn.textContent = 'Download';
+                    downloadBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
+                    downloadBtn.style.color = 'white';
+                }
+            }
+            
+            // Update tooltip with detailed information
+            let tooltipText = healthData.message;
+            if (healthData.response_code) {
+                tooltipText += ' (HTTP ' + healthData.response_code + ')';
+            }
+            if (healthData.file_size) {
+                const sizeInMB = Math.round(parseInt(healthData.file_size) / (1024 * 1024));
+                if (sizeInMB > 0) {
+                    tooltipText += ' - ' + sizeInMB + 'MB';
+                }
+            }
+            
+            tooltip.textContent = tooltipText;
         }
 
         function showLoading() {
@@ -799,6 +1046,14 @@
             const paginationControls = document.getElementById('paginationControls');
             if (paginationControls) {
                 paginationControls.style.display = 'none';
+            }
+        }
+
+        function unlockLink(index) {
+            const unlockUrl = window.unlockUrls && window.unlockUrls[index];
+            if (unlockUrl) {
+                window.open(unlockUrl, '_blank');
+                alert('Unlock page opened. Complete the process there, then recheck the link health.');
             }
         }
 
