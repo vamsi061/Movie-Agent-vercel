@@ -1,0 +1,50 @@
+{
+  "base_url": "https://downloadhub.legal",
+  "selenium_settings": {
+    "use_selenium": true,
+    "headless": true,
+    "timeout": 30,
+    "implicit_wait": 10
+  },
+  "request_settings": {
+    "timeout": 30,
+    "max_retries": 3,
+    "retry_delay": 2
+  },
+  "extraction_settings": {
+    "max_links_per_movie": 50,
+    "supported_hosts": [
+      "drive.google.com",
+      "mega.nz",
+      "mediafire.com",
+      "dropbox.com",
+      "1fichier.com",
+      "rapidgator.net",
+      "uploadrar.com",
+      "nitroflare.com",
+      "zippyshare.com",
+      "uptobox.com"
+    ],
+    "quality_patterns": [
+      "480p", "720p", "1080p", "4K", "2160p",
+      "HD", "CAM", "DVDRip", "BluRay", "WEBRip",
+      "HDTV", "BRRip", "DVDScr"
+    ],
+    "language_patterns": {
+      "hindi": "Hindi",
+      "english": "English",
+      "tamil": "Tamil",
+      "telugu": "Telugu",
+      "punjabi": "Punjabi",
+      "bengali": "Bengali",
+      "marathi": "Marathi",
+      "gujarati": "Gujarati"
+    }
+  },
+  "output_settings": {
+    "save_results": true,
+    "output_format": "json",
+    "include_metadata": true,
+    "max_description_length": 500
+  }
+}
