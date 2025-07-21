@@ -628,6 +628,31 @@ def check_multiple_links_health():
     except Exception as e:
         return jsonify({'error': f'Health check failed: {str(e)}'}), 500
 
+@app.route('/unlock_shortlink', methods=['POST'])
+def unlock_shortlink():
+    """Unlock a shortlink and extract actual download links"""
+    try:
+        data = request.get_json()
+        shortlink_url = data.get('url')
+        
+        if not shortlink_url:
+            return jsonify({'error': 'No URL provided'}), 400
+        
+        print(f"DEBUG: Unlocking shortlink: {shortlink_url}")
+        
+        # Use Selenium to unlock and extract links
+        unlocked_links = unlock_and_extract_links(shortlink_url)
+        
+        return jsonify({
+            'status': 'success',
+            'unlocked_links': unlocked_links,
+            'original_url': shortlink_url
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Unlock failed: {str(e)}")
+        return jsonify({'error': f'Unlock failed: {str(e)}'}), 500
+
 @app.route('/proxy_video')
 def proxy_video():
     """Proxy endpoint to bypass CORS for video streaming"""
@@ -767,31 +792,85 @@ def check_download_link_health(url, timeout=10):
         # For shortlinks, we need to get the page content to check if it's locked
         if is_shortlink:
             try:
-                response = requests.get(url, headers=headers, timeout=timeout)
+                response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
                 response_time = round((time.time() - start_time) * 1000, 2)
                 
                 if response.status_code == 200:
                     page_content = response.text.lower()
+                    final_url = response.url.lower()
                     
-                    # Check for common unlock button patterns
-                    unlock_patterns = [
-                        'click to unlock',
-                        'unlock download',
-                        'get download link',
-                        'continue to download',
-                        'verify you are human',
-                        'complete captcha',
-                        'wait for timer',
-                        'skip ad',
-                        'get link',
-                        'unlock link',
-                        'download will start',
-                        'please wait'
+                    # Debug logging - print page content snippet
+                    print(f"DEBUG: Checking URL: {url}")
+                    print(f"DEBUG: Final URL after redirects: {response.url}")
+                    print(f"DEBUG: Page content snippet (first 500 chars): {page_content[:500]}")
+                    
+                    # Check if we were redirected to a direct download link
+                    direct_download_indicators = [
+                        'drive.google.com/file',
+                        'mega.nz',
+                        'mediafire.com/file',
+                        'dropbox.com',
+                        'onedrive.live.com',
+                        '.zip',
+                        '.rar',
+                        '.mp4',
+                        '.mkv',
+                        '.avi'
                     ]
                     
-                    has_unlock_pattern = any(pattern in page_content for pattern in unlock_patterns)
+                    # Check if redirected to actual download
+                    is_direct_download = any(indicator in final_url for indicator in direct_download_indicators)
                     
-                    if has_unlock_pattern:
+                    # Check for the specific unlock button text (locked state)
+                    locked_indicators = [
+                        'click to unlock download links',
+                        'click to unlock download link',
+                        'unlock download links',
+                        'click here to unlock',
+                        'verify you are human',
+                        'complete captcha',
+                        'human verification'
+                    ]
+                    
+                    # Check for download links being visible (unlocked state)
+                    unlocked_indicators = [
+                        'links unlocked now',
+                        'links unlocked now.',
+                        'google drive',
+                        'mega.nz',
+                        'mediafire',
+                        'dropbox',
+                        'onedrive',
+                        'download link:',
+                        'download links:',
+                        'direct download',
+                        'file download',
+                        'download now',
+                        'get download'
+                    ]
+                    
+                    is_locked = any(indicator in page_content for indicator in locked_indicators)
+                    is_unlocked = any(indicator in page_content for indicator in unlocked_indicators)
+                    
+                    # Debug logging
+                    print(f"DEBUG: Locked indicators found: {[indicator for indicator in locked_indicators if indicator in page_content]}")
+                    print(f"DEBUG: Unlocked indicators found: {[indicator for indicator in unlocked_indicators if indicator in page_content]}")
+                    print(f"DEBUG: is_locked: {is_locked}, is_unlocked: {is_unlocked}")
+                    
+                    # Priority 1: Check if redirected to direct download
+                    if is_direct_download:
+                        return {
+                            'status': 'unlocked_redirect',
+                            'color': 'green',
+                            'message': f'Unlocked - Direct Link ({response_time}ms)',
+                            'response_code': response.status_code,
+                            'response_time': response_time,
+                            'is_locked': False,
+                            'final_url': response.url
+                        }
+                    
+                    # Priority 2: Check if locked (has unlock button)
+                    elif is_locked:
                         return {
                             'status': 'locked',
                             'color': 'yellow',
@@ -801,6 +880,19 @@ def check_download_link_health(url, timeout=10):
                             'is_locked': True,
                             'unlock_url': url
                         }
+                    
+                    # Priority 3: Check if unlocked (download links visible)
+                    elif is_unlocked:
+                        return {
+                            'status': 'unlocked',
+                            'color': 'green',
+                            'message': f'Unlocked - Download Links Available ({response_time}ms)',
+                            'response_code': response.status_code,
+                            'response_time': response_time,
+                            'is_locked': False
+                        }
+                    
+                    # Default: Shortlink active but status unclear
                     else:
                         return {
                             'status': 'shortlink_active',
@@ -950,6 +1042,177 @@ def check_download_link_health(url, timeout=10):
             'response_time': None,
             'is_locked': False
         }
+
+def unlock_and_extract_links(shortlink_url):
+    """
+    Use Selenium to unlock shortlink and extract ALL download links comprehensively
+    Based on tmp_rovodev_extract_all_links.py logic
+    """
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.chrome.options import Options
+    from urllib.parse import urlparse
+    import time
+    
+    options = Options()
+    options.add_argument('--headless=true')  # Run in background
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    
+    driver = None
+    try:
+        print(f"DEBUG: Starting Chrome for comprehensive unlock: {shortlink_url}")
+        driver = webdriver.Chrome(options=options)
+        driver.set_page_load_timeout(30)
+        
+        # Load the shortlink page
+        driver.get(shortlink_url)
+        time.sleep(5)
+        
+        print("DEBUG: Looking for unlock button...")
+        
+        # Find unlock button with comprehensive search
+        all_buttons = driver.find_elements(By.TAG_NAME, "button")
+        unlock_button = None
+        
+        for button in all_buttons:
+            button_text = button.text.strip().lower()
+            if "unlock" in button_text and "download" in button_text:
+                unlock_button = button
+                print(f"DEBUG: Found unlock button: '{button.text}'")
+                break
+        
+        if not unlock_button:
+            print("DEBUG: No unlock button found")
+            return []
+        
+        print("DEBUG: Clicking unlock button...")
+        driver.execute_script("arguments[0].scrollIntoView(true);", unlock_button)
+        time.sleep(2)
+        
+        try:
+            unlock_button.click()
+        except:
+            driver.execute_script("arguments[0].click();", unlock_button)
+        
+        print("DEBUG: Waiting for content to load...")
+        time.sleep(10)  # Wait for links to appear
+        
+        # Extract ALL links comprehensively
+        all_links = driver.find_elements(By.TAG_NAME, "a")
+        print(f"DEBUG: Found {len(all_links)} total links on page")
+        
+        extracted_links = []
+        
+        for link in all_links:
+            try:
+                href = link.get_attribute('href')
+                text = link.text.strip()
+                
+                if href and href.startswith('http'):
+                    domain = urlparse(href).netloc
+                    
+                    # Skip internal site links
+                    if any(internal in domain.lower() for internal in ['uptobhai.blog', 'shortlinkto.onl', 'shortlink.to']):
+                        continue
+                    
+                    # Comprehensive download service detection
+                    download_services = [
+                        'drive.google.com', 'mega.nz', 'mediafire.com', 'dropbox.com', 'onedrive.live.com',
+                        'drop.download', 'megaup.net', 'uploadrar.com', 'rapidgator.net', 'nitroflare.com',
+                        'turbobit.net', 'uploaded.net', 'katfile.com', 'ddownload.com', 'file-upload.org',
+                        'hexupload.net', 'send.cm', 'workupload.com', 'racaty.io', 'krakenfiles.com',
+                        'gofile.io', 'pixeldrain.com', 'anonfiles.com', 'zippyshare.com', 'sendspace.com',
+                        'filedot.top', 'ranoz.gg', 'uptobox.com', 'filecrypt.cc', 'dailyuploads.net',
+                        'upload.ee', 'filerio.in', 'doodstream.com', 'streamtape.com', 'mixdrop.co'
+                    ]
+                    
+                    # Check if it's a known download service
+                    is_download_service = any(service in domain.lower() for service in download_services)
+                    
+                    # Check if URL looks like a download link (has file extension or download patterns)
+                    has_file_extension = any(ext in href.lower() for ext in ['.mkv', '.mp4', '.avi', '.zip', '.rar', '.mp3', '.pdf'])
+                    has_download_pattern = any(pattern in href.lower() for pattern in ['download', 'file', 'get'])
+                    
+                    # Check text for download indicators
+                    text_indicates_download = text and any(word in text.lower() for word in ['download', 'file', 'drive', 'mega', 'mediafire'])
+                    
+                    # Determine if this is a download link
+                    is_download_link = (
+                        is_download_service or 
+                        has_file_extension or 
+                        (has_download_pattern and len(href) > 20) or
+                        text_indicates_download
+                    )
+                    
+                    if is_download_link:
+                        # Determine service type and quality
+                        service_type = "Unknown"
+                        quality = "Unknown"
+                        
+                        # Identify service type
+                        if 'drive.google' in domain:
+                            service_type = "Google Drive"
+                        elif 'mega.nz' in domain:
+                            service_type = "Mega"
+                        elif 'mediafire' in domain:
+                            service_type = "MediaFire"
+                        elif 'dropbox' in domain:
+                            service_type = "Dropbox"
+                        elif 'onedrive' in domain:
+                            service_type = "OneDrive"
+                        elif any(service in domain for service in ['upload', 'download', 'file']):
+                            service_type = domain.replace('.com', '').replace('.net', '').replace('.org', '').replace('.top', '').replace('.gg', '').title()
+                        
+                        # Try to extract quality from text or URL
+                        quality_indicators = ['480p', '720p', '1080p', '4k', '2160p', 'hd', 'full hd', 'uhd']
+                        for q in quality_indicators:
+                            if q in text.lower() or q in href.lower():
+                                quality = q.upper()
+                                break
+                        
+                        # Try to extract file size
+                        file_size = "Unknown"
+                        size_patterns = ['gb', 'mb', 'kb']
+                        for pattern in size_patterns:
+                            if pattern in text.lower():
+                                # Try to find number before the size unit
+                                import re
+                                size_match = re.search(r'(\d+(?:\.\d+)?)\s*' + pattern, text.lower())
+                                if size_match:
+                                    file_size = size_match.group(0).upper()
+                                    break
+                        
+                        extracted_links.append({
+                            'text': text or f'{service_type} Download',
+                            'url': href,
+                            'host': domain,
+                            'service_type': service_type,
+                            'quality': quality,
+                            'file_size': file_size
+                        })
+                        
+                        print(f"DEBUG: Found download link: {service_type} - {text[:30]}...")
+                        
+            except Exception as e:
+                continue
+        
+        print(f"DEBUG: Successfully extracted {len(extracted_links)} download links")
+        
+        # Log the extracted links for debugging
+        for i, link in enumerate(extracted_links, 1):
+            print(f"DEBUG: Link {i}: {link['service_type']} - {link['url'][:50]}...")
+        
+        return extracted_links
+        
+    except Exception as e:
+        print(f"DEBUG: Selenium unlock error: {str(e)}")
+        return []
+    
+    finally:
+        if driver:
+            driver.quit()
 
 def extract_video_sources_aggressive(movie_page_url):
     """More aggressive video source extraction with better filtering"""

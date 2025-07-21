@@ -476,6 +476,15 @@
                 gap: 10px;
             }
         }
+
+        .unlocked-link {
+            border-left: 4px solid #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .download-btn.unlocked {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
     </style>
 </head>
 <body>
@@ -816,10 +825,18 @@
             result.download_links.forEach((link, index) => {
                 const linkDiv = document.createElement('div');
                 linkDiv.className = 'download-link';
+                linkDiv.setAttribute('data-link-index', index);
+                
+                // Check if this is a shortlink that needs unlocking
+                const isShortlink = isShortlinkService(link.url);
+                const lockIcon = isShortlink ? '🔒 ' : '';
+                const unlockButton = isShortlink ? 
+                    '<button class="unlock-btn" onclick="unlockShortlink(' + index + ', \'' + encodeURIComponent(link.url) + '\')">Unlock</button>' : 
+                    '<button class="unlock-btn" onclick="unlockLink(' + index + ')">Unlock</button>';
                 
                 linkDiv.innerHTML = 
                     '<div class="link-info">' +
-                        '<div class="link-title">' + (link.text || 'Download Link') + '</div>' +
+                        '<div class="link-title">' + lockIcon + (link.text || 'Download Link') + '</div>' +
                         '<div class="link-meta">' +
                             'Host: ' + (link.host || 'Unknown') + ' | ' +
                             'Quality: ' + (Array.isArray(link.quality) ? link.quality.join(', ') : link.quality || 'Unknown') + ' | ' +
@@ -830,10 +847,12 @@
                         '<div class="health-indicator" id="health-' + index + '" onclick="checkSingleLinkHealth(' + index + ', \'' + encodeURIComponent(link.url) + '\')">' +
                             '<div class="health-tooltip" id="tooltip-' + index + '">Click to check health</div>' +
                         '</div>' +
-                        '<div id="unlock-section-' + index + '" style="display: none;">' +
-                            '<button class="unlock-btn" onclick="unlockLink(' + index + ')">Unlock</button>' +
+                        '<div id="unlock-section-' + index + '" style="display: ' + (isShortlink ? 'inline-block' : 'none') + ';">' +
+                            unlockButton +
                         '</div>' +
-                        '<a href="' + link.url + '" target="_blank" class="download-btn" id="download-btn-' + index + '">Download</a>' +
+                        '<a href="' + link.url + '" target="_blank" class="download-btn" id="download-btn-' + index + '">' +
+                            (isShortlink ? 'Locked Link' : 'Download') +
+                        '</a>' +
                     '</div>';
                 
                 downloadLinksDiv.appendChild(linkDiv);
@@ -1063,6 +1082,119 @@
                 searchMovies();
             }
         });
+
+        // Shortlink detection and unlock functionality
+        function isShortlinkService(url) {
+            const shortlinkServices = [
+                'shortlinkto.onl',
+                'uptobhai.blog',
+                'shortlink.to',
+                'linkvertise.com',
+                'adf.ly',
+                'bit.ly',
+                'tinyurl.com'
+            ];
+            return shortlinkServices.some(service => url.toLowerCase().includes(service));
+        }
+
+        function unlockShortlink(index, url) {
+            const unlockBtn = document.querySelector('#unlock-section-' + index + ' .unlock-btn');
+            const downloadBtn = document.getElementById('download-btn-' + index);
+            const linkDiv = document.querySelector('[data-link-index="' + index + '"]');
+            
+            // Update UI to show unlocking in progress
+            if (unlockBtn) {
+                unlockBtn.textContent = 'Unlocking...';
+                unlockBtn.disabled = true;
+            }
+            
+            if (downloadBtn) {
+                downloadBtn.textContent = 'Unlocking...';
+            }
+            
+            // Call backend to unlock
+            fetch('/unlock_shortlink', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: decodeURIComponent(url) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.unlocked_links && data.unlocked_links.length > 0) {
+                    // Replace the locked link with unlocked links
+                    displayUnlockedLinks(index, data.unlocked_links, linkDiv);
+                } else {
+                    // Unlock failed
+                    if (unlockBtn) {
+                        unlockBtn.textContent = 'Failed - Try Again';
+                        unlockBtn.disabled = false;
+                    }
+                    if (downloadBtn) {
+                        downloadBtn.textContent = 'Unlock Failed';
+                    }
+                    alert('Failed to unlock the link. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Unlock error:', error);
+                if (unlockBtn) {
+                    unlockBtn.textContent = 'Error - Retry';
+                    unlockBtn.disabled = false;
+                }
+                if (downloadBtn) {
+                    downloadBtn.textContent = 'Error';
+                }
+                alert('Error unlocking the link. Please try again.');
+            });
+        }
+
+        function displayUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
+            // Remove the original locked link
+            originalLinkDiv.remove();
+            
+            // Add all unlocked links
+            const downloadLinksDiv = document.getElementById('downloadLinks');
+            
+            unlockedLinks.forEach((link, subIndex) => {
+                const linkDiv = document.createElement('div');
+                linkDiv.className = 'download-link unlocked-link';
+                
+                linkDiv.innerHTML = 
+                    '<div class="link-info">' +
+                        '<div class="link-title">✅ ' + (link.text || link.service_type + ' Download') + '</div>' +
+                        '<div class="link-meta">' +
+                            'Service: ' + (link.service_type || 'Unknown') + ' | ' +
+                            'Host: ' + (link.host || 'Unknown') + ' | ' +
+                            'Quality: ' + (link.quality || 'Unknown') + ' | ' +
+                            'Size: ' + (link.file_size || 'Unknown') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="download-actions">' +
+                        '<div class="health-indicator green">' +
+                            '<div class="health-tooltip">Unlocked and ready</div>' +
+                        '</div>' +
+                        '<a href="' + link.url + '" target="_blank" class="download-btn unlocked">Download</a>' +
+                    '</div>';
+                
+                downloadLinksDiv.appendChild(linkDiv);
+            });
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.innerHTML = '🎉 Successfully unlocked! Found ' + unlockedLinks.length + ' download links.';
+            successMsg.style.cssText = 'background: #4CAF50; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center;';
+            downloadLinksDiv.insertBefore(successMsg, downloadLinksDiv.firstChild.nextSibling);
+            
+            // Remove success message after 5 seconds
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.remove();
+                }
+            }, 5000);
+        }
+
     </script>
 </body>
 </html>
