@@ -485,6 +485,42 @@
         .download-btn.unlocked {
             background: linear-gradient(45deg, #4CAF50, #45a049);
         }
+
+        /* Priority link styling for Gofile.io */
+        .priority-link {
+            border: 2px solid #FFD700 !important;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(76, 175, 80, 0.1)) !important;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3) !important;
+            order: -1 !important;
+        }
+
+        .priority-badge {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: inline-block;
+            animation: priorityGlow 2s infinite;
+        }
+
+        @keyframes priorityGlow {
+            0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+        }
+
+        .health-indicator.priority-link {
+            background-color: #4CAF50 !important;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.8) !important;
+            animation: priorityPulse 1.5s infinite;
+        }
+
+        @keyframes priorityPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
     </style>
 </head>
 <body>
@@ -962,11 +998,55 @@
             const tooltip = document.getElementById('tooltip-' + index);
             const unlockSection = document.getElementById('unlock-section-' + index);
             const downloadBtn = document.getElementById('download-btn-' + index);
+            const linkDiv = document.querySelector('[data-link-index="' + index + '"]');
             
             if (!indicator || !tooltip) return;
             
-            // Update indicator color based on health status
-            indicator.className = 'health-indicator ' + healthData.color;
+            // Get the URL to check if it's from gofile.io
+            const currentLink = window.currentDownloadLinks && window.currentDownloadLinks[index];
+            const isGofileLink = currentLink && currentLink.url && currentLink.url.toLowerCase().includes('gofile.io');
+            
+            // Special handling for Gofile.io links with 200 status
+            if (isGofileLink && healthData.response_code === 200) {
+                // Mark as priority link with special green indicator
+                indicator.className = 'health-indicator green priority-link';
+                
+                // Add priority styling to the link container
+                if (linkDiv) {
+                    linkDiv.classList.add('priority-link');
+                    
+                    // Add priority badge if not already present
+                    if (!linkDiv.querySelector('.priority-badge')) {
+                        const priorityBadge = document.createElement('div');
+                        priorityBadge.className = 'priority-badge';
+                        priorityBadge.textContent = 'PRIORITY - GOFILE.IO';
+                        priorityBadge.style.cssText = 'background: linear-gradient(45deg, #FFD700, #FFA500); color: #333; padding: 4px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; margin-bottom: 5px; display: inline-block; animation: priorityGlow 2s infinite;';
+                        linkDiv.querySelector('.link-info').insertBefore(priorityBadge, linkDiv.querySelector('.link-title'));
+                    }
+                    
+                    // Move this link to the top of the list
+                    const downloadLinksDiv = document.getElementById('downloadLinks');
+                    const firstChild = downloadLinksDiv.children[1]; // Skip the header
+                    if (firstChild && linkDiv !== firstChild) {
+                        downloadLinksDiv.insertBefore(linkDiv, firstChild);
+                    }
+                }
+                
+                // Update download button for priority links
+                if (downloadBtn) {
+                    downloadBtn.textContent = 'Priority Download';
+                    downloadBtn.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+                    downloadBtn.style.color = 'white';
+                    downloadBtn.style.fontWeight = 'bold';
+                }
+                
+                // Update tooltip for priority links
+                tooltip.textContent = 'PRIORITY: Gofile.io - Fast & Reliable (HTTP 200)';
+                
+            } else {
+                // Regular health indicator update
+                indicator.className = 'health-indicator ' + healthData.color;
+            }
             
             // Handle locked links
             if (healthData.is_locked && healthData.status === 'locked') {
@@ -1182,9 +1262,14 @@
             // Add all unlocked links
             const downloadLinksDiv = document.getElementById('downloadLinks');
             
+            // Store the starting index for new links
+            const startingIndex = window.currentDownloadLinks ? window.currentDownloadLinks.length : 0;
+            
             unlockedLinks.forEach((link, subIndex) => {
+                const newIndex = startingIndex + subIndex;
                 const linkDiv = document.createElement('div');
                 linkDiv.className = 'download-link unlocked-link';
+                linkDiv.setAttribute('data-link-index', newIndex);
                 
                 linkDiv.innerHTML = 
                     '<div class="link-info">' +
@@ -1197,8 +1282,8 @@
                         '</div>' +
                     '</div>' +
                     '<div class="download-actions">' +
-                        '<div class="health-indicator green">' +
-                            '<div class="health-tooltip">Unlocked and ready</div>' +
+                        '<div class="health-indicator" id="health-' + newIndex + '" onclick="checkSingleLinkHealth(' + newIndex + ', \'' + encodeURIComponent(link.url) + '\')">' +
+                            '<div class="health-tooltip" id="tooltip-' + newIndex + '">Click to check health</div>' +
                         '</div>' +
                         '<a href="' + link.url + '" target="_blank" class="download-btn unlocked">Download</a>' +
                     '</div>';
@@ -1206,11 +1291,44 @@
                 downloadLinksDiv.appendChild(linkDiv);
             });
             
+            // Add unlocked links to the global array for health checking
+            if (!window.currentDownloadLinks) {
+                window.currentDownloadLinks = [];
+            }
+            unlockedLinks.forEach(link => {
+                window.currentDownloadLinks.push(link);
+            });
+            
             // Show success message
             const successMsg = document.createElement('div');
             successMsg.innerHTML = '🎉 Successfully unlocked! Found ' + unlockedLinks.length + ' download links.';
             successMsg.style.cssText = 'background: #4CAF50; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center;';
             downloadLinksDiv.insertBefore(successMsg, downloadLinksDiv.firstChild.nextSibling);
+            
+            // Automatically check health of newly unlocked links
+            setTimeout(() => {
+                const extractionStatus = document.getElementById('extractionStatus');
+                if (extractionStatus) {
+                    extractionStatus.textContent = `Checking health of ${unlockedLinks.length} newly unlocked links...`;
+                }
+                
+                // Check health of each new link
+                unlockedLinks.forEach((link, subIndex) => {
+                    const newIndex = startingIndex + subIndex;
+                    checkSingleLinkHealth(newIndex, encodeURIComponent(link.url));
+                });
+                
+                // Update status after health check completes
+                setTimeout(() => {
+                    if (extractionStatus) {
+                        extractionStatus.textContent = `Health check completed for ${unlockedLinks.length} unlocked links!`;
+                        setTimeout(() => {
+                            extractionStatus.textContent = 'Extraction completed!';
+                        }, 3000);
+                    }
+                }, 2000); // Allow time for health checks to complete
+                
+            }, 1000); // Wait 1 second for links to be displayed
             
             // Remove success message after 5 seconds
             setTimeout(() => {
