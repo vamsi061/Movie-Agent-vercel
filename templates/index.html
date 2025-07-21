@@ -799,6 +799,12 @@
                     progressFill.style.width = '100%';
                     extractionStatus.textContent = 'Extraction completed!';
                     displayDownloadLinks(data.result);
+                    
+                    // Automatically trigger the existing health check function
+                    setTimeout(() => {
+                        extractionStatus.textContent = 'Checking links health...';
+                        checkAllLinksHealth();
+                    }, 1000); // Wait 1 second for links to be displayed
                 } else if (data.status === 'error') {
                     extractionStatus.textContent = 'Extraction failed: ' + (data.error || 'Unknown error');
                     showError('Extraction failed: ' + (data.error || 'Unknown error'));
@@ -889,10 +895,17 @@
             });
         }
 
+
         function checkAllLinksHealth() {
             if (!window.currentDownloadLinks) return;
             
             const links = window.currentDownloadLinks.map(link => ({ url: link.url }));
+            
+            // Update extraction status to show health checking
+            const extractionStatus = document.getElementById('extractionStatus');
+            if (extractionStatus) {
+                extractionStatus.textContent = `Checking health of ${links.length} links...`;
+            }
             
             // Set all indicators to checking state
             links.forEach((_, index) => {
@@ -917,6 +930,18 @@
                     Object.keys(data.results).forEach(index => {
                         updateHealthIndicator(parseInt(index), data.results[index]);
                     });
+                    
+                    // Update status to show health check completed
+                    const extractionStatus = document.getElementById('extractionStatus');
+                    if (extractionStatus) {
+                        const totalLinks = Object.keys(data.results).length;
+                        extractionStatus.textContent = `Health check completed for ${totalLinks} links!`;
+                        
+                        // Reset to original message after 3 seconds
+                        setTimeout(() => {
+                            extractionStatus.textContent = 'Extraction completed!';
+                        }, 3000);
+                    }
                 }
             })
             .catch(error => {
