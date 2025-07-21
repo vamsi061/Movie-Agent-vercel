@@ -582,6 +582,45 @@ def health_check():
         'timestamp': time.time()
     })
 
+@app.route('/check_link_health', methods=['POST'])
+def check_link_health():
+    """Check the health of a download link"""
+    try:
+        data = request.get_json()
+        link_url = data.get('url')
+        
+        if not link_url:
+            return jsonify({'error': 'No URL provided'}), 400
+        
+        # Check link health
+        health_status = check_download_link_health(link_url)
+        return jsonify(health_status)
+        
+    except Exception as e:
+        return jsonify({'error': f'Health check failed: {str(e)}'}), 500
+
+@app.route('/check_multiple_links_health', methods=['POST'])
+def check_multiple_links_health():
+    """Check health of multiple download links"""
+    try:
+        data = request.get_json()
+        links = data.get('links', [])
+        
+        if not links:
+            return jsonify({'error': 'No links provided'}), 400
+        
+        results = {}
+        for i, link in enumerate(links):
+            url = link.get('url') if isinstance(link, dict) else link
+            if url:
+                health_status = check_download_link_health(url)
+                results[str(i)] = health_status
+        
+        return jsonify({'results': results})
+        
+    except Exception as e:
+        return jsonify({'error': f'Health check failed: {str(e)}'}), 500
+
 @app.route('/proxy_video')
 def proxy_video():
     """Proxy endpoint to bypass CORS for video streaming"""
@@ -670,6 +709,146 @@ def is_valid_video_source(url):
     has_bad_pattern = any(pattern in url_lower for pattern in bad_patterns)
     
     return (has_video_ext or has_streaming_domain or has_streaming_keyword) and not has_bad_pattern
+
+def check_download_link_health(url, timeout=10):
+    """
+    Check the health of a download link
+    Returns status with color indicator
+    """
+    try:
+        # Handle different types of URLs
+        if not url or not url.startswith('http'):
+            return {
+                'status': 'invalid',
+                'color': 'red',
+                'message': 'Invalid URL',
+                'response_code': None,
+                'response_time': None
+            }
+        
+        start_time = time.time()
+        
+        # Set up headers to mimic a real browser
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        
+        # Make HEAD request first (faster than GET)
+        try:
+            response = requests.head(url, headers=headers, timeout=timeout, allow_redirects=True)
+        except:
+            # If HEAD fails, try GET with limited content
+            response = requests.get(url, headers=headers, timeout=timeout, stream=True)
+            # Close the connection after getting headers
+            response.close()
+        
+        response_time = round((time.time() - start_time) * 1000, 2)  # in milliseconds
+        status_code = response.status_code
+        
+        # Determine health status based on response code
+        if status_code == 200:
+            # Check if it's actually a file or a redirect page
+            content_type = response.headers.get('content-type', '').lower()
+            content_length = response.headers.get('content-length')
+            
+            # Good indicators for actual files
+            if (any(file_type in content_type for file_type in ['video/', 'application/octet-stream', 'application/zip']) or
+                (content_length and int(content_length) > 1000000)):  # > 1MB
+                return {
+                    'status': 'healthy',
+                    'color': 'green',
+                    'message': f'Active ({response_time}ms)',
+                    'response_code': status_code,
+                    'response_time': response_time,
+                    'content_type': content_type,
+                    'file_size': content_length
+                }
+            else:
+                return {
+                    'status': 'warning',
+                    'color': 'orange',
+                    'message': f'Redirect/Page ({response_time}ms)',
+                    'response_code': status_code,
+                    'response_time': response_time,
+                    'content_type': content_type
+                }
+        
+        elif status_code in [301, 302, 303, 307, 308]:
+            return {
+                'status': 'redirect',
+                'color': 'orange',
+                'message': f'Redirect ({response_time}ms)',
+                'response_code': status_code,
+                'response_time': response_time
+            }
+        
+        elif status_code == 403:
+            return {
+                'status': 'forbidden',
+                'color': 'red',
+                'message': f'Access Denied ({response_time}ms)',
+                'response_code': status_code,
+                'response_time': response_time
+            }
+        
+        elif status_code == 404:
+            return {
+                'status': 'not_found',
+                'color': 'red',
+                'message': f'Not Found ({response_time}ms)',
+                'response_code': status_code,
+                'response_time': response_time
+            }
+        
+        elif status_code >= 500:
+            return {
+                'status': 'server_error',
+                'color': 'red',
+                'message': f'Server Error ({response_time}ms)',
+                'response_code': status_code,
+                'response_time': response_time
+            }
+        
+        else:
+            return {
+                'status': 'unknown',
+                'color': 'orange',
+                'message': f'Status {status_code} ({response_time}ms)',
+                'response_code': status_code,
+                'response_time': response_time
+            }
+    
+    except requests.exceptions.Timeout:
+        return {
+            'status': 'timeout',
+            'color': 'red',
+            'message': 'Timeout',
+            'response_code': None,
+            'response_time': timeout * 1000
+        }
+    
+    except requests.exceptions.ConnectionError:
+        return {
+            'status': 'connection_error',
+            'color': 'red',
+            'message': 'Connection Failed',
+            'response_code': None,
+            'response_time': None
+        }
+    
+    except Exception as e:
+        return {
+            'status': 'error',
+            'color': 'red',
+            'message': f'Error: {str(e)[:50]}',
+            'response_code': None,
+            'response_time': None
+        }
 
 def extract_video_sources_aggressive(movie_page_url):
     """More aggressive video source extraction with better filtering"""
