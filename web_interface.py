@@ -652,7 +652,15 @@ def get_extraction_status(extraction_id):
     
     # Auto-trigger health check when extraction is completed
     if result.get('status') == 'completed' and not result.get('health_check_started', False):
-        links_data = result.get('result', [])
+        extraction_result = result.get('result', {})
+        
+        # Handle different result formats
+        if isinstance(extraction_result, dict):
+            links_data = extraction_result.get('download_links', [])
+        elif isinstance(extraction_result, list):
+            links_data = extraction_result
+        else:
+            links_data = []
         
         if links_data:
             import threading

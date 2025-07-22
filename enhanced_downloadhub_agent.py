@@ -72,7 +72,13 @@ class EnhancedDownloadHubAgent:
             except (requests.exceptions.ConnectionError, 
                     requests.exceptions.Timeout,
                     ConnectionResetError) as e:
-                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                error_str = str(e)
+                logger.warning(f"Connection error on attempt {attempt + 1}: {error_str}")
+                
+                # Don't retry for timeout errors - site is unreachable
+                if 'timed out' in error_str.lower() or 'timeout' in error_str.lower():
+                    logger.error(f"Timeout error detected - skipping retries for unreachable site")
+                    raise e
                 
                 if attempt < max_retries - 1:
                     logger.info(f"Retrying in {retry_delay} seconds...")
@@ -294,7 +300,13 @@ class EnhancedDownloadHubAgent:
             except (requests.exceptions.ConnectionError, 
                     requests.exceptions.Timeout,
                     ConnectionResetError) as e:
-                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                error_str = str(e)
+                logger.warning(f"Connection error on attempt {attempt + 1}: {error_str}")
+                
+                # Don't retry for timeout errors - site is unreachable
+                if 'timed out' in error_str.lower() or 'timeout' in error_str.lower():
+                    logger.error(f"Timeout error detected - skipping retries for unreachable site")
+                    return {'error': f'Site unreachable (timeout): {error_str}'}
                 
                 if attempt < max_retries - 1:
                     logger.info(f"Retrying in {retry_delay} seconds...")
@@ -307,7 +319,7 @@ class EnhancedDownloadHubAgent:
                     self.setup_session()
                 else:
                     logger.error(f"All {max_retries} attempts failed")
-                    return {'error': f'Connection failed after {max_retries} attempts: {str(e)}'}
+                    return {'error': f'Connection failed after {max_retries} attempts: {error_str}'}
                     
         try:
             

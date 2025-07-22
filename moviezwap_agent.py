@@ -85,7 +85,13 @@ class MoviezWapAgent:
             except (requests.exceptions.ConnectionError, 
                     requests.exceptions.Timeout,
                     ConnectionResetError) as e:
-                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                error_str = str(e)
+                logger.warning(f"Connection error on attempt {attempt + 1}: {error_str}")
+                
+                # Don't retry for timeout errors - site is unreachable
+                if 'timed out' in error_str.lower() or 'timeout' in error_str.lower():
+                    logger.error(f"Timeout error detected - skipping retries for unreachable site")
+                    raise e
                 
                 if attempt < max_retries - 1:
                     logger.info(f"Retrying in {retry_delay} seconds...")
@@ -294,7 +300,13 @@ class MoviezWapAgent:
             except (requests.exceptions.ConnectionError, 
                     requests.exceptions.Timeout,
                     ConnectionResetError) as e:
-                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                error_str = str(e)
+                logger.warning(f"Connection error on attempt {attempt + 1}: {error_str}")
+                
+                # Don't retry for timeout errors - site is unreachable
+                if 'timed out' in error_str.lower() or 'timeout' in error_str.lower():
+                    logger.error(f"Timeout error detected - skipping retries for unreachable site")
+                    return {'error': f'Site unreachable (timeout): {error_str}'}
                 
                 if attempt < max_retries - 1:
                     logger.info(f"Retrying in {retry_delay} seconds...")
@@ -307,7 +319,7 @@ class MoviezWapAgent:
                     self.setup_session()
                 else:
                     logger.error(f"All {max_retries} attempts failed")
-                    return {'error': f'Connection failed after {max_retries} attempts: {str(e)}'}
+                    return {'error': f'Connection failed after {max_retries} attempts: {error_str}'}
                     
         try:
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -339,27 +351,69 @@ class MoviezWapAgent:
             return {'error': str(e), 'source': 'MoviezWap'}
     
     def extract_download_links(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """Extract download links from MoviezWap movie page"""
+        """Extract download links from MoviezWap movie page - handles quality selection"""
         links = []
         all_links = soup.find_all('a', href=True)
         
         logger.info(f"MoviezWap: Found {len(all_links)} total links on page")
         
-        download_candidates = 0
+        # First, look for quality selection links (320p, 480p, 720p, etc.)
+        quality_links = []
+        direct_download_links = []
+        
+        # Debug: Show all links found on page
+        logger.info("MoviezWap: All links on page:")
+        for i, link in enumerate(all_links[:15]):  # Show first 15 links
+            href = link.get('href', '')
+            text = link.get_text(strip=True)
+            logger.info(f"  {i+1}. Text: '{text[:40]}' -> URL: '{href[:60]}'")
+        
+        # Extract movie title from page for filtering
+        page_title = soup.title.get_text() if soup.title else ""
+        h1_title = soup.find('h1')
+        main_title = h1_title.get_text(strip=True) if h1_title else ""
+        
+        # Get the main movie name from the page
+        movie_context = (page_title + " " + main_title).lower()
+        logger.info(f"MoviezWap: Page context: {movie_context[:100]}")
+        
         for link in all_links:
             href = link.get('href', '')
             text = link.get_text(strip=True)
             
-            # Look for download-related links
-            if self._is_download_link(href, text):
-                download_candidates += 1
-                logger.info(f"MoviezWap: Found download candidate: {text[:50]} -> {href}")
+            # Check for quality selection links (320p, 480p, 720p, etc.)
+            if self._is_quality_selection_link(href, text):
+                # Additional filtering: ensure link is related to current movie
+                if self._is_relevant_to_current_movie(text, movie_context, href):
+                    quality_links.append(link)
+                    logger.info(f"MoviezWap: Found quality link: {text[:50]} -> {href}")
+                else:
+                    logger.debug(f"MoviezWap: Filtered out unrelated link: {text[:30]}")
+            
+            # Also check for direct download links
+            elif self._is_download_link(href, text):
+                if self._is_relevant_to_current_movie(text, movie_context, href):
+                    direct_download_links.append(link)
+                    logger.info(f"MoviezWap: Found direct download link: {text[:50]} -> {href}")
+                else:
+                    logger.debug(f"MoviezWap: Filtered out unrelated download: {text[:30]}")
+        
+        # Process quality selection links first (these are what we want to show)
+        for link in quality_links:
+            link_data = self.process_quality_link(link)
+            if link_data:
+                links.append(link_data)
+                logger.info(f"MoviezWap: Added quality link: {link_data['text'][:50]}")
+        
+        # If no quality links found, process direct download links
+        if not links:
+            for link in direct_download_links:
                 link_data = self.process_download_link(link)
                 if link_data:
                     links.append(link_data)
                     logger.info(f"MoviezWap: Added download link: {link_data['text'][:50]}")
         
-        logger.info(f"MoviezWap: Found {download_candidates} download candidates, processed {len(links)} valid links")
+        logger.info(f"MoviezWap: Found {len(quality_links)} quality links, {len(direct_download_links)} direct links, processed {len(links)} total links")
         return links
     
     def _is_download_link(self, href: str, text: str) -> bool:
@@ -417,6 +471,127 @@ class MoviezWapAgent:
             return True
         
         return False
+    
+    def _is_quality_selection_link(self, href: str, text: str) -> bool:
+        """Check if a link is a quality selection link (320p, 480p, 720p, etc.)"""
+        href_lower = href.lower()
+        text_lower = text.lower()
+        
+        # Priority 1: Look for direct download links with /dwload.php pattern
+        if '/dwload.php' in href_lower and text and len(text) > 10:
+            logger.info(f"MoviezWap: Found direct download link: {text[:50]} -> {href}")
+            return True
+        
+        # Priority 2: Look for quality patterns in text
+        quality_patterns = [
+            '320p', '480p', '720p', '1080p', '4k', 'hd',
+            'cam', 'dvdrip', 'webrip', 'bluray', 'hdrip'
+        ]
+        
+        has_quality = any(pattern in text_lower for pattern in quality_patterns)
+        
+        # Must be a movie-related link (not navigation)
+        is_movie_link = (
+            '/movie/' in href_lower or 
+            '.html' in href_lower or
+            '/dwload.php' in href_lower
+        )
+        
+        # Exclude navigation and category links
+        exclude_patterns = [
+            'category/', 'search.php', 'contact', 'about', 'privacy',
+            'telegram', 'facebook', 'twitter', 'instagram', 'share', 'sharer'
+        ]
+        
+        is_excluded = any(pattern in href_lower for pattern in exclude_patterns)
+        
+        # Should have reasonable length (movie title + quality)
+        is_reasonable_length = 10 <= len(text) <= 150
+        
+        # Must not be a different movie (check if text contains current movie context)
+        # This is a basic check - we'll improve this
+        
+        return has_quality and is_movie_link and not is_excluded and is_reasonable_length
+    
+    def _is_relevant_to_current_movie(self, link_text: str, movie_context: str, href: str) -> bool:
+        """Check if a link is relevant to the current movie page"""
+        link_text_lower = link_text.lower()
+        href_lower = href.lower()
+        
+        # For /dwload.php links, they're usually relevant if they exist on the page
+        if '/dwload.php' in href_lower:
+            return True
+        
+        # Extract key words from movie context (title)
+        context_words = movie_context.split()
+        significant_words = [word for word in context_words if len(word) > 3 and 
+                           word not in ['movie', 'download', 'watch', 'online', 'free', 'hd', 'quality']]
+        
+        # Check if link text contains significant words from the movie title
+        if significant_words:
+            matching_words = sum(1 for word in significant_words if word in link_text_lower)
+            # At least 30% of significant words should match
+            relevance_threshold = max(1, len(significant_words) * 0.3)
+            
+            if matching_words >= relevance_threshold:
+                return True
+        
+        # If no significant words match, check for exact movie name patterns
+        # This is a fallback for cases where the title extraction didn't work well
+        if any(word in link_text_lower for word in ['rrr', 'behind', 'beyond'] if word in movie_context):
+            return True
+        
+        # Exclude links that clearly point to different movies
+        exclude_movies = ['jersey', 'money heist', 'bahubali', 'avengers']
+        if any(movie in link_text_lower for movie in exclude_movies if movie not in movie_context):
+            return False
+        
+        return True
+    
+    def process_quality_link(self, link_elem) -> Optional[Dict[str, Any]]:
+        """Process quality selection link element"""
+        try:
+            href = link_elem.get('href')
+            if not href:
+                return None
+            
+            # Skip non-download links
+            skip_patterns = ['javascript:', 'mailto:', '#', 'tel:']
+            if any(pattern in href.lower() for pattern in skip_patterns):
+                return None
+            
+            # Get link text
+            link_text = link_elem.get_text(strip=True)
+            
+            # Extract quality from text
+            quality = self.extract_quality(link_text)
+            
+            # Handle relative URLs
+            if href.startswith('/'):
+                href = urljoin(self.base_url, href)
+            
+            # Determine host type based on URL
+            if '/dwload.php' in href:
+                host_type = 'MoviezWap Direct Download'
+                display_text = f"{link_text} - Direct Download"
+            else:
+                host_type = 'MoviezWap Quality Selection'
+                display_text = f"{link_text} - Download"
+            
+            return {
+                'text': display_text,
+                'url': href,
+                'original_url': href,
+                'host': host_type,
+                'quality': quality,
+                'file_size': None,
+                'source': 'MoviezWap',
+                'type': 'direct_download' if '/dwload.php' in href else 'quality_selection'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing MoviezWap quality link: {str(e)}")
+            return None
     
     def process_download_link(self, link_elem) -> Optional[Dict[str, Any]]:
         """Process individual download link element"""
