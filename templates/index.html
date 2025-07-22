@@ -177,6 +177,33 @@
             font-weight: 500;
         }
 
+        .source-tag {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            display: inline-block;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .source-tag.downloadhub {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .source-tag.moviezwap {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        .source-tag.unknown {
+            background: linear-gradient(135deg, #9E9E9E, #757575);
+            color: white;
+        }
+
         .extract-btn {
             background: linear-gradient(135deg, #10ac84 0%, #00d2d3 100%);
             color: white;
@@ -749,7 +776,14 @@
                 movieCard.className = 'movie-card';
                 movieCard.onclick = () => selectMovie(index);
                 
+                // Determine source tag class and text
+                const source = movie.source || 'Unknown';
+                const sourceClass = source.toLowerCase().replace(/\s+/g, '');
+                const sourceText = source === 'DownloadHub' ? 'DownloadHub' : 
+                                 source === 'MoviezWap' ? 'MoviezWap' : source;
+                
                 movieCard.innerHTML = 
+                    '<div class="source-tag ' + sourceClass + '">' + sourceText + '</div>' +
                     '<div class="movie-title">' + movie.title + '</div>' +
                     '<div class="movie-meta">' +
                         (movie.year ? '<span class="meta-tag">Year: ' + movie.year + '</span>' : '') +

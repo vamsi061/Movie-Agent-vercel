@@ -12,20 +12,29 @@ from selenium.webdriver.support import expected_conditions as EC
 import Levenshtein
 import base64
 import threading
+import logging
 from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
+from moviezwap_agent import MoviezWapAgent
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 # Global variables for our enhanced backend
 search_results = {}
 extraction_results = {}
-agent = None
+downloadhub_agent = None
+moviezwap_agent = None
 
-def initialize_agent():
-    global agent
-    if agent is None:
-        agent = EnhancedDownloadHubAgent()
-    return agent
+def initialize_agents():
+    global downloadhub_agent, moviezwap_agent
+    if downloadhub_agent is None:
+        downloadhub_agent = EnhancedDownloadHubAgent()
+    if moviezwap_agent is None:
+        moviezwap_agent = MoviezWapAgent()
+    return downloadhub_agent, moviezwap_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
@@ -465,7 +474,7 @@ def index():
 
 @app.route('/search', methods=['POST'])
 def search_movie():
-    """Enhanced search using our downloadhub.legal backend"""
+    """Enhanced search using multiple sources (DownloadHub + MoviezWap)"""
     try:
         data = request.get_json()
         movie_name = data.get('movie_name', '').strip()
@@ -473,31 +482,78 @@ def search_movie():
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
         page = data.get('page', 1)
+        sources = data.get('sources', ['downloadhub', 'moviezwap'])  # Default to both sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
         
-        # Initialize our enhanced agent
-        agent = initialize_agent()
+        # Initialize our agents
+        downloadhub_agent, moviezwap_agent = initialize_agents()
         
         # Get page number from request
         per_page = 10
+        all_results = []
         
-        # Perform search on downloadhub.legal with pagination
-        search_result = agent.search_movies(movie_name, page=page, per_page=per_page)
-        results = search_result['movies']
-        pagination = search_result['pagination']
+        # Search DownloadHub (Source 1)
+        if 'downloadhub' in sources:
+            try:
+                logger.info(f"Searching DownloadHub for: {movie_name}")
+                downloadhub_result = downloadhub_agent.search_movies(movie_name, page=page, per_page=per_page)
+                downloadhub_movies = downloadhub_result['movies']
+                # Add source identifier to each movie
+                for movie in downloadhub_movies:
+                    movie['source'] = 'DownloadHub'
+                    movie['source_color'] = '#4CAF50'  # Green
+                all_results.extend(downloadhub_movies)
+                logger.info(f"DownloadHub returned {len(downloadhub_movies)} movies")
+            except Exception as e:
+                logger.error(f"DownloadHub search failed: {str(e)}")
+        
+        # Search MoviezWap (Source 2)
+        if 'moviezwap' in sources:
+            try:
+                logger.info(f"Searching MoviezWap for: {movie_name}")
+                moviezwap_result = moviezwap_agent.search_movies(movie_name, page=page, per_page=per_page)
+                moviezwap_movies = moviezwap_result['movies']
+                # Add source identifier to each movie
+                for movie in moviezwap_movies:
+                    movie['source'] = 'MoviezWap'
+                    movie['source_color'] = '#2196F3'  # Blue
+                all_results.extend(moviezwap_movies)
+                logger.info(f"MoviezWap returned {len(moviezwap_movies)} movies")
+            except Exception as e:
+                logger.error(f"MoviezWap search failed: {str(e)}")
+        
+        # Calculate pagination for combined results
+        total_movies = len(all_results)
+        start_index = (page - 1) * per_page
+        end_index = start_index + per_page
+        movies_page = all_results[start_index:end_index]
+        
+        total_pages = (total_movies + per_page - 1) // per_page
+        
+        pagination = {
+            'current_page': page,
+            'per_page': per_page,
+            'total_movies': total_movies,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
         
         # Store results for later use
         search_id = f"search_{int(time.time())}"
-        search_results[search_id] = results
+        search_results[search_id] = all_results
+        
+        logger.info(f"Combined search returned {total_movies} movies from {len(sources)} sources")
         
         return jsonify({
             'success': True,
             'search_id': search_id,
-            'results': results,
-            'total': len(results),
+            'results': movies_page,
+            'total': total_movies,
             'pagination': pagination,
+            'sources_used': sources,
             'filters_applied': {
                 'language': language_filter,
                 'year': year_filter,
@@ -506,6 +562,7 @@ def search_movie():
         })
         
     except Exception as e:
+        logger.error(f"Multi-source search failed: {str(e)}")
         return jsonify({'error': f'Search failed: {str(e)}'}), 500
 
 @app.route('/extract', methods=['POST'])
@@ -533,21 +590,34 @@ def extract_download_links():
         def extract_in_background():
             try:
                 print(f"DEBUG: Starting extraction for {extraction_id}")
-                agent = initialize_agent()
+                
+                # Determine which agent to use based on movie source
+                movie_source = selected_movie.get('source', 'DownloadHub')
+                downloadhub_agent, moviezwap_agent = initialize_agents()
+                
+                if movie_source == 'MoviezWap':
+                    agent = moviezwap_agent
+                    print(f"DEBUG: Using MoviezWap agent for extraction")
+                else:
+                    agent = downloadhub_agent
+                    print(f"DEBUG: Using DownloadHub agent for extraction")
+                
                 print(f"DEBUG: Agent initialized, extracting from {selected_movie['detail_url']}")
                 result = agent.get_download_links(selected_movie['detail_url'])
                 print(f"DEBUG: Extraction completed for {extraction_id}")
                 extraction_results[extraction_id] = {
                     'status': 'completed',
                     'progress': 100,
-                    'result': result
+                    'result': result,
+                    'source': movie_source
                 }
             except Exception as e:
                 print(f"DEBUG: Extraction failed for {extraction_id}: {str(e)}")
                 extraction_results[extraction_id] = {
                     'status': 'error',
                     'progress': 0,
-                    'error': str(e)
+                    'error': str(e),
+                    'source': selected_movie.get('source', 'Unknown')
                 }
         
         # Initialize extraction status
@@ -592,7 +662,15 @@ def get_extraction_status(extraction_id):
                     # Prepare links for health checking
                     health_results = {}
                     for i, link in enumerate(links_data):
-                        url = link.get('url', '')
+                        # Handle both dict and string formats
+                        if isinstance(link, dict):
+                            url = link.get('url', '')
+                        elif isinstance(link, str):
+                            url = link
+                        else:
+                            print(f"DEBUG: Unexpected link format: {type(link)} - {link}")
+                            continue
+                            
                         if url:
                             print(f"DEBUG: Checking health for link {i}: {url}")
                             health_result = check_download_link_health(url)
@@ -631,7 +709,9 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'agent_initialized': agent is not None,
+        'downloadhub_agent_initialized': downloadhub_agent is not None,
+        'moviezwap_agent_initialized': moviezwap_agent is not None,
+        'sources_available': ['DownloadHub', 'MoviezWap'],
         'timestamp': time.time()
     })
 
