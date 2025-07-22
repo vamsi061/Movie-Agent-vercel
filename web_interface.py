@@ -1627,13 +1627,24 @@ def resolve_moviezwap_download(download_url):
             
             print(f"DEBUG: Found {len(all_links)} links and {len(all_buttons)} buttons on page")
             
-            # Print first few links that might be download related
-            for i, link in enumerate(all_links[:10]):
+            # Print ALL links that might be download related (not just first 10)
+            for i, link in enumerate(all_links):
                 try:
                     link_text = link.text.strip()
                     link_href = link.get_attribute('href')
-                    if link_text and ('download' in link_text.lower() or 'server' in link_text.lower() or 'mirror' in link_text.lower()):
-                        print(f"DEBUG: Link {i}: '{link_text}' -> {link_href}")
+                    link_onclick = link.get_attribute('onclick')
+                    if link_text and ('download' in link_text.lower() or 'server' in link_text.lower() or 'mirror' in link_text.lower() or 'fast' in link_text.lower()):
+                        print(f"DEBUG: Link {i}: '{link_text}' -> Href: {link_href} | Onclick: {link_onclick}")
+                except:
+                    continue
+            
+            # Also print all buttons
+            for i, button in enumerate(all_buttons):
+                try:
+                    button_text = button.text.strip()
+                    button_onclick = button.get_attribute('onclick')
+                    if button_text:
+                        print(f"DEBUG: Button {i}: '{button_text}' | Onclick: {button_onclick}")
                 except:
                     continue
                     
@@ -1646,20 +1657,31 @@ def resolve_moviezwap_download(download_url):
             print(f"DEBUG: Already on direct download URL: {current_url}")
             return current_url
         
-        # Try multiple approaches to find the download link
+        # Look for "Download Servers Below" section and find legitimate download server
         
-        # Approach 1: Look for any clickable elements that might lead to download
+        # First, try to find the "Download Servers Below" section
+        try:
+            download_servers_section = driver.find_elements(By.XPATH, "//*[contains(text(), 'Download Servers Below') or contains(text(), 'Download Server')]")
+            if download_servers_section:
+                print(f"DEBUG: Found 'Download Servers' section")
+        except Exception as e:
+            print(f"DEBUG: Could not find Download Servers section: {str(e)}")
+        
+        # Approach 1: Look specifically for legitimate download server buttons (avoid ads)
         download_selectors = [
-            "//a[contains(text(), 'Fast Download Server')]",
-            "//a[contains(text(), 'Download Server')]", 
-            "//a[contains(text(), 'Server')]",
-            "//a[contains(text(), 'Download')]",
-            "//button[contains(text(), 'Download')]",
-            "//input[@type='submit' and contains(@value, 'Download')]",
-            "//a[contains(@class, 'btn')]",
-            "//button[contains(@class, 'btn')]",
-            "//a[contains(@onclick, 'download')]",
-            "//button[contains(@onclick, 'download')]"
+            "//a[contains(text(), 'Fast Download Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack'))]",
+            "//button[contains(text(), 'Fast Download Server') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads'))]",
+            "//a[contains(text(), 'Download Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack'))]", 
+            "//button[contains(text(), 'Download Server') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads'))]",
+            "//a[contains(text(), 'Fast Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
+            "//a[contains(text(), 'Server 1') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
+            "//a[contains(text(), 'Server 2') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
+            "//a[contains(text(), 'Mirror 1') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
+            "//a[contains(text(), 'Mirror 2') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
+            "//a[contains(text(), 'Download') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack') or contains(text(), 'NOW!')) and not(contains(text(), 'Movies')) and not(contains(text(), 'Telegram'))]",
+            "//button[contains(text(), 'Download') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads') or contains(text(), 'NOW!'))]",
+            "//a[contains(@class, 'btn') and contains(text(), 'Download') and not(contains(@href, 'betspintrack'))]",
+            "//button[contains(@class, 'btn') and contains(text(), 'Download') and not(contains(@onclick, 'betspintrack'))]"
         ]
         
         # Try each selector and attempt to click
@@ -1674,9 +1696,28 @@ def resolve_moviezwap_download(download_url):
                         
                         print(f"DEBUG: Found element - Text: '{element_text}', Href: '{element_href}', Onclick: '{element_onclick}'")
                         
-                        # Skip if it's clearly not a download link
-                        if element_text and any(skip in element_text.lower() for skip in ['home', 'back', 'contact', 'about']):
+                        # Skip ad elements and non-download links
+                        skip_patterns = ['home', 'back', 'contact', 'about', 'telegram', 'betspintrack', 'ads', 'now!']
+                        if element_text and any(skip in element_text.lower() for skip in skip_patterns):
+                            print(f"DEBUG: Skipping ad/navigation element: {element_text}")
                             continue
+                        
+                        # Skip elements with ad-related hrefs or onclick
+                        if element_href and any(ad in element_href.lower() for ad in ['betspintrack', 'ads', 'popup']):
+                            print(f"DEBUG: Skipping ad href: {element_href}")
+                            continue
+                        
+                        if element_onclick and any(ad in element_onclick.lower() for ad in ['betspintrack', 'ads', 'popup']):
+                            print(f"DEBUG: Skipping ad onclick: {element_onclick}")
+                            continue
+                        
+                        # Special handling for legitimate download server buttons
+                        if element_text and ('download server' in element_text.lower() or 'fast download' in element_text.lower()):
+                            print(f"DEBUG: Found legitimate download server button! Text: '{element_text}'")
+                            # If href exists and looks like a direct download, return it immediately
+                            if element_href and (any(ext in element_href.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in element_href.lower()):
+                                print(f"DEBUG: Download server button has direct download href: {element_href}")
+                                return element_href
                             
                         # Try clicking this element
                         print(f"DEBUG: Attempting to click element: {element_text or element_href or 'Unknown'}")
@@ -1694,14 +1735,26 @@ def resolve_moviezwap_download(download_url):
                         after_click_url = driver.current_url
                         print(f"DEBUG: URL changed from {before_click_url} to {after_click_url}")
                         
-                        # Check if we got a direct download URL
+                        # Check if we got a direct download URL or download started
                         if after_click_url != before_click_url:
                             if any(ext in after_click_url.lower() for ext in ['.mp4', '.mkv', '.avi', '.mov']):
                                 print(f"DEBUG: SUCCESS! Found direct download URL: {after_click_url}")
                                 return after_click_url
-                            elif 'moviezzwaphd.xyz' in after_click_url:
-                                print(f"DEBUG: SUCCESS! Found moviezzwaphd URL: {after_click_url}")
+                            elif 'moviezzwaphd.xyz' in after_click_url or 'moviezwap' in after_click_url:
+                                print(f"DEBUG: SUCCESS! Found download URL: {after_click_url}")
                                 return after_click_url
+                        
+                        # Check if download started (URL might not change but download begins)
+                        # Look for download indicators in page content or check for blob URLs
+                        try:
+                            # Check if there are any download links that appeared after clicking
+                            download_links_after_click = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi') or contains(@href, 'moviezzwaphd') or contains(@href, 'blob:')]")
+                            if download_links_after_click:
+                                final_url = download_links_after_click[0].get_attribute('href')
+                                print(f"DEBUG: SUCCESS! Found download link after Fast Server click: {final_url}")
+                                return final_url
+                        except Exception as e:
+                            print(f"DEBUG: Error checking for download links after click: {str(e)}")
                         
                         # If no redirect, check for new download links on the page
                         new_download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi') or contains(@href, 'moviezzwaphd')]")
@@ -1718,15 +1771,19 @@ def resolve_moviezwap_download(download_url):
                 print(f"DEBUG: Selector {selector} failed: {str(e)}")
                 continue
         
-        # Look for direct download links on current page
+        # Final fallback: Look for "Fast Download Server" link with direct href
         try:
-            download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
-            if download_links:
-                final_url = download_links[0].get_attribute('href')
-                print(f"DEBUG: Found direct download link on page: {final_url}")
-                return final_url
+            fast_server_links = driver.find_elements(By.XPATH, "//a[contains(text(), 'Fast Download Server')]")
+            for link in fast_server_links:
+                href = link.get_attribute('href')
+                if href and (any(ext in href.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in href.lower()):
+                    print(f"DEBUG: SUCCESS! Found Fast Download Server link with direct href: {href}")
+                    return href
         except Exception as e:
-            print(f"DEBUG: Error finding download links: {str(e)}")
+            print(f"DEBUG: Error checking Fast Download Server links: {str(e)}")
+        
+        print(f"DEBUG: No download server button found or clicked successfully")
+        print(f"DEBUG: Direct links on page might not be active without clicking download server button")
         
         print(f"DEBUG: No final download URL found")
         return None
