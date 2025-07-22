@@ -808,6 +808,7 @@ def check_download_link_health(url, timeout=10):
         # Check if it's a known shortlink/unlock service
         shortlink_services = [
             'shortlinkto.onl',
+            'shortlinkto.biz',
             'uptobhai.blog',
             'shortlink.to',
             'short.link',
@@ -875,7 +876,19 @@ def check_download_link_health(url, timeout=10):
                         'click here to unlock',
                         'verify you are human',
                         'complete captcha',
-                        'human verification'
+                        'human verification',
+                        # Additional patterns for shortlinkto.onl
+                        'get link',
+                        'get links',
+                        'continue to link',
+                        'continue to links',
+                        'please wait',
+                        'loading...',
+                        'generating link',
+                        'generating links',
+                        'unlock now',
+                        'unlock link',
+                        'unlock links'
                     ]
                     
                     # Check for download links being visible (unlocked state)
@@ -903,8 +916,38 @@ def check_download_link_health(url, timeout=10):
                     print(f"DEBUG: Unlocked indicators found: {[indicator for indicator in unlocked_indicators if indicator in page_content]}")
                     print(f"DEBUG: is_locked: {is_locked}, is_unlocked: {is_unlocked}")
                     
-                    # Priority 1: Check if redirected to direct download
-                    if is_direct_download:
+                    # Check if redirected to dead/invalid page
+                    dead_page_indicators = [
+                        'page not found',
+                        '404 not found',
+                        'file not found',
+                        'link expired',
+                        'link not found',
+                        'invalid link',
+                        'broken link',
+                        'access denied',
+                        'forbidden',
+                        'this link has expired',
+                        'link has been removed',
+                        'file has been deleted'
+                    ]
+                    
+                    is_dead_page = any(indicator in page_content for indicator in dead_page_indicators)
+                    
+                    # Priority 1: Check if redirected to dead/invalid page
+                    if is_dead_page or response.status_code in [404, 403, 410]:
+                        return {
+                            'status': 'dead',
+                            'color': 'red',
+                            'message': f'Dead Link - File Not Found ({response_time}ms)',
+                            'response_code': response.status_code,
+                            'response_time': response_time,
+                            'is_locked': False,
+                            'final_url': response.url
+                        }
+                    
+                    # Priority 2: Check if redirected to direct download
+                    elif is_direct_download:
                         return {
                             'status': 'unlocked_redirect',
                             'color': 'green',
@@ -915,7 +958,7 @@ def check_download_link_health(url, timeout=10):
                             'final_url': response.url
                         }
                     
-                    # Priority 2: Check if locked (has unlock button)
+                    # Priority 3: Check if locked (has unlock button)
                     elif is_locked:
                         return {
                             'status': 'locked',
@@ -927,7 +970,7 @@ def check_download_link_health(url, timeout=10):
                             'unlock_url': url
                         }
                     
-                    # Priority 3: Check if unlocked (download links visible)
+                    # Priority 4: Check if unlocked (download links visible)
                     elif is_unlocked:
                         return {
                             'status': 'unlocked',
@@ -1122,9 +1165,20 @@ def unlock_and_extract_links(shortlink_url):
         all_buttons = driver.find_elements(By.TAG_NAME, "button")
         unlock_button = None
         
+        # Check for various unlock button patterns
+        unlock_button_patterns = [
+            lambda text: "unlock" in text and "download" in text,  # Original pattern
+            lambda text: "get link" in text,                       # shortlinkto.onl pattern
+            lambda text: "get links" in text,                      # shortlinkto.onl pattern
+            lambda text: "continue" in text,                       # shortlinkto.onl pattern
+            lambda text: "unlock now" in text,                     # shortlinkto.onl pattern
+            lambda text: "unlock link" in text,                    # shortlinkto.onl pattern
+            lambda text: text == "unlock" or text == "continue",   # Simple patterns
+        ]
+        
         for button in all_buttons:
             button_text = button.text.strip().lower()
-            if "unlock" in button_text and "download" in button_text:
+            if any(pattern(button_text) for pattern in unlock_button_patterns):
                 unlock_button = button
                 print(f"DEBUG: Found unlock button: '{button.text}'")
                 break

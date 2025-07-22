@@ -49,14 +49,45 @@ class EnhancedDownloadHubAgent:
         """
         Search for movies using the correct downloadhub.legal format with pagination
         """
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Searching for movie: {movie_name} (page {page}) - Attempt {attempt + 1}")
+                
+                # Use the exact format you specified
+                search_url = f"https://downloadhub.legal/?s={movie_name.replace(' ', '+')}"
+                
+                # Add retry-specific headers
+                self.session.headers.update({
+                    'User-Agent': self.ua.random,
+                    'Connection': 'close'  # Force new connection each time
+                })
+                
+                response = self.session.get(search_url, timeout=30)
+                response.raise_for_status()
+                break  # Success, exit retry loop
+                
+            except (requests.exceptions.ConnectionError, 
+                    requests.exceptions.Timeout,
+                    ConnectionResetError) as e:
+                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    
+                    # Reset session for fresh connection
+                    self.session.close()
+                    self.session = requests.Session()
+                    self.setup_session()
+                else:
+                    logger.error(f"All {max_retries} attempts failed")
+                    raise e
+                    
         try:
-            logger.info(f"Searching for movie: {movie_name} (page {page})")
-            
-            # Use the exact format you specified
-            search_url = f"https://downloadhub.legal/?s={movie_name.replace(' ', '+')}"
-            
-            response = self.session.get(search_url)
-            response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
             all_movies = []
@@ -243,11 +274,42 @@ class EnhancedDownloadHubAgent:
         Returns:
             Dictionary with movie info and download links
         """
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Extracting download links from: {movie_url} - Attempt {attempt + 1}")
+                
+                # Add retry-specific headers
+                self.session.headers.update({
+                    'User-Agent': self.ua.random,
+                    'Connection': 'close'
+                })
+                
+                response = self.session.get(movie_url, timeout=30)
+                response.raise_for_status()
+                break  # Success, exit retry loop
+                
+            except (requests.exceptions.ConnectionError, 
+                    requests.exceptions.Timeout,
+                    ConnectionResetError) as e:
+                logger.warning(f"Connection error on attempt {attempt + 1}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    
+                    # Reset session for fresh connection
+                    self.session.close()
+                    self.session = requests.Session()
+                    self.setup_session()
+                else:
+                    logger.error(f"All {max_retries} attempts failed")
+                    return {'error': f'Connection failed after {max_retries} attempts: {str(e)}'}
+                    
         try:
-            logger.info(f"Extracting download links from: {movie_url}")
-            
-            response = self.session.get(movie_url)
-            response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
             

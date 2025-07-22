@@ -1053,6 +1053,13 @@
                 // Show unlock button
                 if (unlockSection) {
                     unlockSection.style.display = 'inline-block';
+                    
+                    // Ensure unlock button exists and is properly configured
+                    const currentLink = window.currentDownloadLinks && window.currentDownloadLinks[index];
+                    if (currentLink && !unlockSection.querySelector('.unlock-btn')) {
+                        const unlockButton = '<button class="unlock-btn" onclick="unlockShortlink(' + index + ', \'' + encodeURIComponent(currentLink.url) + '\')">UNLOCK</button>';
+                        unlockSection.innerHTML = unlockButton;
+                    }
                 }
                 
                 // Store unlock URL for later use
@@ -1063,9 +1070,26 @@
                 
                 // Update download button text
                 if (downloadBtn) {
-                    downloadBtn.textContent = 'Locked';
+                    downloadBtn.textContent = 'AUTO-UNLOCKING...';
                     downloadBtn.style.background = 'linear-gradient(45deg, #FFC107, #FF9800)';
                     downloadBtn.style.color = '#333';
+                }
+                
+                // AUTO-UNLOCK: Automatically trigger unlock for locked shortlinks
+                const currentLink = window.currentDownloadLinks && window.currentDownloadLinks[index];
+                if (currentLink && isShortlinkService(currentLink.url)) {
+                    console.log(`Auto-unlocking detected locked shortlink: ${currentLink.url}`);
+                    
+                    // Update extraction status to show auto-unlock progress
+                    const extractionStatus = document.getElementById('extractionStatus');
+                    if (extractionStatus) {
+                        extractionStatus.textContent = `Auto-unlocking locked shortlink ${index + 1}...`;
+                    }
+                    
+                    // Add a small delay to show the "AUTO-UNLOCKING..." status
+                    setTimeout(() => {
+                        unlockShortlink(index, encodeURIComponent(currentLink.url));
+                    }, 1500);
                 }
             } else {
                 // Hide unlock button
