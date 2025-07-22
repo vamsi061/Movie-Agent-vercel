@@ -787,6 +787,38 @@ def unlock_shortlink():
         print(f"DEBUG: Unlock failed: {str(e)}")
         return jsonify({'error': f'Unlock failed: {str(e)}'}), 500
 
+@app.route('/resolve_download', methods=['POST'])
+def resolve_download():
+    """Resolve MoviezWap download.php URL to final downloadable link"""
+    try:
+        data = request.get_json()
+        download_url = data.get('url')
+        
+        if not download_url:
+            return jsonify({'error': 'No URL provided'}), 400
+        
+        # Check if it's a MoviezWap download.php URL
+        if 'moviezwap' not in download_url.lower() or 'download.php' not in download_url:
+            return jsonify({'error': 'Invalid MoviezWap download URL'}), 400
+        
+        print(f"DEBUG: Resolving MoviezWap download URL: {download_url}")
+        
+        # Use Selenium to navigate and get final download link
+        final_download_url = resolve_moviezwap_download(download_url)
+        
+        if final_download_url:
+            return jsonify({
+                'status': 'success',
+                'final_download_url': final_download_url,
+                'original_url': download_url
+            })
+        else:
+            return jsonify({'error': 'Could not resolve final download URL'}), 500
+        
+    except Exception as e:
+        print(f"DEBUG: Download resolution failed: {str(e)}")
+        return jsonify({'error': f'Resolution failed: {str(e)}'}), 500
+
 @app.route('/proxy_video')
 def proxy_video():
     """Proxy endpoint to bypass CORS for video streaming"""
@@ -1552,6 +1584,163 @@ def extract_video_sources_aggressive(movie_page_url):
     finally:
         if driver:
             driver.quit()
+
+def resolve_moviezwap_download(download_url):
+    """Use Selenium to resolve MoviezWap download.php URL to final download link"""
+    driver = None
+    try:
+        # More robust Chrome options
+        options = uc.ChromeOptions()
+        options.headless = True
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-plugins")
+        options.add_argument("--disable-images")
+        # options.add_argument("--disable-javascript")  # Re-enable JavaScript as it might be needed
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        
+        print(f"DEBUG: Creating Chrome driver for MoviezWap resolution")
+        driver = uc.Chrome(options=options, version_main=None)
+        driver.set_page_load_timeout(20)
+        driver.implicitly_wait(10)
+        
+        print(f"DEBUG: Navigating to download page: {download_url}")
+        driver.get(download_url)
+        
+        # Wait for page to load
+        time.sleep(3)
+        
+        # Check if we're already on a direct download page
+        current_url = driver.current_url
+        print(f"DEBUG: Current URL after navigation: {current_url}")
+        
+        # Debug: Print page title and some content to understand the page structure
+        try:
+            page_title = driver.title
+            print(f"DEBUG: Page title: {page_title}")
+            
+            # Look for all links and buttons on the page for debugging
+            all_links = driver.find_elements(By.TAG_NAME, "a")
+            all_buttons = driver.find_elements(By.TAG_NAME, "button")
+            
+            print(f"DEBUG: Found {len(all_links)} links and {len(all_buttons)} buttons on page")
+            
+            # Print first few links that might be download related
+            for i, link in enumerate(all_links[:10]):
+                try:
+                    link_text = link.text.strip()
+                    link_href = link.get_attribute('href')
+                    if link_text and ('download' in link_text.lower() or 'server' in link_text.lower() or 'mirror' in link_text.lower()):
+                        print(f"DEBUG: Link {i}: '{link_text}' -> {link_href}")
+                except:
+                    continue
+                    
+        except Exception as e:
+            print(f"DEBUG: Error inspecting page: {str(e)}")
+        
+        # Check if current URL is already a direct download link (but not download.php)
+        if (any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi', '.mov']) and 
+            'download.php' not in current_url.lower()):
+            print(f"DEBUG: Already on direct download URL: {current_url}")
+            return current_url
+        
+        # Try multiple approaches to find the download link
+        
+        # Approach 1: Look for any clickable elements that might lead to download
+        download_selectors = [
+            "//a[contains(text(), 'Fast Download Server')]",
+            "//a[contains(text(), 'Download Server')]", 
+            "//a[contains(text(), 'Server')]",
+            "//a[contains(text(), 'Download')]",
+            "//button[contains(text(), 'Download')]",
+            "//input[@type='submit' and contains(@value, 'Download')]",
+            "//a[contains(@class, 'btn')]",
+            "//button[contains(@class, 'btn')]",
+            "//a[contains(@onclick, 'download')]",
+            "//button[contains(@onclick, 'download')]"
+        ]
+        
+        # Try each selector and attempt to click
+        for selector in download_selectors:
+            try:
+                elements = driver.find_elements(By.XPATH, selector)
+                for element in elements:
+                    try:
+                        element_text = element.text.strip()
+                        element_href = element.get_attribute('href')
+                        element_onclick = element.get_attribute('onclick')
+                        
+                        print(f"DEBUG: Found element - Text: '{element_text}', Href: '{element_href}', Onclick: '{element_onclick}'")
+                        
+                        # Skip if it's clearly not a download link
+                        if element_text and any(skip in element_text.lower() for skip in ['home', 'back', 'contact', 'about']):
+                            continue
+                            
+                        # Try clicking this element
+                        print(f"DEBUG: Attempting to click element: {element_text or element_href or 'Unknown'}")
+                        
+                        # Store current URL before clicking
+                        before_click_url = driver.current_url
+                        
+                        # Click the element
+                        driver.execute_script("arguments[0].click();", element)
+                        
+                        # Wait for potential redirect
+                        time.sleep(4)
+                        
+                        # Check new URL
+                        after_click_url = driver.current_url
+                        print(f"DEBUG: URL changed from {before_click_url} to {after_click_url}")
+                        
+                        # Check if we got a direct download URL
+                        if after_click_url != before_click_url:
+                            if any(ext in after_click_url.lower() for ext in ['.mp4', '.mkv', '.avi', '.mov']):
+                                print(f"DEBUG: SUCCESS! Found direct download URL: {after_click_url}")
+                                return after_click_url
+                            elif 'moviezzwaphd.xyz' in after_click_url:
+                                print(f"DEBUG: SUCCESS! Found moviezzwaphd URL: {after_click_url}")
+                                return after_click_url
+                        
+                        # If no redirect, check for new download links on the page
+                        new_download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi') or contains(@href, 'moviezzwaphd')]")
+                        if new_download_links:
+                            final_url = new_download_links[0].get_attribute('href')
+                            print(f"DEBUG: Found new download link after click: {final_url}")
+                            return final_url
+                            
+                    except Exception as e:
+                        print(f"DEBUG: Error with element: {str(e)}")
+                        continue
+                        
+            except Exception as e:
+                print(f"DEBUG: Selector {selector} failed: {str(e)}")
+                continue
+        
+        # Look for direct download links on current page
+        try:
+            download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
+            if download_links:
+                final_url = download_links[0].get_attribute('href')
+                print(f"DEBUG: Found direct download link on page: {final_url}")
+                return final_url
+        except Exception as e:
+            print(f"DEBUG: Error finding download links: {str(e)}")
+        
+        print(f"DEBUG: No final download URL found")
+        return None
+        
+    except Exception as e:
+        print(f"DEBUG: Error resolving MoviezWap download: {str(e)}")
+        return None
+    finally:
+        if driver:
+            try:
+                driver.quit()
+                print(f"DEBUG: Chrome driver closed successfully")
+            except Exception as e:
+                print(f"DEBUG: Error closing driver: {str(e)}")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

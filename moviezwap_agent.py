@@ -570,6 +570,12 @@ class MoviezWapAgent:
             if href.startswith('/'):
                 href = urljoin(self.base_url, href)
             
+            # Convert dwload.php to download.php for user-friendly downloads
+            download_url = href
+            if '/dwload.php' in href:
+                download_url = href.replace('/dwload.php', '/download.php')
+                logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
+            
             # Determine host type based on URL
             if '/dwload.php' in href:
                 host_type = 'MoviezWap Direct Download'
@@ -580,7 +586,7 @@ class MoviezWapAgent:
             
             return {
                 'text': display_text,
-                'url': href,
+                'url': download_url,
                 'original_url': href,
                 'host': host_type,
                 'quality': quality,
@@ -619,9 +625,15 @@ class MoviezWapAgent:
             if href.startswith('/'):
                 href = urljoin(self.base_url, href)
             
+            # Convert dwload.php to download.php for user-friendly downloads
+            download_url = href
+            if '/dwload.php' in href:
+                download_url = href.replace('/dwload.php', '/download.php')
+                logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
+            
             return {
                 'text': link_text,
-                'url': href,
+                'url': download_url,
                 'original_url': href,
                 'host': host,
                 'quality': quality,
