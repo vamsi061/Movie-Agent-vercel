@@ -789,7 +789,7 @@ def unlock_shortlink():
 
 @app.route('/resolve_download', methods=['POST'])
 def resolve_download():
-    """Resolve MoviezWap download.php URL to final downloadable link"""
+    """Automatically resolve MoviezWap download.php URLs to final download links"""
     try:
         data = request.get_json()
         download_url = data.get('url')
@@ -797,23 +797,136 @@ def resolve_download():
         if not download_url:
             return jsonify({'error': 'No URL provided'}), 400
         
+        print(f"DEBUG: Resolving download URL: {download_url}")
+        
         # Check if it's a MoviezWap download.php URL
-        if 'moviezwap' not in download_url.lower() or 'download.php' not in download_url:
-            return jsonify({'error': 'Invalid MoviezWap download URL'}), 400
+        if 'moviezwap' in download_url.lower() and 'download.php' in download_url:
+            print(f"DEBUG: MoviezWap download.php URL detected - using automation to resolve")
+            
+            # Initialize MoviezWap agent
+            downloadhub_agent, moviezwap_agent = initialize_agents()
+            
+            # Use the MoviezWap agent's resolve_fast_download_server method
+            final_url = moviezwap_agent.resolve_fast_download_server(download_url)
+            
+            if final_url:
+                print(f"DEBUG: Successfully resolved to final URL: {final_url}")
+                return jsonify({
+                    'status': 'success',
+                    'final_download_url': final_url,
+                    'original_url': download_url,
+                    'message': 'Direct download link resolved automatically',
+                    'instructions': 'Click the link below to start downloading the movie directly.'
+                })
+            else:
+                print(f"DEBUG: Failed to resolve automatically, returning manual instructions")
+                return jsonify({
+                    'status': 'partial_success',
+                    'final_download_url': download_url,
+                    'original_url': download_url,
+                    'message': 'Automatic resolution failed - manual action required',
+                    'instructions': 'This will open the MoviezWap download page. Click the "Fast Download Server" link and handle the popup to start the download.'
+                })
         
-        print(f"DEBUG: Resolving MoviezWap download URL: {download_url}")
+        # Check if it's a protected moviezzwaphd.xyz URL
+        elif 'moviezzwaphd.xyz' in download_url.lower():
+            print(f"DEBUG: Protected moviezzwaphd.xyz URL detected - using Selenium to handle")
+            
+            # Initialize MoviezWap agent
+            downloadhub_agent, moviezwap_agent = initialize_agents()
+            
+            # Use Selenium to handle the protected link with proper headers and referrer
+            try:
+                import undetected_chromedriver as uc
+                from selenium.webdriver.common.by import By
+                import time
+                
+                options = uc.ChromeOptions()
+                options.headless = True
+                options.add_argument("--no-sandbox")
+                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--disable-blink-features=AutomationControlled")
+                options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                
+                driver = None
+                try:
+                    print(f"DEBUG: Starting Chrome to handle protected link: {download_url}")
+                    driver = uc.Chrome(options=options)
+                    driver.set_page_load_timeout(30)
+                    
+                    # Navigate to the protected URL
+                    driver.get(download_url)
+                    time.sleep(5)
+                    
+                    # Check if we got redirected to a download or if the file starts downloading
+                    current_url = driver.current_url
+                    print(f"DEBUG: Current URL after navigation: {current_url}")
+                    
+                    # Look for download links or check if download started
+                    download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
+                    
+                    if download_links:
+                        final_download_url = download_links[0].get_attribute('href')
+                        print(f"DEBUG: Found final download link: {final_download_url}")
+                        return jsonify({
+                            'status': 'success',
+                            'final_download_url': final_download_url,
+                            'original_url': download_url,
+                            'message': 'Protected link resolved successfully',
+                            'instructions': 'Direct download link extracted.'
+                        })
+                    elif current_url != download_url and any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                        print(f"DEBUG: Redirected to direct file URL: {current_url}")
+                        return jsonify({
+                            'status': 'success',
+                            'final_download_url': current_url,
+                            'original_url': download_url,
+                            'message': 'Protected link resolved successfully',
+                            'instructions': 'Direct download link extracted.'
+                        })
+                    else:
+                        print(f"DEBUG: No direct download found, returning original URL for manual handling")
+                        return jsonify({
+                            'status': 'partial_success',
+                            'final_download_url': download_url,
+                            'original_url': download_url,
+                            'message': 'Protected link requires manual action',
+                            'instructions': 'Please click the download link manually on the opened page.'
+                        })
+                        
+                except Exception as e:
+                    print(f"DEBUG: Error handling protected link: {str(e)}")
+                    return jsonify({
+                        'status': 'partial_success',
+                        'final_download_url': download_url,
+                        'original_url': download_url,
+                        'message': 'Protected link processing failed',
+                        'instructions': 'Please click the download link manually on the opened page.'
+                    })
+                finally:
+                    if driver:
+                        driver.quit()
+                        
+            except ImportError:
+                print(f"DEBUG: Selenium not available for protected link handling")
+                return jsonify({
+                    'status': 'partial_success',
+                    'final_download_url': download_url,
+                    'original_url': download_url,
+                    'message': 'Protected link requires manual action',
+                    'instructions': 'Please click the download link manually on the opened page.'
+                })
         
-        # Use Selenium to navigate and get final download link
-        final_download_url = resolve_moviezwap_download(download_url)
-        
-        if final_download_url:
+        # For non-MoviezWap URLs, return as-is
+        else:
+            print(f"DEBUG: Non-MoviezWap URL, returning as-is: {download_url}")
             return jsonify({
                 'status': 'success',
-                'final_download_url': final_download_url,
-                'original_url': download_url
+                'final_download_url': download_url,
+                'original_url': download_url,
+                'message': 'Direct download link',
+                'instructions': 'Click the link to start downloading.'
             })
-        else:
-            return jsonify({'error': 'Could not resolve final download URL'}), 500
         
     except Exception as e:
         print(f"DEBUG: Download resolution failed: {str(e)}")
@@ -1664,6 +1777,101 @@ def resolve_moviezwap_download(download_url):
             download_servers_section = driver.find_elements(By.XPATH, "//*[contains(text(), 'Download Servers Below') or contains(text(), 'Download Server')]")
             if download_servers_section:
                 print(f"DEBUG: Found 'Download Servers' section")
+                
+                # Since XPath isn't finding it, let's search through all links we already found
+                print(f"DEBUG: XPath search failed, checking all links for moviezzwaphd.xyz URLs")
+                
+                # Get all links again and check for moviezzwaphd URLs
+                all_links = driver.find_elements(By.TAG_NAME, "a")
+                for i, link in enumerate(all_links):
+                    try:
+                        href = link.get_attribute('href')
+                        text = link.text.strip()
+                        
+                        # Look for links with moviezzwaphd.xyz and .mp4
+                        if href and 'moviezzwaphd.xyz' in href.lower() and any(ext in href.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                            print(f"DEBUG: FOUND moviezzwaphd link {i}: Text='{text}', Href='{href}'")
+                            
+                            # Instead of returning the href, click the link and follow redirects
+                            print(f"DEBUG: Clicking the moviezzwaphd link to get final URL...")
+                            try:
+                                # Store current URL
+                                current_url = driver.current_url
+                                
+                                # Click the link
+                                driver.execute_script("arguments[0].click();", link)
+                                
+                                # Wait for navigation/download to start
+                                time.sleep(3)
+                                
+                                # Check for popup or new window
+                                print(f"DEBUG: Checking for popups or new windows...")
+                                
+                                # Handle potential popup windows
+                                try:
+                                    # Check if there are multiple windows/tabs
+                                    all_windows = driver.window_handles
+                                    print(f"DEBUG: Found {len(all_windows)} browser windows/tabs")
+                                    
+                                    if len(all_windows) > 1:
+                                        # Switch to the new window/popup
+                                        driver.switch_to.window(all_windows[-1])
+                                        popup_url = driver.current_url
+                                        print(f"DEBUG: Switched to popup window: {popup_url}")
+                                        
+                                        # Look for "Continue download" button or similar
+                                        continue_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Continue') or contains(text(), 'Download')] | //a[contains(text(), 'Continue') or contains(text(), 'Download')]")
+                                        
+                                        if continue_buttons:
+                                            print(f"DEBUG: Found {len(continue_buttons)} continue/download buttons in popup")
+                                            for btn in continue_buttons:
+                                                btn_text = btn.text.strip()
+                                                print(f"DEBUG: Button text: '{btn_text}'")
+                                                
+                                                # Click the continue download button
+                                                driver.execute_script("arguments[0].click();", btn)
+                                                time.sleep(3)
+                                                
+                                                # Check final URL after clicking continue
+                                                final_popup_url = driver.current_url
+                                                print(f"DEBUG: URL after clicking continue: {final_popup_url}")
+                                                
+                                                # If this looks like a download URL, return it
+                                                if any(ext in final_popup_url.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in final_popup_url.lower():
+                                                    print(f"DEBUG: SUCCESS! Final download URL from popup: {final_popup_url}")
+                                                    return final_popup_url
+                                        
+                                        # If no continue button worked, return the popup URL
+                                        if any(ext in popup_url.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in popup_url.lower():
+                                            print(f"DEBUG: SUCCESS! Using popup URL: {popup_url}")
+                                            return popup_url
+                                
+                                except Exception as popup_error:
+                                    print(f"DEBUG: Error handling popup: {str(popup_error)}")
+                                
+                                # Get the final URL after click (main window)
+                                final_url = driver.current_url
+                                print(f"DEBUG: Main window URL after click: {final_url}")
+                                
+                                # If URL changed, return the new URL
+                                if final_url != current_url:
+                                    print(f"DEBUG: SUCCESS! Final URL after click: {final_url}")
+                                    return final_url
+                                else:
+                                    # If URL didn't change, the original href might still be valid
+                                    print(f"DEBUG: No URL change, returning original href: {href}")
+                                    return href
+                                    
+                            except Exception as click_error:
+                                print(f"DEBUG: Error clicking link: {str(click_error)}")
+                                print(f"DEBUG: Fallback to original href: {href}")
+                                return href
+                            
+                    except Exception as e:
+                        continue
+                
+                print(f"DEBUG: No moviezzwaphd links found in all links search")
+                        
         except Exception as e:
             print(f"DEBUG: Could not find Download Servers section: {str(e)}")
         
@@ -1771,19 +1979,29 @@ def resolve_moviezwap_download(download_url):
                 print(f"DEBUG: Selector {selector} failed: {str(e)}")
                 continue
         
-        # Final fallback: Look for "Fast Download Server" link with direct href
+        # Final approach: Click the "Fast Download Server" link and handle redirects
+        print(f"DEBUG: Reached final approach - looking for Fast Download Server link")
         try:
             fast_server_links = driver.find_elements(By.XPATH, "//a[contains(text(), 'Fast Download Server')]")
-            for link in fast_server_links:
+            print(f"DEBUG: Found {len(fast_server_links)} Fast Download Server links")
+            
+            for i, link in enumerate(fast_server_links):
                 href = link.get_attribute('href')
+                text = link.text.strip()
+                print(f"DEBUG: Fast Download Server link {i}: Text='{text}', Href='{href}'")
+                
                 if href and (any(ext in href.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in href.lower()):
-                    print(f"DEBUG: SUCCESS! Found Fast Download Server link with direct href: {href}")
+                    print(f"DEBUG: FOUND VALID Fast Download Server link: {href}")
+                    
+                    # Since we already have the direct .mp4 URL, let's return it immediately
+                    # The href already contains the final download URL
+                    print(f"DEBUG: SUCCESS! Returning Fast Download Server href directly: {href}")
                     return href
+                        
         except Exception as e:
-            print(f"DEBUG: Error checking Fast Download Server links: {str(e)}")
+            print(f"DEBUG: Error finding Fast Download Server link: {str(e)}")
         
-        print(f"DEBUG: No download server button found or clicked successfully")
-        print(f"DEBUG: Direct links on page might not be active without clicking download server button")
+        print(f"DEBUG: No download server button found through selectors - trying final approach")
         
         print(f"DEBUG: No final download URL found")
         return None

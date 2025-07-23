@@ -570,14 +570,20 @@ class MoviezWapAgent:
             if href.startswith('/'):
                 href = urljoin(self.base_url, href)
             
-            # Convert dwload.php to download.php for user-friendly downloads
+            # Convert dwload.php to download.php and resolve final download URL
             download_url = href
             if '/dwload.php' in href:
                 download_url = href.replace('/dwload.php', '/download.php')
                 logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
+                
+                # Automatically resolve the final download URL by clicking "Fast Download Server"
+                final_url = self.resolve_fast_download_server(download_url)
+                if final_url:
+                    download_url = final_url
+                    logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
             
             # Determine host type based on URL
-            if '/dwload.php' in href:
+            if '/dwload.php' in href or 'moviezzwaphd.xyz' in download_url:
                 host_type = 'MoviezWap Direct Download'
                 display_text = f"{link_text} - Direct Download"
             else:
@@ -625,11 +631,18 @@ class MoviezWapAgent:
             if href.startswith('/'):
                 href = urljoin(self.base_url, href)
             
-            # Convert dwload.php to download.php for user-friendly downloads
+            # Convert dwload.php to download.php and resolve final download URL
             download_url = href
             if '/dwload.php' in href:
                 download_url = href.replace('/dwload.php', '/download.php')
                 logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
+                
+                # Automatically resolve the final download URL by clicking "Fast Download Server"
+                final_url = self.resolve_fast_download_server(download_url)
+                if final_url:
+                    download_url = final_url
+                    host = 'MoviezWap Direct Download'
+                    logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
             
             return {
                 'text': link_text,
@@ -697,6 +710,198 @@ class MoviezWapAgent:
                 metadata[name] = content
         
         return metadata
+    
+    def resolve_fast_download_server(self, download_php_url: str) -> Optional[str]:
+        """
+        Automatically resolve MoviezWap download.php URL by clicking 'Fast Download Server'
+        Returns the final direct download URL
+        """
+        try:
+            import undetected_chromedriver as uc
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            import time
+            
+            logger.info(f"MoviezWap: Resolving Fast Download Server for: {download_php_url}")
+            
+            # Setup Chrome options
+            options = uc.ChromeOptions()
+            options.headless = True
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-plugins")
+            options.add_argument("--disable-images")
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
+            driver = None
+            try:
+                logger.info("MoviezWap: Starting Chrome driver for Fast Download Server resolution")
+                driver = uc.Chrome(options=options)
+                driver.set_page_load_timeout(30)
+                driver.implicitly_wait(10)
+                
+                # Navigate to download.php page
+                logger.info(f"MoviezWap: Navigating to: {download_php_url}")
+                driver.get(download_php_url)
+                time.sleep(3)
+                
+                # Look for "Fast Download Server" link
+                logger.info("MoviezWap: Looking for 'Fast Download Server' link...")
+                
+                # Try multiple selectors for the Fast Download Server link
+                fast_server_selectors = [
+                    "//a[contains(text(), 'Fast Download Server')]",
+                    "//a[contains(text(), 'Fast Server')]",
+                    "//a[contains(text(), 'Download Server')]",
+                    "//button[contains(text(), 'Fast Download Server')]",
+                    "//button[contains(text(), 'Fast Server')]",
+                    "//a[contains(@class, 'download') and contains(text(), 'Server')]",
+                    "//a[contains(@href, 'moviezzwaphd.xyz')]"
+                ]
+                
+                fast_server_link = None
+                for selector in fast_server_selectors:
+                    try:
+                        elements = driver.find_elements(By.XPATH, selector)
+                        if elements:
+                            # Filter out ad links
+                            for element in elements:
+                                href = element.get_attribute('href') or ''
+                                onclick = element.get_attribute('onclick') or ''
+                                text = element.text.strip()
+                                
+                                # Skip ad-related links
+                                if any(ad in href.lower() for ad in ['betspintrack', 'ads', 'popup']):
+                                    continue
+                                if any(ad in onclick.lower() for ad in ['betspintrack', 'ads', 'popup']):
+                                    continue
+                                
+                                logger.info(f"MoviezWap: Found Fast Download Server link: '{text}' -> {href}")
+                                fast_server_link = element
+                                break
+                        
+                        if fast_server_link:
+                            break
+                    except Exception as e:
+                        continue
+                
+                if not fast_server_link:
+                    logger.warning("MoviezWap: No 'Fast Download Server' link found")
+                    return None
+                
+                # Get the href before clicking (in case it's a direct link)
+                fast_server_href = fast_server_link.get_attribute('href')
+                logger.info(f"MoviezWap: Fast Download Server href: {fast_server_href}")
+                
+                # If href already contains moviezzwaphd.xyz or direct download, return it
+                if fast_server_href and ('moviezzwaphd.xyz' in fast_server_href or any(ext in fast_server_href.lower() for ext in ['.mp4', '.mkv', '.avi'])):
+                    logger.info(f"MoviezWap: Direct download URL found in href: {fast_server_href}")
+                    return fast_server_href
+                
+                # Click the Fast Download Server link
+                logger.info("MoviezWap: Clicking Fast Download Server link...")
+                current_url = driver.current_url
+                
+                try:
+                    # Scroll to element and click
+                    driver.execute_script("arguments[0].scrollIntoView(true);", fast_server_link)
+                    time.sleep(1)
+                    fast_server_link.click()
+                except:
+                    # Fallback to JavaScript click
+                    driver.execute_script("arguments[0].click();", fast_server_link)
+                
+                # Wait for navigation or popup
+                time.sleep(5)
+                
+                # Check for popup windows
+                all_windows = driver.window_handles
+                logger.info(f"MoviezWap: Found {len(all_windows)} browser windows after click")
+                
+                if len(all_windows) > 1:
+                    # Switch to popup window
+                    driver.switch_to.window(all_windows[-1])
+                    popup_url = driver.current_url
+                    logger.info(f"MoviezWap: Popup window URL: {popup_url}")
+                    
+                    # Look for continue/download button in popup
+                    try:
+                        continue_selectors = [
+                            "//button[contains(text(), 'Continue')]",
+                            "//a[contains(text(), 'Continue')]",
+                            "//button[contains(text(), 'Download')]",
+                            "//a[contains(text(), 'Download')]",
+                            "//a[contains(@href, 'moviezzwaphd.xyz')]"
+                        ]
+                        
+                        for selector in continue_selectors:
+                            try:
+                                continue_elements = driver.find_elements(By.XPATH, selector)
+                                if continue_elements:
+                                    continue_btn = continue_elements[0]
+                                    continue_href = continue_btn.get_attribute('href')
+                                    
+                                    logger.info(f"MoviezWap: Found continue button, clicking...")
+                                    continue_btn.click()
+                                    time.sleep(3)
+                                    
+                                    final_url = driver.current_url
+                                    logger.info(f"MoviezWap: Final URL after continue: {final_url}")
+                                    
+                                    if 'moviezzwaphd.xyz' in final_url or any(ext in final_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                                        return final_url
+                                    elif continue_href and ('moviezzwaphd.xyz' in continue_href or any(ext in continue_href.lower() for ext in ['.mp4', '.mkv', '.avi'])):
+                                        return continue_href
+                                    break
+                            except:
+                                continue
+                    except Exception as e:
+                        logger.warning(f"MoviezWap: Error handling popup: {str(e)}")
+                    
+                    # If popup URL itself is the download URL
+                    if 'moviezzwaphd.xyz' in popup_url or any(ext in popup_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                        return popup_url
+                
+                # Check main window for URL change
+                final_url = driver.current_url
+                if final_url != current_url:
+                    logger.info(f"MoviezWap: Main window URL changed to: {final_url}")
+                    if 'moviezzwaphd.xyz' in final_url or any(ext in final_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                        return final_url
+                
+                # Look for any moviezzwaphd.xyz links that appeared after clicking
+                try:
+                    moviezzwap_links = driver.find_elements(By.XPATH, "//a[contains(@href, 'moviezzwaphd.xyz')]")
+                    if moviezzwap_links:
+                        final_download_url = moviezzwap_links[0].get_attribute('href')
+                        logger.info(f"MoviezWap: Found moviezzwaphd.xyz link: {final_download_url}")
+                        return final_download_url
+                except:
+                    pass
+                
+                logger.warning("MoviezWap: Could not resolve final download URL")
+                return None
+                
+            except Exception as e:
+                logger.error(f"MoviezWap: Error during Fast Download Server resolution: {str(e)}")
+                return None
+            
+            finally:
+                if driver:
+                    try:
+                        driver.quit()
+                    except:
+                        pass
+                        
+        except ImportError:
+            logger.error("MoviezWap: Selenium not available for Fast Download Server resolution")
+            return None
+        except Exception as e:
+            logger.error(f"MoviezWap: Unexpected error in Fast Download Server resolution: {str(e)}")
+            return None
 
 def main():
     """Main function for testing the MoviezWap agent"""

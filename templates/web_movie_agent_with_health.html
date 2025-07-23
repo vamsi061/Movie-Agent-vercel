@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Movie Agent - Find & Watch Movies</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .container-fluid {
+            background: rgba(255, 255, 255, 0.95);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .movie-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .movie-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .movie-poster {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+        
+        .movie-info {
+            padding: 15px;
+        }
+        
+        .movie-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .movie-year {
+            color: #666;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .movie-languages {
+            color: #667eea;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        
+        .movie-rating {
+            color: #ffc107;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+        
+        .search-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 30px;
+            font-weight: bold;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            border: none;
+            border-radius: 25px;
+            padding: 8px 20px;
+        }
+        
+        .streaming-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .source-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .video-modal .modal-dialog {
+            max-width: 90vw;
+        }
+        
+        .video-container {
+            height: 70vh;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .video-container iframe,
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <header class="text-center py-4 mb-4">
+            <h1 class="display-4 text-primary">
+                <i class="fas fa-film"></i> Movie Agent
+            </h1>
+            <p class="lead text-muted">Search movies and find streaming sources</p>
+        </header>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <form id="searchForm">
+                        <div class="input-group input-group-lg">
+                            <input type="text" 
+                                   id="searchInput" 
+                                   class="form-control" 
+                                   placeholder="Enter movie name (e.g., My Baby, Inception, Avatar...)"
+                                   required>
+                            <button class="btn btn-primary" type="submit" id="searchBtn">
+                                <i class="fas fa-search"></i> Search Movies
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingSection" class="text-center d-none">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Searching...</span>
+            </div>
+            <p class="mt-3">Searching movies...</p>
+        </div>
+
+        <!-- Movie Results -->
+        <div id="movieResultsSection" class="d-none">
+            <h3 id="resultsTitle" class="mb-4"></h3>
+            <div id="movieGrid" class="row g-4"></div>
+        </div>
+
+        <!-- Streaming Sources -->
+        <div id="streamingSection" class="d-none">
+            <div class="streaming-section">
+                <h4 id="streamingTitle" class="mb-3">
+                    <i class="fas fa-play-circle"></i> Streaming Sources
+                </h4>
+                <div id="streamingSources"></div>
+            </div>
+        </div>
+
+        <!-- Video Player Modal -->
+        <div class="modal fade video-modal" id="videoModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="videoModalTitle">Movie Player</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div id="videoContainer" class="video-container"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <a id="openInNewTab" href="#" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt"></i> Open in New Tab
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alertContainer"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentMovies = [];
+        let videoModal;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            videoModal = new bootstrap.Modal(document.getElementById('videoModal'));
+            
+            document.getElementById('searchForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                searchMovies();
+            });
+        });
+
+        function searchMovies() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            showLoading();
+            hideAllSections();
+
+            fetch('/search_movies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.movies && data.movies.length > 0) {
+                    displayMovies(data.movies, data.query);
+                } else {
+                    showAlert('No movies found. Try a different search term.', 'warning');
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                showAlert('Search failed. Please try again.', 'danger');
+                console.error('Error:', error);
+            });
+        }
+
+        function displayMovies(movies, query) {
+            currentMovies = movies;
+            const movieGrid = document.getElementById('movieGrid');
+            const resultsTitle = document.getElementById('resultsTitle');
+            
+            resultsTitle.textContent = `Found ${movies.length} movies for "${query}"`;
+            movieGrid.innerHTML = '';
+
+            movies.forEach((movie, index) => {
+                const movieCard = createMovieCard(movie, index);
+                movieGrid.appendChild(movieCard);
+            });
+
+            document.getElementById('movieResultsSection').classList.remove('d-none');
+        }
+
+        function createMovieCard(movie, index) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-sm-6';
+            
+            col.innerHTML = `
+                <div class="card movie-card" onclick="selectMovie(${index})">
+                    <img src="${movie.poster}" class="movie-poster" alt="${movie.title}" 
+                         onerror="this.src='https://via.placeholder.com/300x450/667eea/ffffff?text=${encodeURIComponent(movie.title)}'">
+                    <div class="movie-info">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="movie-year">${movie.year}</div>
+                        <div class="movie-languages">
+                            <i class="fas fa-globe"></i> ${movie.language_display}
+                        </div>
+                        <div class="movie-rating">
+                            <i class="fas fa-star"></i> ${movie.rating}/10
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">${movie.overview.substring(0, 100)}...</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return col;
+        }
+
+        function selectMovie(index) {
+            const movie = currentMovies[index];
+            
+            // Show loading for streaming sources
+            document.getElementById('streamingTitle').innerHTML = `
+                <i class="fas fa-spinner fa-spin"></i> Searching streaming sources for "${movie.title}"...
+            `;
+            document.getElementById('streamingSources').innerHTML = '';
+            document.getElementById('streamingSection').classList.remove('d-none');
+
+            // Search for streaming sources
+            fetch('/get_streaming_sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    movie_title: movie.title,
+                    movie_year: movie.year 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayStreamingSources(data.sources, movie.title);
+            })
+            .catch(error => {
+                document.getElementById('streamingTitle').innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i> Error finding streaming sources
+                `;
+                console.error('Error:', error);
+            });
+        }
+
+        function displayStreamingSources(sources, movieTitle) {
+            const streamingTitle = document.getElementById('streamingTitle');
+            const streamingSources = document.getElementById('streamingSources');
+            
+            streamingTitle.innerHTML = `
+                <i class="fas fa-play-circle"></i> Streaming Sources for "${movieTitle}" (${sources.length} found)
+            `;
+
+            if (sources.length === 0) {
+                streamingSources.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        No streaming sources found for this movie.
+                    </div>
+                `;
+                return;
+            }
+
+            streamingSources.innerHTML = '';
+            sources.forEach(source => {
+                const sourceDiv = document.createElement('div');
+                sourceDiv.className = 'source-item';
+                
+                const videoSourcesHtml = source.video_sources.map(video => `
+                    <button class="btn btn-success btn-sm me-2 mb-2" onclick="playVideo('${video.url}', '${movieTitle}')">
+                        <i class="fas fa-play"></i> ${video.quality}
+                    </button>
+                `).join('');
+
+                sourceDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <strong>${source.title}</strong>
+                            <br><small class="text-muted">Source: ${source.site}</small>
+                        </div>
+                        <span class="badge bg-primary">${Math.round(source.match_score * 100)}% match</span>
+                    </div>
+                    <div class="video-sources">
+                        ${videoSourcesHtml}
+                    </div>
+                    <div class="mt-2">
+                        <a href="${source.movie_page}" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt"></i> View Page
+                        </a>
+                    </div>
+                `;
+                
+                streamingSources.appendChild(sourceDiv);
+            });
+        }
+
+        function playVideo(videoUrl, movieTitle) {
+            const videoContainer = document.getElementById('videoContainer');
+            const videoModalTitle = document.getElementById('videoModalTitle');
+            const openInNewTab = document.getElementById('openInNewTab');
+
+            videoModalTitle.textContent = movieTitle;
+            openInNewTab.href = videoUrl;
+
+            if (videoUrl.includes('.mp4')) {
+                videoContainer.innerHTML = `
+                    <video controls autoplay style="width: 100%; height: 100%;">
+                        <source src="${videoUrl}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+            } else {
+                videoContainer.innerHTML = `
+                    <iframe src="${videoUrl}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+                `;
+            }
+
+            videoModal.show();
+        }
+
+        function showLoading() {
+            document.getElementById('loadingSection').classList.remove('d-none');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingSection').classList.add('d-none');
+        }
+
+        function hideAllSections() {
+            document.getElementById('movieResultsSection').classList.add('d-none');
+            document.getElementById('streamingSection').classList.add('d-none');
+        }
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 5000);
+        }
+
+        // Clear video when modal is closed
+        document.getElementById('videoModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('videoContainer').innerHTML = '';
+        });
+    </script>
+</body>
+</html>
