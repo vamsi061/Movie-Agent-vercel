@@ -488,6 +488,27 @@
         .download-btn.unlocked {
             background: linear-gradient(45deg, #4CAF50, #45a049);
         }
+
+        .movie-source-tag {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        .movie-source-tag i {
+            margin-right: 4px;
+            font-size: 0.7rem;
+        }
     </style>
 </head>
 <body>
@@ -716,7 +737,15 @@
                 movieCard.className = 'movie-card';
                 movieCard.onclick = () => selectMovie(index);
                 
+                // Determine source and create source tag
+                const source = movie.source || 'Unknown';
+                const sourceColor = getSourceColor(source);
+                const sourceIcon = getSourceIcon(source);
+                
                 movieCard.innerHTML = 
+                    '<div class="movie-source-tag" style="background: ' + sourceColor + '; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 10px; display: inline-block;">' +
+                        sourceIcon + ' ' + source +
+                    '</div>' +
                     '<div class="movie-title">' + movie.title + '</div>' +
                     '<div class="movie-meta">' +
                         (movie.year ? '<span class="meta-tag">Year: ' + movie.year + '</span>' : '') +
@@ -1311,12 +1340,12 @@
                         buttonElement.innerHTML = '<i class="fas fa-download"></i> Download Ready';
                         buttonElement.style.background = '#28a745';
                         
-                        // Open with proper headers/referrer
+                        // Use the download proxy for better file handling
+                        const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
                         const link = document.createElement('a');
-                        link.href = data.final_download_url;
+                        link.href = proxyUrl;
+                        link.download = ''; // Force download
                         link.target = '_blank';
-                        link.rel = 'noopener noreferrer';
-                        link.referrerPolicy = 'no-referrer-when-downgrade';
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
@@ -1402,6 +1431,32 @@
                 }
             }, 8000);
         };
+
+        // Helper functions for source tags
+        function getSourceColor(source) {
+            switch(source.toLowerCase()) {
+                case 'downloadhub':
+                    return 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                case 'moviezwap':
+                    return 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                case 'moviezwap.pink':
+                    return 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+                default:
+                    return 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+            }
+        }
+        
+        function getSourceIcon(source) {
+            switch(source.toLowerCase()) {
+                case 'downloadhub':
+                    return '<i class="fas fa-download"></i>';
+                case 'moviezwap':
+                case 'moviezwap.pink':
+                    return '<i class="fas fa-film"></i>';
+                default:
+                    return '<i class="fas fa-globe"></i>';
+            }
+        }
 
         // Override download functions to use auto-resolution
         document.addEventListener('DOMContentLoaded', function() {

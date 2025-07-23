@@ -854,45 +854,84 @@ def resolve_download():
                     driver = uc.Chrome(options=options)
                     driver.set_page_load_timeout(30)
                     
-                    # Navigate to the protected URL
+                    # Set proper referrer to MoviezWap
+                    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+                        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    })
+                    
+                    # Navigate to MoviezWap first to set proper referrer
+                    driver.get("https://www.moviezwap.pink")
+                    time.sleep(2)
+                    
+                    # Now navigate to the protected URL with proper referrer
                     driver.get(download_url)
-                    time.sleep(5)
+                    time.sleep(8)
                     
                     # Check if we got redirected to a download or if the file starts downloading
                     current_url = driver.current_url
                     print(f"DEBUG: Current URL after navigation: {current_url}")
                     
-                    # Look for download links or check if download started
-                    download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
+                    # Check if the page has a download button or direct download link
+                    download_elements = driver.find_elements(By.XPATH, "//a[contains(text(), 'Download') or contains(text(), 'download') or contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
                     
-                    if download_links:
-                        final_download_url = download_links[0].get_attribute('href')
-                        print(f"DEBUG: Found final download link: {final_download_url}")
-                        return jsonify({
-                            'status': 'success',
-                            'final_download_url': final_download_url,
-                            'original_url': download_url,
-                            'message': 'Protected link resolved successfully',
-                            'instructions': 'Direct download link extracted.'
-                        })
-                    elif current_url != download_url and any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
-                        print(f"DEBUG: Redirected to direct file URL: {current_url}")
+                    if download_elements:
+                        # Click the download button/link
+                        download_element = download_elements[0]
+                        download_href = download_element.get_attribute('href')
+                        download_text = download_element.text
+                        
+                        print(f"DEBUG: Found download element: '{download_text}' -> {download_href}")
+                        
+                        if download_href and any(ext in download_href.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                            print(f"DEBUG: Direct file link found: {download_href}")
+                            return jsonify({
+                                'status': 'success',
+                                'final_download_url': download_href,
+                                'original_url': download_url,
+                                'message': 'Protected link resolved to direct file',
+                                'instructions': 'Direct download link extracted.'
+                            })
+                        else:
+                            # Try clicking the download button
+                            try:
+                                driver.execute_script("arguments[0].click();", download_element)
+                                time.sleep(5)
+                                
+                                # Check if download started or we got redirected
+                                new_url = driver.current_url
+                                print(f"DEBUG: URL after clicking download: {new_url}")
+                                
+                                if new_url != current_url and any(ext in new_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                                    return jsonify({
+                                        'status': 'success',
+                                        'final_download_url': new_url,
+                                        'original_url': download_url,
+                                        'message': 'Protected link resolved by clicking download',
+                                        'instructions': 'Direct download link extracted.'
+                                    })
+                            except Exception as click_error:
+                                print(f"DEBUG: Error clicking download button: {click_error}")
+                    
+                    # Check if current URL is a direct file
+                    elif any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
+                        print(f"DEBUG: Current URL is direct file: {current_url}")
                         return jsonify({
                             'status': 'success',
                             'final_download_url': current_url,
                             'original_url': download_url,
-                            'message': 'Protected link resolved successfully',
+                            'message': 'Protected link resolved to direct file',
                             'instructions': 'Direct download link extracted.'
                         })
-                    else:
-                        print(f"DEBUG: No direct download found, returning original URL for manual handling")
-                        return jsonify({
-                            'status': 'partial_success',
-                            'final_download_url': download_url,
-                            'original_url': download_url,
-                            'message': 'Protected link requires manual action',
-                            'instructions': 'Please click the download link manually on the opened page.'
-                        })
+                    
+                    # If no direct download found, return for manual handling
+                    print(f"DEBUG: No direct download found, returning original URL for manual handling")
+                    return jsonify({
+                        'status': 'partial_success',
+                        'final_download_url': download_url,
+                        'original_url': download_url,
+                        'message': 'Protected link requires manual action',
+                        'instructions': 'Please click the download link manually on the opened page.'
+                    })
                         
                 except Exception as e:
                     print(f"DEBUG: Error handling protected link: {str(e)}")
@@ -2016,6 +2055,69 @@ def resolve_moviezwap_download(download_url):
                 print(f"DEBUG: Chrome driver closed successfully")
             except Exception as e:
                 print(f"DEBUG: Error closing driver: {str(e)}")
+
+@app.route('/download_file')
+def download_file():
+    """Proxy download endpoint to handle protected links with proper headers"""
+    try:
+        file_url = request.args.get('url')
+        if not file_url:
+            return jsonify({'error': 'No URL provided'}), 400
+        
+        print(f"DEBUG: Proxying download for URL: {file_url}")
+        
+        # Set proper headers for the request
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.moviezwap.pink/',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+        
+        # Make request to the protected URL
+        response = requests.get(file_url, headers=headers, stream=True, timeout=30)
+        
+        if response.status_code == 200:
+            # Extract filename from URL or Content-Disposition header
+            filename = None
+            if 'Content-Disposition' in response.headers:
+                content_disposition = response.headers['Content-Disposition']
+                if 'filename=' in content_disposition:
+                    filename = content_disposition.split('filename=')[1].strip('"')
+            
+            if not filename:
+                # Extract from URL
+                filename = file_url.split('/')[-1].split('?')[0]
+                if not filename or '.' not in filename:
+                    filename = 'movie_download.mp4'
+            
+            print(f"DEBUG: Serving file as: {filename}")
+            
+            # Create response with proper download headers
+            def generate():
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+            
+            return Response(
+                generate(),
+                headers={
+                    'Content-Type': response.headers.get('Content-Type', 'video/mp4'),
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Content-Length': response.headers.get('Content-Length', ''),
+                    'Cache-Control': 'no-cache'
+                }
+            )
+        else:
+            print(f"DEBUG: Failed to fetch file, status: {response.status_code}")
+            return jsonify({'error': f'Failed to fetch file: {response.status_code}'}), response.status_code
+            
+    except Exception as e:
+        print(f"DEBUG: Error in download proxy: {str(e)}")
+        return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
