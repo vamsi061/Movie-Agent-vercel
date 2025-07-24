@@ -409,6 +409,39 @@
             box-shadow: 0 3px 8px rgba(33, 150, 243, 0.3);
         }
 
+        .download-status-hidden {
+            display: none;
+        }
+
+        .download-status-visible {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            animation: slideInDown 0.5s ease-out;
+        }
+
+        .download-status-visible i {
+            font-size: 18px;
+        }
+
+        @keyframes slideInDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
         .unlock-btn {
             background: linear-gradient(45deg, #FFC107, #FF9800);
             color: #333;
@@ -852,7 +885,11 @@
             
             downloadLinksDiv.innerHTML = 
                 '<h4>Download Links Found</h4>' +
-                '<button class="check-all-btn" onclick="checkAllLinksHealth()">Check All Links Health</button>';
+                '<button class="check-all-btn" onclick="checkAllLinksHealth()">Check All Links Health</button>' +
+                '<div id="download-status-message" class="download-status-hidden">' +
+                    '<i class="fas fa-download"></i>' +
+                    '<span>Movie is started downloading, please check it in Downloads folder</span>' +
+                '</div>';
             
             result.download_links.forEach((link, index) => {
                 const linkDiv = document.createElement('div');
@@ -1366,7 +1403,11 @@
                         window.open(downloadUrl, '_blank');
                         
                         // Show instruction message
-                        showMoviezWapNotification('INFO: Please click the download link manually on the opened page.', 'warning');
+                        // Show download status in dedicated area
+                    showDownloadStatus();
+                    
+                    // Keep the original working notification (but hidden from user)
+                    showMoviezWapNotification('INFO: Please click the download link manually on the opened page.', 'warning');
                     
                     // Show download notification when manual download is needed
                     showDownloadStartedNotification(url);
@@ -1388,6 +1429,10 @@
                     buttonElement.style.background = '#ff6b6b';
                     
                     window.open(downloadUrl, '_blank');
+                    // Show download status in dedicated area
+                    showDownloadStatus();
+                    
+                    // Keep the original working notification (but hidden from user)
                     showMoviezWapNotification('INFO: Automatic processing failed. Please click the download link manually on the opened page.', 'warning');
                     
                     // Show download notification when automatic processing fails
@@ -1576,6 +1621,19 @@
             // Initial attachment
             setTimeout(attachMoviezWapHandlers, 1000);
         });
+
+        // Show download status in dedicated area below health check button
+        function showDownloadStatus() {
+            const statusElement = document.getElementById('download-status-message');
+            if (statusElement) {
+                statusElement.className = 'download-status-visible';
+                
+                // Hide after 10 seconds
+                setTimeout(() => {
+                    statusElement.className = 'download-status-hidden';
+                }, 10000);
+            }
+        }
 
         // Show download started notification
         function showDownloadStartedNotification(downloadUrl) {
