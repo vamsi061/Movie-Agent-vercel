@@ -1261,6 +1261,9 @@
                         // Open the final download URL
                         window.open(data.final_download_url, '_blank');
                         
+                        // Show download started notification
+                        showDownloadStartedNotification(data.final_download_url);
+                        
                         // Show success message
                         showMoviezWapNotification('SUCCESS: Direct download link resolved! Download should start automatically.', 'success');
                         
@@ -1364,6 +1367,9 @@
                         
                         // Show instruction message
                         showMoviezWapNotification('INFO: Please click the download link manually on the opened page.', 'warning');
+                    
+                    // Show download notification when manual download is needed
+                    showDownloadStartedNotification(url);
                     }
                     
                     // Reset button after 3 seconds
@@ -1383,6 +1389,9 @@
                     
                     window.open(downloadUrl, '_blank');
                     showMoviezWapNotification('INFO: Automatic processing failed. Please click the download link manually on the opened page.', 'warning');
+                    
+                    // Show download notification when automatic processing fails
+                    showDownloadStartedNotification(url);
                     
                     // Reset button after 3 seconds
                     setTimeout(() => {
@@ -1567,6 +1576,42 @@
             // Initial attachment
             setTimeout(attachMoviezWapHandlers, 1000);
         });
+
+        // Show download started notification
+        function showDownloadStartedNotification(downloadUrl) {
+            // Extract filename from URL
+            const filename = downloadUrl.split('/').pop().split('?')[0] || 'movie.mp4';
+            
+            // Show alert notification
+            alert('Download Started!\n\nMovie: ' + filename + '\n\nCheck your Downloads folder for the file.');
+            
+            // Create visual notification
+            const notification = document.createElement('div');
+            notification.innerHTML = 'Download Started: ' + filename + '<br><small>Check your Downloads folder</small>';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                z-index: 10000;
+                max-width: 300px;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove notification after 8 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 8000);
+        }
 
     </script>
 </body>
