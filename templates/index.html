@@ -957,7 +957,7 @@
                         '<div id="unlock-section-' + index + '" style="display: ' + (isShortlink ? 'inline-block' : 'none') + ';">' +
                             unlockButton +
                         '</div>' +
-                        '<a href="' + link.url + '" target="_blank" class="download-btn" id="download-btn-' + index + '">' +
+                        '<a href="' + link.url + '" class="download-btn" id="download-btn-' + index + '">' +
                             (isShortlink ? 'Locked Link' : 'Download') +
                         '</a>' +
                     '</div>';
@@ -1178,7 +1178,7 @@
         function unlockLink(index) {
             const unlockUrl = window.unlockUrls && window.unlockUrls[index];
             if (unlockUrl) {
-                window.open(unlockUrl, '_blank');
+                // window.location.href = unlockUrl; // Removed - no need to navigate
                 alert('Unlock page opened. Complete the process there, then recheck the link health.');
             }
         }
@@ -1282,7 +1282,7 @@
                         '<div class="health-indicator green">' +
                             '<div class="health-tooltip">Unlocked and ready</div>' +
                         '</div>' +
-                        '<a href="' + link.url + '" target="_blank" class="download-btn unlocked">Download</a>' +
+                        '<a href="' + link.url + '" class="download-btn unlocked">Download</a>' +
                     '</div>';
                 
                 downloadLinksDiv.appendChild(linkDiv);
@@ -1306,9 +1306,9 @@
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
             
-            // Check if it's a MoviezWap download.php URL that needs resolution
-            if (downloadUrl.includes('moviezwap') && downloadUrl.includes('download.php')) {
-                console.log('MoviezWap download.php URL detected, auto-resolving...');
+            // Check if it's a MoviezWap URL that needs resolution (download.php or extlinks_)
+            if (downloadUrl.includes('moviezwap') && (downloadUrl.includes('download.php') || downloadUrl.includes('extlinks_'))) {
+                console.log('MoviezWap URL detected (download.php or extlinks_), auto-resolving...');
                 
                 // Show loading state
                 const originalText = buttonElement.innerHTML;
@@ -1334,7 +1334,7 @@
                         buttonElement.style.background = '#28a745';
                         
                         // Open the final download URL
-                        window.open(data.final_download_url, '_blank');
+                        // window.location.href = data.final_download_url; // Removed - download already started
                         
                         // Show download started notification
                         showDownloadStartedNotification(data.final_download_url);
@@ -1358,7 +1358,7 @@
                         buttonElement.style.background = '#ffc107';
                         
                         // Open the download page for manual handling
-                        window.open(data.final_download_url, '_blank');
+                        // window.location.href = data.final_download_url; // Removed - download already started
                         
                         // Show instruction message
                         showMoviezWapNotification('WARNING: ' + data.message + ' ' + data.instructions, 'warning');
@@ -1389,7 +1389,7 @@
                         buttonElement.style.pointerEvents = 'auto';
                         
                         // Fallback: open original URL
-                        window.open(downloadUrl, '_blank');
+                        // window.location.href = downloadUrl; // Removed - download already started
                     }, 3000);
                 });
             } else if (downloadUrl.includes('moviezzwaphd.xyz')) {
@@ -1423,7 +1423,7 @@
                         const link = document.createElement('a');
                         link.href = proxyUrl;
                         link.download = ''; // Force download
-                        link.target = '_blank';
+                        // link.target = '_blank'; // Removed to prevent new tab opening
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
@@ -1438,7 +1438,7 @@
                         buttonElement.style.background = '#ff6b6b';
                         
                         // Open for manual handling
-                        window.open(downloadUrl, '_blank');
+                        // window.location.href = downloadUrl; // Removed - download already started
                         
                         // Show instruction message
                         // Hide previous download status and show new one
@@ -1469,7 +1469,7 @@
                     buttonElement.innerHTML = '<i class="fas fa-external-link-alt"></i> Manual Download';
                     buttonElement.style.background = '#ff6b6b';
                     
-                    window.open(downloadUrl, '_blank');
+                    // window.location.href = downloadUrl; // Removed - download already started
                     // Hide previous download status and show new one
                     hideDownloadStatus();
                     setTimeout(() => {
@@ -1493,7 +1493,7 @@
             } else {
                 // For other URLs, open directly
                 console.log('Non-MoviezWap URL, opening directly:', downloadUrl);
-                window.open(downloadUrl, '_blank');
+                // window.location.href = downloadUrl; // Removed - download already started
             }
         };
 
