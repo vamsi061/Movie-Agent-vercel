@@ -713,7 +713,7 @@ class MoviezWapAgent:
     
     def resolve_fast_download_server(self, download_php_url: str) -> Optional[str]:
         """
-        Automatically resolve MoviezWap download.php URL by clicking 'Fast Download Server'
+        Automatically resolve MoviezWap URLs (download.php or extlinks_) by finding download servers
         Returns the final direct download URL
         """
         try:
@@ -743,24 +743,68 @@ class MoviezWapAgent:
                 driver.set_page_load_timeout(30)
                 driver.implicitly_wait(10)
                 
-                # Navigate to download.php page
-                logger.info(f"MoviezWap: Navigating to: {download_php_url}")
-                driver.get(download_php_url)
+                # Handle URL conversion for extlinks_ to getlinks_
+                final_url = download_php_url
+                if 'extlinks_' in download_php_url:
+                    final_url = download_php_url.replace('extlinks_', 'getlinks_')
+                    logger.info(f"MoviezWap: Converting extlinks_ to getlinks_: {final_url}")
+                
+                # Navigate to the final URL
+                logger.info(f"MoviezWap: Navigating to: {final_url}")
+                driver.get(final_url)
                 time.sleep(3)
                 
-                # Look for "Fast Download Server" link
-                logger.info("MoviezWap: Looking for 'Fast Download Server' link...")
+                # Look for download links (different patterns for download.php vs getlinks_)
+                if 'getlinks_' in final_url:
+                    logger.info("MoviezWap: Looking for external hosting service links on getlinks_ page...")
+                else:
+                    logger.info("MoviezWap: Looking for download server links on download.php page...")
                 
-                # Try multiple selectors for the Fast Download Server link
-                fast_server_selectors = [
-                    "//a[contains(text(), 'Fast Download Server')]",
-                    "//a[contains(text(), 'Fast Server')]",
-                    "//a[contains(text(), 'Download Server')]",
-                    "//button[contains(text(), 'Fast Download Server')]",
-                    "//button[contains(text(), 'Fast Server')]",
-                    "//a[contains(@class, 'download') and contains(text(), 'Server')]",
-                    "//a[contains(@href, 'moviezzwaphd.xyz')]"
-                ]
+                # Different selectors based on URL type
+                if 'getlinks_' in final_url:
+                    # For getlinks_ pages, look for external hosting service links
+                    fast_server_selectors = [
+                        # External hosting service URLs
+                        "//a[contains(@href, 'drive.google.com')]",
+                        "//a[contains(@href, 'mega.nz')]", 
+                        "//a[contains(@href, 'mediafire.com')]",
+                        "//a[contains(@href, 'dropbox.com')]",
+                        "//a[contains(@href, 'onedrive.live.com')]",
+                        "//a[contains(@href, 'gofile.io')]",
+                        "//a[contains(@href, 'pixeldrain.com')]",
+                        "//a[contains(@href, 'krakenfiles.com')]",
+                        "//a[contains(@href, 'workupload.com')]",
+                        "//a[contains(@href, 'racaty.io')]",
+                        "//a[contains(@href, 'send.now')]",
+                        "//a[contains(@href, 'sendspace.com')]",
+                        "//a[contains(@href, 'zippyshare.com')]",
+                        
+                        # External hosting service text
+                        "//a[contains(text(), 'Google Drive')]",
+                        "//a[contains(text(), 'Mega')]",
+                        "//a[contains(text(), 'MediaFire')]", 
+                        "//a[contains(text(), 'Dropbox')]",
+                        "//a[contains(text(), 'OneDrive')]",
+                        "//a[contains(text(), 'GoFile')]",
+                        "//a[contains(text(), 'PixelDrain')]",
+                        
+                        # Fallback patterns
+                        "//a[contains(@href, 'moviezzwaphd.xyz')]",
+                        "//a[contains(@href, '.mkv')]",
+                        "//a[contains(@href, '.mp4')]",
+                        "//a[contains(@href, '.avi')]"
+                    ]
+                else:
+                    # For download.php pages, look for "Fast Download Server"
+                    fast_server_selectors = [
+                        "//a[contains(text(), 'Fast Download Server')]",
+                        "//a[contains(text(), 'Fast Server')]", 
+                        "//a[contains(text(), 'Download Server')]",
+                        "//button[contains(text(), 'Fast Download Server')]",
+                        "//button[contains(text(), 'Fast Server')]",
+                        "//a[contains(@class, 'download') and contains(text(), 'Server')]",
+                        "//a[contains(@href, 'moviezzwaphd.xyz')]"
+                    ]
                 
                 fast_server_link = None
                 for selector in fast_server_selectors:

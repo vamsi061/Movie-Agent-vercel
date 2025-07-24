@@ -799,9 +799,9 @@ def resolve_download():
         
         print(f"DEBUG: Resolving download URL: {download_url}")
         
-        # Check if it's a MoviezWap download.php URL
-        if 'moviezwap' in download_url.lower() and 'download.php' in download_url:
-            print(f"DEBUG: MoviezWap download.php URL detected - using automation to resolve")
+        # Check if it's a MoviezWap URL (download.php, extlinks_, or getlinks_)
+        if 'moviezwap' in download_url.lower() and ('download.php' in download_url or 'extlinks_' in download_url or 'getlinks_' in download_url):
+            print(f"DEBUG: MoviezWap URL detected (download.php, extlinks_, or getlinks_) - using automation to resolve")
             
             # Initialize MoviezWap agent
             downloadhub_agent, moviezwap_agent = initialize_agents()
