@@ -442,6 +442,38 @@
             }
         }
 
+        .download-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .quality-tags {
+            display: flex;
+            gap: 10px;
+        }
+
+        .quality-tag {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .low-quality {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+
+        .lower-size {
+            background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+            box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+        }
+
         .unlock-btn {
             background: linear-gradient(45deg, #FFC107, #FF9800);
             color: #333;
@@ -884,7 +916,13 @@
             }
             
             downloadLinksDiv.innerHTML = 
-                '<h4>Download Links Found</h4>' +
+                '<div class="download-header">' +
+                    '<h4>Download Links Found</h4>' +
+                    '<div class="quality-tags">' +
+                        '<span class="quality-tag low-quality">Low Quality</span>' +
+                        '<span class="quality-tag lower-size">Lower Size</span>' +
+                    '</div>' +
+                '</div>' +
                 '<button class="check-all-btn" onclick="checkAllLinksHealth()">Check All Links Health</button>' +
                 '<div id="download-status-message" class="download-status-hidden">' +
                     '<i class="fas fa-download"></i>' +
@@ -1403,8 +1441,11 @@
                         window.open(downloadUrl, '_blank');
                         
                         // Show instruction message
-                        // Show download status in dedicated area
-                    showDownloadStatus();
+                        // Hide previous download status and show new one
+                    hideDownloadStatus();
+                    setTimeout(() => {
+                        showDownloadStatus();
+                    }, 100);
                     
                     // Keep the original working notification (but hidden from user)
                     showMoviezWapNotification('INFO: Please click the download link manually on the opened page.', 'warning');
@@ -1429,8 +1470,11 @@
                     buttonElement.style.background = '#ff6b6b';
                     
                     window.open(downloadUrl, '_blank');
-                    // Show download status in dedicated area
-                    showDownloadStatus();
+                    // Hide previous download status and show new one
+                    hideDownloadStatus();
+                    setTimeout(() => {
+                        showDownloadStatus();
+                    }, 100);
                     
                     // Keep the original working notification (but hidden from user)
                     showMoviezWapNotification('INFO: Automatic processing failed. Please click the download link manually on the opened page.', 'warning');
@@ -1628,15 +1672,27 @@
             if (statusElement) {
                 statusElement.className = 'download-status-visible';
                 
-                // Hide after 10 seconds
-                setTimeout(() => {
-                    statusElement.className = 'download-status-hidden';
-                }, 10000);
+                // Don't auto-hide - stay visible until another download is clicked
+                // The message will be replaced when another download starts
+            }
+        }
+        
+        // Hide download status when new download starts
+        function hideDownloadStatus() {
+            const statusElement = document.getElementById('download-status-message');
+            if (statusElement) {
+                statusElement.className = 'download-status-hidden';
             }
         }
 
         // Show download started notification
         function showDownloadStartedNotification(downloadUrl) {
+            // Remove any existing download notification
+            const existingNotification = document.querySelector('[id^="download-notification-"]');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+            
             // Extract filename from URL
             const filename = downloadUrl.split('/').pop().split('?')[0] || 'movie.mp4';
             
@@ -1645,6 +1701,7 @@
             
             // Create visual notification
             const notification = document.createElement('div');
+            notification.id = 'download-notification-' + Date.now(); // Unique ID for each notification
             notification.innerHTML = 'Download Started: ' + filename + '<br><small>Check your Downloads folder</small>';
             notification.style.cssText = `
                 position: fixed;
@@ -1663,12 +1720,8 @@
             
             document.body.appendChild(notification);
             
-            // Remove notification after 8 seconds
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 8000);
+            // Don't auto-remove - let it stay until next download
+            // The notification will be removed when another download starts
         }
 
     </script>
