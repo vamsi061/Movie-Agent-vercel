@@ -537,6 +537,23 @@ class MovieRulzAgent:
         # Consider relevant if at least 50% of search words match
         return matching_words >= len(search_words) * 0.5
 
+    def _extract_quality_from_text(self, text: str) -> str:
+        """Extract quality information from text"""
+        text_lower = text.lower()
+        qualities = ['4k', '2160p', '1080p', '720p', '480p', '360p', '240p', 'hd', 'dvdscr', 'cam', 'ts']
+        
+        for quality in qualities:
+            if quality in text_lower:
+                return quality.upper()
+        return 'Unknown'
+    
+    def _extract_file_size_from_text(self, text: str) -> str:
+        """Extract file size from text"""
+        size_match = re.search(r'\b(\d+(?:\.\d+)?)\s*(gb|mb|kb)\b', text.lower())
+        if size_match:
+            return f"{size_match.group(1)} {size_match.group(2).upper()}"
+        return 'Unknown'
+
     def _sort_by_relevance(self, movies: List[Dict[str, Any]], search_query: str) -> List[Dict[str, Any]]:
         """Sort movies by relevance to search query"""
         def relevance_score(movie):
@@ -575,45 +592,73 @@ class MovieRulzAgent:
             soup = BeautifulSoup(response.content, 'html.parser')
             download_links = []
             
-            # Look for download links in various formats
-            link_selectors = [
-                'a[href*="download"]',
-                'a[href*="drive.google"]',
-                'a[href*="mega.nz"]',
-                'a[href*="mediafire"]',
-                'a[href*="dropbox"]',
-                'a[href*="1fichier"]',
-                'a[href*="rapidgator"]',
-                'a[href*="uploadrar"]',
-                'a[href*="nitroflare"]',
-                'a[href*="uptobox"]',
-                'a[href*=".mp4"]',
-                'a[href*=".mkv"]',
-                'a[href*=".avi"]'
-            ]
+            # Look for streaming service links (priority) and download links
+            streaming_services = ['streamlare', 'netutv', 'uperbox', 'streamtape', 'droplare', 'streamwish', 'filelions']
             
-            for selector in link_selectors:
-                links = soup.select(selector)
-                for link in links:
-                    href = link.get('href')
-                    text = link.get_text(strip=True)
-                    
-                    if href and len(href) > 10:
-                        # Determine service type
-                        service_type = self._identify_service_type(href)
-                        
+            # First, look for streaming service links
+            all_links = soup.find_all('a', href=True)
+            
+            for link in all_links:
+                href = link.get('href', '')
+                text = link.get_text(strip=True)
+                
+                # Check for streaming service links
+                for service in streaming_services:
+                    if (service in href.lower() or service in text.lower()) and len(text) > 10:
                         # Extract quality and size info
                         quality = self._extract_quality_from_text(text)
-                        size = self._extract_size_from_text(text)
+                        file_size = self._extract_file_size_from_text(text)
                         
                         download_links.append({
-                            'text': text or f'{service_type} Download',
-                            'url': urljoin(movie_url, href),
-                            'service_type': service_type,
+                            'text': text,
+                            'url': href,
+                            'service_type': service.title(),
                             'quality': quality,
-                            'file_size': size,
-                            'host': urlparse(href).netloc
+                            'file_size': file_size,
+                            'source': 'MovieRulz'
                         })
+                        break
+            
+            # If no streaming links found, look for other download links
+            if not download_links:
+                link_selectors = [
+                    'a[href*="download"]',
+                    'a[href*="drive.google"]',
+                    'a[href*="mega.nz"]',
+                    'a[href*="mediafire"]',
+                    'a[href*="dropbox"]',
+                    'a[href*="1fichier"]',
+                    'a[href*="rapidgator"]',
+                    'a[href*="uploadrar"]',
+                    'a[href*="nitroflare"]',
+                    'a[href*="uptobox"]',
+                    'a[href*=".mp4"]',
+                    'a[href*=".mkv"]',
+                    'a[href*=".avi"]'
+                ]
+                
+                for selector in link_selectors:
+                    links = soup.select(selector)
+                    for link in links:
+                        href = link.get('href')
+                        text = link.get_text(strip=True)
+                        
+                        if href and len(href) > 10:
+                            # Determine service type
+                            service_type = self._identify_service_type(href)
+                            
+                            # Extract quality and size info
+                            quality = self._extract_quality_from_text(text)
+                            file_size = self._extract_file_size_from_text(text)
+                            
+                            download_links.append({
+                                'text': text,
+                                'url': href,
+                                'service_type': service_type,
+                                'quality': quality,
+                                'file_size': file_size,
+                                'source': 'MovieRulz'
+                            })
             
             # Remove duplicates
             seen_urls = set()
