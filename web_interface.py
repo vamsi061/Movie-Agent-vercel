@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response, stream_template
+from flask_cors import CORS
 import json
 import time
 import re
@@ -15,26 +16,31 @@ import threading
 import logging
 from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
 from moviezwap_agent import MoviezWapAgent
+from movierulz_agent import MovieRulzAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Global variables for our enhanced backend
 search_results = {}
 extraction_results = {}
 downloadhub_agent = None
 moviezwap_agent = None
+movierulz_agent = None
 
 def initialize_agents():
-    global downloadhub_agent, moviezwap_agent
+    global downloadhub_agent, moviezwap_agent, movierulz_agent
     if downloadhub_agent is None:
         downloadhub_agent = EnhancedDownloadHubAgent()
     if moviezwap_agent is None:
         moviezwap_agent = MoviezWapAgent()
-    return downloadhub_agent, moviezwap_agent
+    if movierulz_agent is None:
+        movierulz_agent = MovieRulzAgent()
+    return downloadhub_agent, moviezwap_agent, movierulz_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
@@ -482,13 +488,13 @@ def search_movie():
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
         page = data.get('page', 1)
-        sources = data.get('sources', ['downloadhub', 'moviezwap'])  # Default to both sources
+        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz'])  # Default to all three sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
         
         # Initialize our agents
-        downloadhub_agent, moviezwap_agent = initialize_agents()
+        downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
         
         # Get page number from request
         per_page = 10
@@ -523,6 +529,21 @@ def search_movie():
                 logger.info(f"MoviezWap returned {len(moviezwap_movies)} movies")
             except Exception as e:
                 logger.error(f"MoviezWap search failed: {str(e)}")
+        
+        # Search MovieRulz (Source 3)
+        if 'movierulz' in sources:
+            try:
+                logger.info(f"Searching MovieRulz for: {movie_name}")
+                movierulz_result = movierulz_agent.search_movies(movie_name, page=page, per_page=per_page)
+                movierulz_movies = movierulz_result['movies']
+                # Add source identifier to each movie
+                for movie in movierulz_movies:
+                    movie['source'] = 'MovieRulz'
+                    movie['source_color'] = '#FF9800'  # Orange
+                all_results.extend(movierulz_movies)
+                logger.info(f"MovieRulz returned {len(movierulz_movies)} movies")
+            except Exception as e:
+                logger.error(f"MovieRulz search failed: {str(e)}")
         
         # Calculate pagination for combined results
         total_movies = len(all_results)
@@ -593,17 +614,26 @@ def extract_download_links():
                 
                 # Determine which agent to use based on movie source
                 movie_source = selected_movie.get('source', 'DownloadHub')
-                downloadhub_agent, moviezwap_agent = initialize_agents()
+                downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
                 
                 if movie_source == 'MoviezWap':
                     agent = moviezwap_agent
                     print(f"DEBUG: Using MoviezWap agent for extraction")
+                elif movie_source == 'MovieRulz':
+                    agent = movierulz_agent
+                    print(f"DEBUG: Using MovieRulz agent for extraction")
                 else:
                     agent = downloadhub_agent
                     print(f"DEBUG: Using DownloadHub agent for extraction")
                 
-                print(f"DEBUG: Agent initialized, extracting from {selected_movie['detail_url']}")
-                result = agent.get_download_links(selected_movie['detail_url'])
+                # Get the URL - different sources use different keys
+                movie_url = selected_movie.get('url') or selected_movie.get('detail_url')
+                print(f"DEBUG: Agent initialized, extracting from {movie_url}")
+                # Use appropriate method based on agent type
+                if movie_source == 'MovieRulz':
+                    result = agent.extract_download_links(movie_url)
+                else:
+                    result = agent.get_download_links(movie_url)
                 print(f"DEBUG: Extraction completed for {extraction_id}")
                 extraction_results[extraction_id] = {
                     'status': 'completed',
@@ -719,7 +749,8 @@ def health_check():
         'status': 'healthy',
         'downloadhub_agent_initialized': downloadhub_agent is not None,
         'moviezwap_agent_initialized': moviezwap_agent is not None,
-        'sources_available': ['DownloadHub', 'MoviezWap'],
+        'movierulz_agent_initialized': movierulz_agent is not None,
+        'sources_available': ['DownloadHub', 'MoviezWap', 'MovieRulz'],
         'timestamp': time.time()
     })
 
@@ -804,7 +835,7 @@ def resolve_download():
             print(f"DEBUG: MoviezWap URL detected (download.php, extlinks_, or getlinks_) - using automation to resolve")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
             
             # Use the MoviezWap agent's resolve_fast_download_server method
             final_url = moviezwap_agent.resolve_fast_download_server(download_url)
@@ -833,7 +864,7 @@ def resolve_download():
             print(f"DEBUG: Protected moviezzwaphd.xyz URL detected - using Selenium to handle")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
             
             # Use Selenium to handle the protected link with proper headers and referrer
             try:

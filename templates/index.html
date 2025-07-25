@@ -701,6 +701,8 @@
             .then(data => {
                 hideLoading();
                 console.log('Search response:', data); // Debug log
+                console.log('Response type:', typeof data);
+                console.log('Response keys:', Object.keys(data));
                 if (data.success) {
                     currentSearchId = data.search_id;
                     if (data.pagination) {
@@ -718,8 +720,9 @@
             })
             .catch(error => {
                 hideLoading();
-                console.error('Error:', error);
-                showError('Search failed. Please try again.');
+                console.error('Search error:', error);
+                console.log('Full error details:', error);
+                showError('Search failed: ' + error.message + '. Please check console for details.');
             });
         }
         
@@ -815,7 +818,7 @@
                     '<div class="movie-meta">' +
                         (movie.year ? '<span class="meta-tag">Year: ' + movie.year + '</span>' : '') +
                         (movie.language ? '<span class="meta-tag">Lang: ' + movie.language + '</span>' : '') +
-                        (movie.quality && movie.quality.length > 0 ? '<span class="meta-tag">Quality: ' + movie.quality.join(', ') + '</span>' : '') +
+                        (movie.quality ? '<span class="meta-tag">Quality: ' + (Array.isArray(movie.quality) ? movie.quality.join(', ') : movie.quality) + '</span>' : '') +
                     '</div>' +
                     '<button class="extract-btn" onclick="event.stopPropagation(); extractDownloadLinks(' + index + ')">' +
                         'Extract Download Links' +
@@ -967,6 +970,11 @@
             
             // Store links for health checking
             window.currentDownloadLinks = result.download_links;
+            
+            // Attach MoviezWap handlers to newly created download buttons
+            setTimeout(() => {
+                attachMoviezWapHandlers();
+            }, 100);
         }
 
         function checkSingleLinkHealth(index, encodedUrl) {
@@ -1300,6 +1308,11 @@
                     successMsg.remove();
                 }
             }, 5000);
+            
+            // Attach MoviezWap handlers to newly created download buttons
+            setTimeout(() => {
+                attachMoviezWapHandlers();
+            }, 100);
         }
 
         // Enhanced MoviezWap Auto-Resolution Function
@@ -1571,6 +1584,12 @@
             const downloadButtons = document.querySelectorAll('.download-btn');
             
             console.log('MoviezWap Handler: Found', downloadButtons.length, 'download buttons');
+            
+            // If no download buttons found, try again after a short delay (they might be loading)
+            if (downloadButtons.length === 0) {
+                console.log('MoviezWap Handler: No download buttons found, will retry when they are created');
+                return;
+            }
             
             downloadButtons.forEach((button, index) => {
                 // Skip if already processed
