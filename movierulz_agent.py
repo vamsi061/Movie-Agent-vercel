@@ -553,6 +553,34 @@ class MovieRulzAgent:
         if size_match:
             return f"{size_match.group(1)} {size_match.group(2).upper()}"
         return 'Unknown'
+    
+    def _extract_domain_from_url(self, url: str) -> str:
+        """Extract clean domain name from URL"""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            
+            # Remove www. prefix
+            if domain.startswith('www.'):
+                domain = domain[4:]
+            
+            # Extract main domain (remove subdomains for common patterns)
+            if 'streamlare' in domain:
+                return 'streamlare.com'
+            elif 'vcdnlare' in domain:
+                return 'vcdnlare.com'
+            elif 'streamtape' in domain:
+                return 'streamtape.com'
+            elif 'mixdrop' in domain:
+                return 'mixdrop.co'
+            elif 'doodstream' in domain:
+                return 'doodstream.com'
+            else:
+                return domain
+                
+        except Exception:
+            return 'Unknown'
 
     def _sort_by_relevance(self, movies: List[Dict[str, Any]], search_query: str) -> List[Dict[str, Any]]:
         """Sort movies by relevance to search query"""
@@ -613,10 +641,21 @@ class MovieRulzAgent:
                         quality = self._extract_quality_from_text(text)
                         file_size = self._extract_file_size_from_text(text)
                         
+                        # Create better link name with domain and service
+                        domain = self._extract_domain_from_url(href)
+                        service_name = service.title()
+                        
+                        # Create descriptive text
+                        if quality and quality != 'Unknown':
+                            link_text = f"{service_name} - {quality}"
+                        else:
+                            link_text = f"{service_name} Stream"
+                        
                         download_links.append({
-                            'text': text,
+                            'text': link_text,
                             'url': href,
-                            'service_type': service.title(),
+                            'host': domain,
+                            'service_type': service_name,
                             'quality': quality,
                             'file_size': file_size,
                             'source': 'MovieRulz'
