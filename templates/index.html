@@ -19,12 +19,15 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: white;
+            overflow-x: hidden;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .header {
@@ -1027,6 +1030,12 @@
             setTimeout(() => {
                 attachMoviezWapHandlers();
             }, 100);
+            
+            // Auto-trigger health check for all links
+            setTimeout(() => {
+                console.log('Auto-triggering health check for all links...');
+                checkAllLinksHealth();
+            }, 500);
         }
 
         function checkSingleLinkHealth(index, encodedUrl) {
