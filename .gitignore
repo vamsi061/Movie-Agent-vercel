@@ -1,47 +1,42 @@
-# Python
+# Ignore backup and temporary files
+*.bak
+*.bak2
+*_backup*
+*_test*
+*_debug*
+*_old*
+*_new*
+*_clean*
+*_improved*
+*_simple*
+*_fixed*
+
+# Ignore Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+*.pyc
+*.pyo
 
-# Virtual Environment
-venv/
-env/
-ENV/
+# Ignore virtual environment
+bin/
+share/
+pyvenv.cfg
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
+# Ignore temporary files
+*.tmp
+*.temp
 *.log
 
-# Chrome Driver
-chromedriver*
+# Ignore test and development files
+test_*
+debug_*
+cursor_*
+AUTO_*
 
-# Results and temporary files
-results/
-tmp_*
-*.json.bak
+# Ignore JSON data files
+*.json
+!config.json
+
+# Ignore nested git repositories
+movie_web_interface/
+github_dir/
+movie_web_ai_agent/
