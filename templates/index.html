@@ -322,6 +322,25 @@
             box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
         }
 
+        .stream-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .stream-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
         .download-actions {
             display: flex;
             align-items: center;
@@ -910,6 +929,31 @@
             });
         }
 
+        // Function to handle download links
+        function handleDownload(encodedUrl, buttonElement) {
+            const url = decodeURIComponent(encodedUrl);
+            console.log('Download clicked:', url);
+            
+            // For download links, open in new tab to trigger download
+            window.open(url, '_blank');
+        }
+
+        // Function to detect streaming services
+        function isStreamingService(url, text) {
+            const streamingServices = [
+                'streamlare', 'vcdnlare', 'slmaxed', 'sltube', 'streamlare.com',
+                'netutv', 'uperbox', 'streamtape', 'droplare', 'streamwish', 
+                'filelions', 'mixdrop', 'doodstream', 'upstream'
+            ];
+            
+            const urlLower = url.toLowerCase();
+            const textLower = (text || '').toLowerCase();
+            
+            return streamingServices.some(service => 
+                urlLower.includes(service) || textLower.includes(service)
+            );
+        }
+
         function displayDownloadLinks(result) {
             const downloadLinksDiv = document.getElementById('downloadLinks');
             
@@ -939,18 +983,21 @@
                 
                 // Check if this is a shortlink that needs unlocking
                 const isShortlink = isShortlinkService(link.url);
-                const lockIcon = isShortlink ? '🔒 ' : '';
+                const isStreaming = isStreamingService(link.url, link.text || '');
+                const lockIcon = isShortlink ? 'Lock ' : '';
+                const serviceIcon = isStreaming ? 'Stream ' : 'File ';
                 const unlockButton = isShortlink ? 
                     '<button class="unlock-btn" onclick="unlockShortlink(' + index + ', \'' + encodeURIComponent(link.url) + '\')">Unlock</button>' : 
                     '<button class="unlock-btn" onclick="unlockLink(' + index + ')">Unlock</button>';
                 
                 linkDiv.innerHTML = 
                     '<div class="link-info">' +
-                        '<div class="link-title">' + lockIcon + (link.text || 'Download Link') + '</div>' +
+                        '<div class="link-title">' + serviceIcon + lockIcon + (link.text || 'Download Link') + '</div>' +
                         '<div class="link-meta">' +
                             'Host: ' + (link.host || 'Unknown') + ' | ' +
                             'Quality: ' + (Array.isArray(link.quality) ? link.quality.join(', ') : link.quality || 'Unknown') + ' | ' +
                             'Size: ' + (link.file_size || 'Unknown') +
+                            (isStreaming ? ' | Type: Streaming Service' : ' | Type: Download') +
                         '</div>' +
                     '</div>' +
                     '<div class="download-actions">' +
@@ -960,9 +1007,14 @@
                         '<div id="unlock-section-' + index + '" style="display: ' + (isShortlink ? 'inline-block' : 'none') + ';">' +
                             unlockButton +
                         '</div>' +
-                        '<a href="' + link.url + '" class="download-btn" id="download-btn-' + index + '">' +
-                            (isShortlink ? 'Locked Link' : 'Download') +
-                        '</a>' +
+                        (function() {
+                            const isStreaming = isStreamingService(link.url, link.text || '');
+                            const buttonClass = isStreaming ? 'stream-btn' : 'download-btn';
+                            const buttonText = isStreaming ? 'Stream' : (isShortlink ? 'Locked Link' : 'Download');
+                            const target = isStreaming ? ' target="_blank"' : '';
+                            const onclick = isStreaming ? '' : ' onclick="handleDownload(\'' + encodeURIComponent(link.url) + '\', this); return false;"';
+                            return '<a href="' + link.url + '" class="' + buttonClass + '" id="download-btn-' + index + '"' + target + onclick + '>' + buttonText + '</a>';
+                        })() +
                     '</div>';
                 
                 downloadLinksDiv.appendChild(linkDiv);

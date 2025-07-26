@@ -593,7 +593,11 @@ class MovieRulzAgent:
             download_links = []
             
             # Look for streaming service links (priority) and download links
-            streaming_services = ['streamlare', 'netutv', 'uperbox', 'streamtape', 'droplare', 'streamwish', 'filelions']
+            streaming_services = [
+                'streamlare', 'vcdnlare', 'slmaxed', 'sltube', 'streamlare.com',
+                'netutv', 'uperbox', 'streamtape', 'droplare', 'streamwish', 
+                'filelions', 'mixdrop', 'doodstream', 'upstream'
+            ]
             
             # First, look for streaming service links
             all_links = soup.find_all('a', href=True)
@@ -604,7 +608,7 @@ class MovieRulzAgent:
                 
                 # Check for streaming service links
                 for service in streaming_services:
-                    if (service in href.lower() or service in text.lower()) and len(text) > 10:
+                    if (service in href.lower() or service in text.lower()) and len(text) > 3:
                         # Extract quality and size info
                         quality = self._extract_quality_from_text(text)
                         file_size = self._extract_file_size_from_text(text)
