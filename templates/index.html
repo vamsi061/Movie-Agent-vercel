@@ -1144,11 +1144,29 @@
                     unlockSection.style.display = 'none';
                 }
                 
-                // Reset download button
+                // Reset download button based on link type and health
                 if (downloadBtn) {
-                    downloadBtn.textContent = 'Download';
-                    downloadBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
-                    downloadBtn.style.color = 'white';
+                    // Check if this is a streaming service and healthy
+                    const linkUrl = window.currentDownloadLinks[index]?.url || '';
+                    const isStreaming = isStreamingService(linkUrl, '');
+                    const isHealthy = healthData.color === 'green' && healthData.status === 'healthy';
+                    
+                    if (isStreaming && isHealthy) {
+                        downloadBtn.textContent = 'Play Stream';
+                        downloadBtn.className = 'stream-btn';
+                        downloadBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                        downloadBtn.style.color = 'white';
+                    } else if (isStreaming) {
+                        downloadBtn.textContent = 'Stream';
+                        downloadBtn.className = 'stream-btn';
+                        downloadBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                        downloadBtn.style.color = 'white';
+                    } else {
+                        downloadBtn.textContent = 'Download';
+                        downloadBtn.className = 'download-btn';
+                        downloadBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
+                        downloadBtn.style.color = 'white';
+                    }
                 }
             }
             
