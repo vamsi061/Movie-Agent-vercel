@@ -16,6 +16,7 @@ import threading
 import logging
 from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
 from moviezwap_agent import MoviezWapAgent
+from skysetx_agent import SkySetXAgent
 from movierulz_agent import MovieRulzAgent
 
 # Configure logging
@@ -31,16 +32,19 @@ extraction_results = {}
 downloadhub_agent = None
 moviezwap_agent = None
 movierulz_agent = None
+skysetx_agent = None
 
 def initialize_agents():
-    global downloadhub_agent, moviezwap_agent, movierulz_agent
+    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent
     if downloadhub_agent is None:
         downloadhub_agent = EnhancedDownloadHubAgent()
     if moviezwap_agent is None:
         moviezwap_agent = MoviezWapAgent()
     if movierulz_agent is None:
         movierulz_agent = MovieRulzAgent()
-    return downloadhub_agent, moviezwap_agent, movierulz_agent
+    if skysetx_agent is None:
+        skysetx_agent = SkySetXAgent()
+    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
@@ -488,13 +492,13 @@ def search_movie():
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
         page = data.get('page', 1)
-        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz'])  # Default to all three sources
+        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx'])  # Default to all four sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
         
         # Initialize our agents
-        downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
+        downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
         
         # Get page number from request
         per_page = 10
@@ -544,6 +548,20 @@ def search_movie():
                 logger.info(f"MovieRulz returned {len(movierulz_movies)} movies")
             except Exception as e:
                 logger.error(f"MovieRulz search failed: {str(e)}")
+        
+        # Search SkySetX (Source 4)
+        if 'skysetx' in sources:
+            try:
+                logger.info(f"Searching SkySetX for: {movie_name}")
+                skysetx_movies = skysetx_agent.search_movies(movie_name, limit=per_page)
+                # Add source identifier to each movie
+                for movie in skysetx_movies:
+                    movie['source'] = 'SkySetX'
+                    movie['source_color'] = '#9C27B0'  # Purple
+                all_results.extend(skysetx_movies)
+                logger.info(f"SkySetX returned {len(skysetx_movies)} movies")
+            except Exception as e:
+                logger.error(f"SkySetX search failed: {str(e)}")
         
         # Calculate pagination for combined results
         total_movies = len(all_results)
@@ -614,7 +632,7 @@ def extract_download_links():
                 
                 # Determine which agent to use based on movie source
                 movie_source = selected_movie.get('source', 'DownloadHub')
-                downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
                 
                 if movie_source == 'MoviezWap':
                     agent = moviezwap_agent
@@ -622,6 +640,9 @@ def extract_download_links():
                 elif movie_source == 'MovieRulz':
                     agent = movierulz_agent
                     print(f"DEBUG: Using MovieRulz agent for extraction")
+                elif movie_source == 'SkySetX':
+                    agent = skysetx_agent
+                    print(f"DEBUG: Using SkySetX agent for extraction")
                 else:
                     agent = downloadhub_agent
                     print(f"DEBUG: Using DownloadHub agent for extraction")
@@ -632,6 +653,8 @@ def extract_download_links():
                 # Use appropriate method based on agent type
                 if movie_source == 'MovieRulz':
                     result = agent.extract_download_links(movie_url)
+                elif movie_source == 'SkySetX':
+                    result = agent.extract_links(movie_url)
                 else:
                     result = agent.get_download_links(movie_url)
                 print(f"DEBUG: Extraction completed for {extraction_id}")
@@ -835,7 +858,7 @@ def resolve_download():
             print(f"DEBUG: MoviezWap URL detected (download.php, extlinks_, or getlinks_) - using automation to resolve")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
             
             # Use the MoviezWap agent's resolve_fast_download_server method
             final_url = moviezwap_agent.resolve_fast_download_server(download_url)
@@ -864,7 +887,7 @@ def resolve_download():
             print(f"DEBUG: Protected moviezzwaphd.xyz URL detected - using Selenium to handle")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
             
             # Use Selenium to handle the protected link with proper headers and referrer
             try:

@@ -1,5 +1,10 @@
 {
   "base_url": "https://downloadhub.legal",
+  "skysetx_settings": {
+    "base_url": "https://skysetx.rip",
+    "search_url": "https://skysetx.rip/?s=",
+    "enabled": true
+  },
   "selenium_settings": {
     "use_selenium": true,
     "headless": true,
