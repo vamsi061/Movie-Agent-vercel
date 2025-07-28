@@ -288,12 +288,22 @@
             padding: 15px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
         }
 
         .link-info {
             flex: 1;
+            margin-bottom: 10px;
+        }
+
+        .download-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .link-title {
@@ -574,6 +584,108 @@
 
         .download-btn.unlocked {
             background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+
+        .dropdown-arrow {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-arrow:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(33, 150, 243, 0.3);
+        }
+
+        .dropdown-arrow.expanded {
+            background: linear-gradient(45deg, #FF5722, #D84315);
+        }
+
+        .unlocked-links-container {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            display: none;
+            width: 100%;
+            order: 999;
+        }
+
+        .unlocked-links-container.show {
+            display: flex;
+            flex-direction: column;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+
+        .unlocked-link-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .unlocked-link-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .unlocked-link-title {
+            font-weight: 600;
+            color: #4CAF50;
+            margin-bottom: 5px;
+            display: block;
+            width: 100%;
+        }
+
+        .unlocked-link-meta {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            display: block;
+            width: 100%;
+        }
+
+        .unlocked-download-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-align: center;
+            width: auto;
+            align-self: flex-start;
+        }
+
+        .unlocked-download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(76, 175, 80, 0.3);
         }
 
         .movie-source-tag {
@@ -1347,48 +1459,69 @@
         }
 
         function displayUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
-            // Remove the original locked link
-            originalLinkDiv.remove();
-            
-            // Add all unlocked links
-            const downloadLinksDiv = document.getElementById('downloadLinks');
-            
+            // Update the unlock button to show success
+            const unlockBtn = originalLinkDiv.querySelector('.unlock-btn');
+            if (unlockBtn) {
+                unlockBtn.textContent = 'Unlocked (OK)';
+                unlockBtn.disabled = true;
+                unlockBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
+                unlockBtn.style.color = 'white';
+            }
+
+            // Update download button
+            const downloadBtn = originalLinkDiv.querySelector('.download-btn');
+            if (downloadBtn) {
+                downloadBtn.textContent = 'Unlocked';
+                downloadBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
+                downloadBtn.style.color = 'white';
+            }
+
+            // Add dropdown arrow button
+            const downloadActions = originalLinkDiv.querySelector('.download-actions');
+            const dropdownBtn = document.createElement('button');
+            dropdownBtn.className = 'dropdown-arrow';
+            dropdownBtn.innerHTML = 'v Show Links (' + unlockedLinks.length + ')';
+            dropdownBtn.onclick = () => toggleUnlockedLinks(originalIndex);
+            downloadActions.appendChild(dropdownBtn);
+
+            // Create unlocked links container
+            const unlockedContainer = document.createElement('div');
+            unlockedContainer.className = 'unlocked-links-container';
+            unlockedContainer.id = 'unlocked-container-' + originalIndex;
+
+            // Add each unlocked link
             unlockedLinks.forEach((link, subIndex) => {
-                const linkDiv = document.createElement('div');
-                linkDiv.className = 'download-link unlocked-link';
+                const linkItem = document.createElement('div');
+                linkItem.className = 'unlocked-link-item';
                 
-                linkDiv.innerHTML = 
-                    '<div class="link-info">' +
-                        '<div class="link-title">✅ ' + (link.text || link.service_type + ' Download') + '</div>' +
-                        '<div class="link-meta">' +
-                            'Service: ' + (link.service_type || 'Unknown') + ' | ' +
-                            'Host: ' + (link.host || 'Unknown') + ' | ' +
-                            'Quality: ' + (link.quality || 'Unknown') + ' | ' +
-                            'Size: ' + (link.file_size || 'Unknown') +
-                        '</div>' +
+                linkItem.innerHTML = 
+                    '<div class="unlocked-link-title">[OK] ' + (link.text || link.service_type + ' Download') + '</div>' +
+                    '<div class="unlocked-link-meta">' +
+                        'Service: ' + (link.service_type || 'Unknown') + ' | ' +
+                        'Host: ' + (link.host || 'Unknown') + ' | ' +
+                        'Quality: ' + (link.quality || 'Unknown') + ' | ' +
+                        'Size: ' + (link.file_size || 'Unknown') +
                     '</div>' +
-                    '<div class="download-actions">' +
-                        '<div class="health-indicator green">' +
-                            '<div class="health-tooltip">Unlocked and ready</div>' +
-                        '</div>' +
-                        '<a href="' + link.url + '" class="download-btn unlocked">Download</a>' +
-                    '</div>';
+                    '<a href="' + link.url + '" class="unlocked-download-btn" target="_blank">Download</a>';
                 
-                downloadLinksDiv.appendChild(linkDiv);
+                unlockedContainer.appendChild(linkItem);
             });
-            
-            // Show success message
+
+            // Add container after the original link (below the main heading)
+            originalLinkDiv.appendChild(unlockedContainer);
+
+            // Show success message briefly
             const successMsg = document.createElement('div');
-            successMsg.innerHTML = '🎉 Successfully unlocked! Found ' + unlockedLinks.length + ' download links.';
-            successMsg.style.cssText = 'background: #4CAF50; color: white; padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center;';
-            downloadLinksDiv.insertBefore(successMsg, downloadLinksDiv.firstChild.nextSibling);
+            successMsg.innerHTML = 'Success! Unlocked ' + unlockedLinks.length + ' download links!';
+            successMsg.style.cssText = 'background: #4CAF50; color: white; padding: 8px 12px; border-radius: 5px; margin: 5px 0; text-align: center; font-size: 0.9rem;';
+            originalLinkDiv.insertBefore(successMsg, unlockedContainer);
             
-            // Remove success message after 5 seconds
+            // Remove success message after 3 seconds
             setTimeout(() => {
                 if (successMsg.parentNode) {
                     successMsg.remove();
                 }
-            }, 5000);
+            }, 3000);
             
             // Attach MoviezWap handlers to newly created download buttons
             setTimeout(() => {
@@ -1822,6 +1955,23 @@
             
             // Don't auto-remove - let it stay until next download
             // The notification will be removed when another download starts
+        }
+
+        function toggleUnlockedLinks(index) {
+            const container = document.getElementById('unlocked-container-' + index);
+            const dropdownBtn = document.querySelector('[data-link-index="' + index + '"] .dropdown-arrow');
+            
+            if (container && dropdownBtn) {
+                if (container.classList.contains('show')) {
+                    container.classList.remove('show');
+                    dropdownBtn.innerHTML = 'v Show Links (' + container.children.length + ')';
+                    dropdownBtn.classList.remove('expanded');
+                } else {
+                    container.classList.add('show');
+                    dropdownBtn.innerHTML = '^ Hide Links (' + container.children.length + ')';
+                    dropdownBtn.classList.add('expanded');
+                }
+            }
         }
 
     </script>
