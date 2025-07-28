@@ -1101,9 +1101,6 @@
                 const isStreaming = isStreamingService(link.url, link.text || '');
                 const lockIcon = isShortlink ? 'Lock ' : '';
                 const serviceIcon = isStreaming ? 'Stream ' : 'File ';
-                const unlockButton = isShortlink ? 
-                    '<button class="unlock-btn" onclick="unlockShortlink(' + index + ', \'' + encodeURIComponent(link.url) + '\')">Unlock</button>' : 
-                    '<button class="unlock-btn" onclick="unlockLink(' + index + ')">Unlock</button>';
                 
                 linkDiv.innerHTML = 
                     '<div class="link-info">' +
@@ -1119,18 +1116,25 @@
                         '<div class="health-indicator" id="health-' + index + '" onclick="checkSingleLinkHealth(' + index + ', \'' + encodeURIComponent(link.url) + '\')">' +
                             '<div class="health-tooltip" id="tooltip-' + index + '">Click to check health</div>' +
                         '</div>' +
-                        '<div id="unlock-section-' + index + '" style="display: ' + (isShortlink ? 'inline-block' : 'none') + ';">' +
-                            unlockButton +
+                        '<div id="unlock-section-' + index + '" style="display: none;">' +
+                            '<button class="unlock-btn" onclick="unlockShortlink(' + index + ', \'' + encodeURIComponent(link.url) + '\')">Unlock</button>' +
                         '</div>' +
                         (function() {
                             const isStreaming = isStreamingService(link.url, link.text || '');
                             const buttonClass = isStreaming ? 'stream-btn' : 'download-btn';
-                            const buttonText = isStreaming ? 'Stream' : (isShortlink ? 'Locked Link' : 'Download');
+                            const buttonText = isStreaming ? 'Stream' : (isShortlink ? 'Unlocking...' : 'Download');
                             const target = isStreaming ? ' target="_blank"' : '';
                             const onclick = isStreaming ? '' : ' onclick="handleDownload(\'' + encodeURIComponent(link.url) + '\', this); return false;"';
                             return '<a href="' + link.url + '" class="' + buttonClass + '" id="download-btn-' + index + '"' + target + onclick + '>' + buttonText + '</a>';
                         })() +
                     '</div>';
+                
+                // Auto-unlock if it's a shortlink
+                if (isShortlink) {
+                    setTimeout(() => {
+                        unlockShortlink(index, encodeURIComponent(link.url));
+                    }, 1000); // Wait 1 second then auto-unlock
+                }
                 
                 downloadLinksDiv.appendChild(linkDiv);
             });
@@ -1233,25 +1237,22 @@
             
             // Handle locked links
             if (healthData.is_locked && healthData.status === 'locked') {
-                // Show unlock button
-                if (unlockSection) {
-                    unlockSection.style.display = 'inline-block';
-                }
-                
-                // Store unlock URL for later use
-                if (healthData.unlock_url) {
-                    window.unlockUrls = window.unlockUrls || {};
-                    window.unlockUrls[index] = healthData.unlock_url;
+                // Auto-unlock instead of showing button
+                const linkUrl = window.currentDownloadLinks[index]?.url || '';
+                if (isShortlinkService(linkUrl)) {
+                    setTimeout(() => {
+                        unlockShortlink(index, encodeURIComponent(linkUrl));
+                    }, 500);
                 }
                 
                 // Update download button text
                 if (downloadBtn) {
-                    downloadBtn.textContent = 'Locked';
+                    downloadBtn.textContent = 'Unlocking...';
                     downloadBtn.style.background = 'linear-gradient(45deg, #FFC107, #FF9800)';
                     downloadBtn.style.color = '#333';
                 }
             } else {
-                // Hide unlock button
+                // Keep unlock button hidden
                 if (unlockSection) {
                     unlockSection.style.display = 'none';
                 }
@@ -1459,13 +1460,10 @@
         }
 
         function displayUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
-            // Update the unlock button to show success
-            const unlockBtn = originalLinkDiv.querySelector('.unlock-btn');
-            if (unlockBtn) {
-                unlockBtn.textContent = 'Unlocked (OK)';
-                unlockBtn.disabled = true;
-                unlockBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
-                unlockBtn.style.color = 'white';
+            // Hide the unlock section completely
+            const unlockSection = originalLinkDiv.querySelector('#unlock-section-' + originalIndex);
+            if (unlockSection) {
+                unlockSection.style.display = 'none';
             }
 
             // Update download button
