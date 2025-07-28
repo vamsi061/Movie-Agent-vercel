@@ -655,13 +655,31 @@ def extract_download_links():
                     result = agent.extract_download_links(movie_url)
                 elif movie_source == 'SkySetX':
                     result = agent.extract_links(movie_url)
+                    print(f"DEBUG: SkySetX extraction result type: {type(result)}")
+                    print(f"DEBUG: SkySetX extraction result length: {len(result) if result else 0}")
+                    if result:
+                        print(f"DEBUG: First SkySetX link sample: {result[0]}")
                 else:
                     result = agent.get_download_links(movie_url)
-                print(f"DEBUG: Extraction completed for {extraction_id}")
+                print(f"DEBUG: Extraction completed for {extraction_id} with {len(result) if result else 0} links")
+                
+                # Normalize result format for consistency
+                if movie_source == 'SkySetX' and isinstance(result, list):
+                    # SkySetX returns a list directly, wrap it in the expected format
+                    normalized_result = {
+                        'download_links': result,
+                        'total_links': len(result),
+                        'source': movie_source,
+                        'movie_url': movie_url
+                    }
+                    print(f"DEBUG: Normalized SkySetX result format with {len(result)} links")
+                else:
+                    normalized_result = result
+                
                 extraction_results[extraction_id] = {
                     'status': 'completed',
                     'progress': 100,
-                    'result': result,
+                    'result': normalized_result,
                     'source': movie_source
                 }
             except Exception as e:
