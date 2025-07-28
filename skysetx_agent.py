@@ -421,6 +421,10 @@ class SkySetXAgent:
             # Determine host
             host = self.get_host_name(href)
             
+            # Hide links coming from ShortLinkTo
+            if 'shortlinkto' in host.lower():
+                return None
+            
             # Extract quality and file size from link text
             quality = self.extract_quality(link_text)
             file_size = self.extract_file_size(link_text)
