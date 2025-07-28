@@ -88,6 +88,10 @@ class SkySetXAgent:
                 parsed_url = urlparse(href)
                 host = parsed_url.netloc or 'Unknown'
                 
+                # Skip links from shortlinkto hosts
+                if 'shortlinkto' in host.lower():
+                    continue
+                
                 links.append({
                     'url': href,
                     'quality': quality_info['quality'],
@@ -127,6 +131,10 @@ class SkySetXAgent:
                 from urllib.parse import urlparse
                 parsed_url = urlparse(href)
                 host_name = parsed_url.netloc or 'Unknown'
+                
+                # Skip links from shortlinkto hosts
+                if 'shortlinkto' in host_name.lower():
+                    continue
                 
                 links.append({
                     'url': href,
