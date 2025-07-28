@@ -1129,10 +1129,16 @@
                         })() +
                     '</div>';
                 
-                // Auto-unlock if it's a shortlink
+                // Auto-unlock if it's a shortlink (only once)
                 if (isShortlink) {
+                    // Mark this link as being unlocked to prevent duplicates
+                    linkDiv.setAttribute('data-unlock-status', 'pending');
                     setTimeout(() => {
-                        unlockShortlink(index, encodeURIComponent(link.url));
+                        // Check if already unlocked to prevent duplicates
+                        if (linkDiv.getAttribute('data-unlock-status') === 'pending') {
+                            linkDiv.setAttribute('data-unlock-status', 'unlocking');
+                            unlockShortlink(index, encodeURIComponent(link.url));
+                        }
                     }, 1000); // Wait 1 second then auto-unlock
                 }
                 
@@ -1237,9 +1243,12 @@
             
             // Handle locked links
             if (healthData.is_locked && healthData.status === 'locked') {
-                // Auto-unlock instead of showing button
+                // Auto-unlock instead of showing button (prevent duplicates)
+                const linkDiv = document.querySelector('[data-link-index="' + index + '"]');
                 const linkUrl = window.currentDownloadLinks[index]?.url || '';
-                if (isShortlinkService(linkUrl)) {
+                
+                if (isShortlinkService(linkUrl) && linkDiv && linkDiv.getAttribute('data-unlock-status') !== 'unlocking' && linkDiv.getAttribute('data-unlock-status') !== 'completed') {
+                    linkDiv.setAttribute('data-unlock-status', 'unlocking');
                     setTimeout(() => {
                         unlockShortlink(index, encodeURIComponent(linkUrl));
                     }, 500);
@@ -1460,6 +1469,9 @@
         }
 
         function displayUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
+            // Mark as unlocked to prevent duplicate unlocks
+            originalLinkDiv.setAttribute('data-unlock-status', 'completed');
+            
             // Hide the unlock section completely
             const unlockSection = originalLinkDiv.querySelector('#unlock-section-' + originalIndex);
             if (unlockSection) {
@@ -1472,6 +1484,12 @@
                 downloadBtn.textContent = 'Unlocked';
                 downloadBtn.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
                 downloadBtn.style.color = 'white';
+            }
+            
+            // Check if dropdown already exists to prevent duplicates
+            const existingDropdown = originalLinkDiv.querySelector('.dropdown-arrow');
+            if (existingDropdown) {
+                return; // Don't create duplicate dropdown
             }
 
             // Add dropdown arrow button
