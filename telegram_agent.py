@@ -1,433 +1,220 @@
 #!/usr/bin/env python3
 """
-Telegram Agent - Movie search and link extraction from Telegram bots and channels
-Integrates with popular movie bots and channels for direct download links
+Simple Telegram Agent - Provides direct Telegram links without authentication
+No OTP required - just direct links that open in user's Telegram app
 """
 
-import asyncio
 import re
-import json
-import time
 import logging
 from typing import Dict, List, Any, Optional
-from telethon import TelegramClient, events
-from telethon.tl.types import Channel, Chat, User
-from telethon.errors import SessionPasswordNeededError, FloodWaitError
-import requests
-from datetime import datetime, timedelta
 
 class TelegramMovieAgent:
     def __init__(self, config=None):
         """
-        Initialize Telegram Movie Agent
-        
-        Args:
-            config: Dictionary containing Telegram API credentials
-                   {'api_id': int, 'api_hash': str, 'phone': str}
+        Initialize Simple Telegram Movie Agent (no authentication needed)
         """
         self.config = config or {}
-        self.api_id = self.config.get('api_id')
-        self.api_hash = self.config.get('api_hash') 
-        self.phone = self.config.get('phone')
         
-        # Session file for persistent login
-        self.session_name = 'movie_agent_session'
-        self.client = None
-        self.is_connected = False
-        
-        # Popular movie bots and channels
+        # Popular movie bots and channels (no @ symbol for URL creation)
         self.movie_bots = [
-            '@MoviesFlixBot',
-            '@HDMoviesBot', 
-            '@BollyFlixBot',
-            '@MovieRequestBot',
-            '@NewMoviesBot',
-            '@LatestMoviesBot'
+            'MoviesFlixBot',
+            'HDMoviesBot', 
+            'BollyFlixBot',
+            'MovieRequestBot',
+            'NewMoviesBot',
+            'LatestMoviesBot',
+            'MovieDownloadBot',
+            'FilmSearchBot'
         ]
         
         self.movie_channels = [
-            '@MoviesAdda4u',
-            '@HDMoviesHub',
-            '@BollywoodMovies',
-            '@HollywoodMovies4u',
-            '@LatestMovies2024',
-            '@MovieDownloadHub'
-        ]
-        
-        # Quality patterns for filtering
-        self.quality_patterns = [
-            r'4K|2160p',
-            r'1080p|FHD',
-            r'720p|HD',
-            r'480p|SD',
-            r'CAM|HDCAM',
-            r'DVDRip|BRRip|BluRay|WEBRip'
-        ]
-        
-        # File size patterns
-        self.size_patterns = [
-            r'(\d+(?:\.\d+)?)\s*(GB|MB|KB)',
-            r'Size[:\s]*(\d+(?:\.\d+)?)\s*(GB|MB|KB)',
-            r'(\d+(?:\.\d+)?)\s*GB',
-            r'(\d+(?:\.\d+)?)\s*MB'
+            'MoviesAdda4u',
+            'HDMoviesHub',
+            'BollywoodMovies',
+            'HollywoodMovies4u',
+            'LatestMovies2024',
+            'MovieDownloadHub',
+            'CinemaWorld',
+            'FilmCollection'
         ]
         
         self.logger = logging.getLogger(__name__)
+        self.is_connected = True  # Always connected for direct links
         
     async def initialize(self):
-        """Initialize Telegram client and connect"""
-        try:
-            if not self.api_id or not self.api_hash:
-                self.logger.error("Telegram API credentials not provided")
-                return False
-                
-            self.client = TelegramClient(self.session_name, self.api_id, self.api_hash)
-            await self.client.start(phone=self.phone)
-            self.is_connected = True
-            self.logger.info("Telegram client connected successfully")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Failed to initialize Telegram client: {str(e)}")
-            return False
+        """Initialize agent (no authentication needed)"""
+        self.is_connected = True
+        self.logger.info("Telegram agent initialized for direct links")
+        return True
     
     async def search_movies(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Search for movies across Telegram bots and channels
+        Create direct Telegram links for movie search (no authentication needed)
         
         Args:
             query: Movie name to search for
             limit: Maximum number of results to return
             
         Returns:
-            List of movie dictionaries with download information
+            List of movie dictionaries with direct Telegram links
         """
-        if not self.is_connected:
-            await self.initialize()
-            
-        if not self.is_connected:
-            return []
-            
         movies = []
         
         try:
-            # Search in movie bots
-            bot_movies = await self._search_movie_bots(query, limit // 2)
+            # Create direct bot search links
+            bot_movies = self._create_bot_search_links(query, limit // 2)
             movies.extend(bot_movies)
             
-            # Search in movie channels  
-            channel_movies = await self._search_movie_channels(query, limit // 2)
+            # Create direct channel links  
+            channel_movies = self._create_channel_links(query, limit // 2)
             movies.extend(channel_movies)
             
-            # Remove duplicates and limit results
-            unique_movies = self._remove_duplicates(movies)
-            return unique_movies[:limit]
+            # Limit results
+            return movies[:limit]
             
         except Exception as e:
-            self.logger.error(f"Error searching Telegram movies: {str(e)}")
+            self.logger.error(f"Error creating Telegram links: {str(e)}")
             return []
     
-    async def _search_movie_bots(self, query: str, limit: int) -> List[Dict[str, Any]]:
-        """Search for movies using Telegram bots"""
+    def _create_bot_search_links(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Create direct Telegram bot search links"""
         movies = []
         
-        for bot_username in self.movie_bots:
+        for i, bot_name in enumerate(self.movie_bots[:limit]):
             try:
-                # Get bot entity
-                bot = await self.client.get_entity(bot_username)
+                # Create direct bot link
+                bot_link = f"https://t.me/{bot_name}"
                 
-                # Send movie search request
-                await self.client.send_message(bot, f"/search {query}")
+                # Create search-specific link if bot supports it
+                search_link = f"https://t.me/{bot_name}?start=search"
                 
-                # Wait for response
-                await asyncio.sleep(2)
+                # Determine likely quality and content based on bot name
+                quality = self._guess_quality_from_bot_name(bot_name)
+                language = self._guess_language_from_bot_name(bot_name)
                 
-                # Get recent messages from bot
-                messages = await self.client.get_messages(bot, limit=20)
+                movie_data = {
+                    'title': f"{query} - via {bot_name}",
+                    'quality': quality,
+                    'file_size': 'Multiple Sizes Available',
+                    'year': '2024',
+                    'language': language,
+                    'source': 'Telegram Bot',
+                    'bot_username': f"@{bot_name}",
+                    'url': bot_link,
+                    'download_links': [{
+                        'url': bot_link,
+                        'type': 'telegram_bot',
+                        'source': 'Telegram',
+                        'text': f'Open {bot_name} and search for "{query}"',
+                        'host': 'Telegram',
+                        'quality': quality,
+                        'service_type': 'Telegram Bot'
+                    }],
+                    'description': f'Click to open {bot_name} in Telegram and search for "{query}"'
+                }
                 
-                for message in messages:
-                    if message.text and query.lower() in message.text.lower():
-                        movie_data = self._parse_bot_message(message.text, bot_username)
-                        if movie_data:
-                            movies.append(movie_data)
-                            
-                if len(movies) >= limit:
-                    break
-                    
+                movies.append(movie_data)
+                
             except Exception as e:
-                self.logger.warning(f"Error searching bot {bot_username}: {str(e)}")
+                self.logger.warning(f"Error creating bot link for {bot_name}: {str(e)}")
                 continue
                 
         return movies
     
-    async def _search_movie_channels(self, query: str, limit: int) -> List[Dict[str, Any]]:
-        """Search for movies in Telegram channels"""
+    def _create_channel_links(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        """Create direct Telegram channel links"""
         movies = []
         
-        for channel_username in self.movie_channels:
+        for i, channel_name in enumerate(self.movie_channels[:limit]):
             try:
-                # Get channel entity
-                channel = await self.client.get_entity(channel_username)
+                # Create direct channel link
+                channel_link = f"https://t.me/{channel_name}"
                 
-                # Search recent messages in channel
-                messages = await self.client.get_messages(channel, limit=100)
+                # Determine likely content based on channel name
+                quality = self._guess_quality_from_channel_name(channel_name)
+                language = self._guess_language_from_channel_name(channel_name)
                 
-                for message in messages:
-                    if message.text and query.lower() in message.text.lower():
-                        movie_data = self._parse_channel_message(message.text, channel_username, message.id)
-                        if movie_data:
-                            movies.append(movie_data)
-                            
-                if len(movies) >= limit:
-                    break
-                    
+                movie_data = {
+                    'title': f"{query} - from {channel_name}",
+                    'quality': quality,
+                    'file_size': 'Various Sizes',
+                    'year': '2024',
+                    'language': language,
+                    'source': 'Telegram Channel',
+                    'channel_username': f"@{channel_name}",
+                    'url': channel_link,
+                    'message_url': channel_link,
+                    'download_links': [{
+                        'url': channel_link,
+                        'type': 'telegram_channel',
+                        'source': 'Telegram',
+                        'text': f'Browse {channel_name} for "{query}"',
+                        'host': 'Telegram',
+                        'quality': quality,
+                        'service_type': 'Telegram Channel'
+                    }],
+                    'description': f'Click to open {channel_name} in Telegram and browse for "{query}"'
+                }
+                
+                movies.append(movie_data)
+                
             except Exception as e:
-                self.logger.warning(f"Error searching channel {channel_username}: {str(e)}")
+                self.logger.warning(f"Error creating channel link for {channel_name}: {str(e)}")
                 continue
                 
         return movies
     
-    def _parse_bot_message(self, text: str, bot_username: str) -> Optional[Dict[str, Any]]:
-        """Parse movie information from bot message"""
-        try:
-            # Extract movie title
-            title_patterns = [
-                r'🎬\s*([^\n]+)',
-                r'Movie[:\s]*([^\n]+)',
-                r'Title[:\s]*([^\n]+)',
-                r'Name[:\s]*([^\n]+)'
-            ]
-            
-            title = "Unknown"
-            for pattern in title_patterns:
-                match = re.search(pattern, text, re.IGNORECASE)
-                if match:
-                    title = match.group(1).strip()
-                    break
-            
-            # Extract quality
-            quality = self._extract_quality(text)
-            
-            # Extract file size
-            file_size = self._extract_file_size(text)
-            
-            # Extract year
-            year = self._extract_year(text)
-            
-            # Extract language
-            language = self._extract_language(text)
-            
-            # Look for download links
-            download_links = self._extract_download_links(text)
-            
-            return {
-                'title': title,
-                'quality': quality,
-                'file_size': file_size,
-                'year': year,
-                'language': language,
-                'source': 'Telegram Bot',
-                'bot_username': bot_username,
-                'download_links': download_links,
-                'raw_text': text[:200] + '...' if len(text) > 200 else text
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error parsing bot message: {str(e)}")
-            return None
+    def _guess_quality_from_bot_name(self, bot_name: str) -> str:
+        """Guess likely quality based on bot name"""
+        bot_lower = bot_name.lower()
+        if 'hd' in bot_lower:
+            return '1080p/720p'
+        elif '4k' in bot_lower:
+            return '4K/1080p'
+        elif 'quality' in bot_lower:
+            return 'Multiple Qualities'
+        else:
+            return '720p/480p'
     
-    def _parse_channel_message(self, text: str, channel_username: str, message_id: int) -> Optional[Dict[str, Any]]:
-        """Parse movie information from channel message"""
-        try:
-            # Extract movie title (usually in first line or after emoji)
-            lines = text.split('\n')
-            title = "Unknown"
-            
-            for line in lines[:3]:  # Check first 3 lines
-                # Remove common prefixes and emojis
-                clean_line = re.sub(r'^[🎬🎭🎪🎨🎯🎲🎰🎳🎮🎯]+\s*', '', line.strip())
-                clean_line = re.sub(r'^(Movie|Film|Title)[:\s]*', '', clean_line, flags=re.IGNORECASE)
-                
-                if clean_line and len(clean_line) > 3:
-                    title = clean_line
-                    break
-            
-            # Extract other information
-            quality = self._extract_quality(text)
-            file_size = self._extract_file_size(text)
-            year = self._extract_year(text)
-            language = self._extract_language(text)
-            download_links = self._extract_download_links(text)
-            
-            # Create Telegram message URL
-            message_url = f"https://t.me/{channel_username.replace('@', '')}/{message_id}"
-            
-            return {
-                'title': title,
-                'quality': quality,
-                'file_size': file_size,
-                'year': year,
-                'language': language,
-                'source': 'Telegram Channel',
-                'channel_username': channel_username,
-                'message_url': message_url,
-                'download_links': download_links,
-                'raw_text': text[:200] + '...' if len(text) > 200 else text
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error parsing channel message: {str(e)}")
-            return None
+    def _guess_language_from_bot_name(self, bot_name: str) -> str:
+        """Guess likely language based on bot name"""
+        bot_lower = bot_name.lower()
+        if 'bolly' in bot_lower or 'hindi' in bot_lower:
+            return 'Hindi'
+        elif 'hollywood' in bot_lower:
+            return 'English'
+        else:
+            return 'Multi-Language'
     
-    def _extract_quality(self, text: str) -> str:
-        """Extract video quality from text"""
-        for pattern in self.quality_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group().upper()
-        return "Unknown"
+    def _guess_quality_from_channel_name(self, channel_name: str) -> str:
+        """Guess likely quality based on channel name"""
+        channel_lower = channel_name.lower()
+        if 'hd' in channel_lower:
+            return '1080p/720p'
+        elif '4k' in channel_lower:
+            return '4K/1080p'
+        elif '2024' in channel_lower:
+            return 'Latest Quality'
+        else:
+            return 'Multiple Qualities'
     
-    def _extract_file_size(self, text: str) -> str:
-        """Extract file size from text"""
-        for pattern in self.size_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                if len(match.groups()) >= 2:
-                    return f"{match.group(1)}{match.group(2).upper()}"
-                else:
-                    return match.group().upper()
-        return "Unknown"
-    
-    def _extract_year(self, text: str) -> str:
-        """Extract release year from text"""
-        year_pattern = r'(19|20)\d{2}'
-        match = re.search(year_pattern, text)
-        return match.group() if match else "Unknown"
-    
-    def _extract_language(self, text: str) -> str:
-        """Extract language from text"""
-        language_patterns = {
-            'Hindi': r'\b(Hindi|हिंदी|Bollywood)\b',
-            'English': r'\b(English|Hollywood|Eng)\b',
-            'Tamil': r'\b(Tamil|தமிழ்|Kollywood)\b',
-            'Telugu': r'\b(Telugu|తెలుగు|Tollywood)\b',
-            'Malayalam': r'\b(Malayalam|മലയാളം)\b',
-            'Kannada': r'\b(Kannada|ಕನ್ನಡ)\b',
-            'Bengali': r'\b(Bengali|বাংলা)\b',
-            'Punjabi': r'\b(Punjabi|ਪੰਜਾਬੀ)\b'
-        }
-        
-        for language, pattern in language_patterns.items():
-            if re.search(pattern, text, re.IGNORECASE):
-                return language
-        return "Unknown"
-    
-    def _extract_download_links(self, text: str) -> List[Dict[str, Any]]:
-        """Extract download links from text"""
-        links = []
-        
-        # Common download link patterns
-        link_patterns = [
-            r'https?://[^\s]+',
-            r't\.me/[^\s]+',
-            r'@[a-zA-Z0-9_]+',  # Bot usernames
-        ]
-        
-        for pattern in link_patterns:
-            matches = re.findall(pattern, text)
-            for match in matches:
-                # Skip certain domains
-                if any(skip in match.lower() for skip in ['telegram.org', 'telegram.me']):
-                    continue
-                    
-                links.append({
-                    'url': match,
-                    'type': 'direct' if match.startswith('http') else 'telegram',
-                    'source': 'Telegram'
-                })
-        
-        return links
-    
-    def _remove_duplicates(self, movies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Remove duplicate movies based on title similarity"""
-        unique_movies = []
-        seen_titles = set()
-        
-        for movie in movies:
-            title_lower = movie['title'].lower()
-            # Simple duplicate detection
-            if title_lower not in seen_titles:
-                seen_titles.add(title_lower)
-                unique_movies.append(movie)
-        
-        return unique_movies
-    
-    async def get_movie_details(self, movie_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Get detailed information about a specific movie"""
-        try:
-            if movie_data.get('message_url'):
-                # For channel messages, we can get more details
-                return await self._get_channel_movie_details(movie_data)
-            elif movie_data.get('bot_username'):
-                # For bot results, request more details
-                return await self._get_bot_movie_details(movie_data)
-            else:
-                return movie_data
-                
-        except Exception as e:
-            self.logger.error(f"Error getting movie details: {str(e)}")
-            return movie_data
-    
-    async def _get_channel_movie_details(self, movie_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Get detailed information from channel message"""
-        # Implementation for getting more details from channel
-        return movie_data
-    
-    async def _get_bot_movie_details(self, movie_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Get detailed information from bot"""
-        # Implementation for getting more details from bot
-        return movie_data
+    def _guess_language_from_channel_name(self, channel_name: str) -> str:
+        """Guess likely language based on channel name"""
+        channel_lower = channel_name.lower()
+        if 'bollywood' in channel_lower or 'hindi' in channel_lower:
+            return 'Hindi'
+        elif 'hollywood' in channel_lower:
+            return 'English'
+        else:
+            return 'Multi-Language'
     
     async def disconnect(self):
-        """Disconnect from Telegram"""
-        if self.client and self.is_connected:
-            await self.client.disconnect()
-            self.is_connected = False
-            self.logger.info("Telegram client disconnected")
+        """Disconnect (not needed for direct links)"""
+        self.is_connected = False
+        self.logger.info("Telegram agent disconnected")
 
-# Configuration helper
-def create_telegram_config():
-    """
-    Helper function to create Telegram configuration
-    Users need to get these from https://my.telegram.org/apps
-    """
-    return {
-        'api_id': 'YOUR_API_ID',  # Get from https://my.telegram.org/apps
-        'api_hash': 'YOUR_API_HASH',  # Get from https://my.telegram.org/apps  
-        'phone': 'YOUR_PHONE_NUMBER'  # Your phone number with country code
-    }
-
+# For backward compatibility
 if __name__ == "__main__":
-    # Example usage
-    async def test_telegram_agent():
-        config = create_telegram_config()
-        agent = TelegramMovieAgent(config)
-        
-        try:
-            await agent.initialize()
-            movies = await agent.search_movies("Avengers", limit=5)
-            
-            print(f"Found {len(movies)} movies:")
-            for movie in movies:
-                print(f"- {movie['title']} ({movie['quality']}) - {movie['source']}")
-                
-        finally:
-            await agent.disconnect()
-    
-    # Run the test
-    # asyncio.run(test_telegram_agent())
-    print("Telegram Movie Agent created successfully!")
-    print("To use this agent, you need to:")
-    print("1. Get API credentials from https://my.telegram.org/apps")
-    print("2. Update the config with your api_id, api_hash, and phone number")
-    print("3. Install required dependencies: pip install telethon")
+    print("Simple Telegram Movie Agent - No Authentication Required!")
+    print("Provides direct Telegram links that open in user's Telegram app")
+    print("No OTP or verification codes needed!")
