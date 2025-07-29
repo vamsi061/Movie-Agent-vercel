@@ -18,6 +18,7 @@ from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
 from moviezwap_agent import MoviezWapAgent
 from skysetx_agent import SkySetXAgent
 from movierulz_agent import MovieRulzAgent
+from telegram_agent import TelegramMovieAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -33,9 +34,10 @@ downloadhub_agent = None
 moviezwap_agent = None
 movierulz_agent = None
 skysetx_agent = None
+telegram_agent = None
 
 def initialize_agents():
-    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent
+    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
     if downloadhub_agent is None:
         downloadhub_agent = EnhancedDownloadHubAgent()
     if moviezwap_agent is None:
@@ -44,7 +46,20 @@ def initialize_agents():
         movierulz_agent = MovieRulzAgent()
     if skysetx_agent is None:
         skysetx_agent = SkySetXAgent()
-    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent
+    if telegram_agent is None:
+        # Load Telegram config
+        try:
+            with open('telegram_config.json', 'r') as f:
+                config = json.load(f)
+                telegram_config = config.get('telegram_settings', {})
+                if telegram_config.get('enabled', False):
+                    telegram_agent = TelegramMovieAgent(telegram_config)
+                else:
+                    telegram_agent = None
+        except Exception as e:
+            logger.warning(f"Failed to load Telegram config: {str(e)}")
+            telegram_agent = None
+    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
@@ -492,7 +507,7 @@ def search_movie():
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
         page = data.get('page', 1)
-        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx'])  # Default to all four sources
+        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram'])  # Default to all five sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
@@ -562,6 +577,36 @@ def search_movie():
                 logger.info(f"SkySetX returned {len(skysetx_movies)} movies")
             except Exception as e:
                 logger.error(f"SkySetX search failed: {str(e)}")
+
+        # Search Telegram (Source 5)
+        if 'telegram' in sources and telegram_agent:
+            try:
+                logger.info(f"Searching Telegram for: {movie_name}")
+                import asyncio
+                
+                # Run async Telegram search
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    telegram_movies = loop.run_until_complete(telegram_agent.search_movies(movie_name, limit=per_page))
+                    
+                    for movie in telegram_movies:
+                        movie['source'] = 'Telegram'
+                        # Add Telegram-specific URL if available
+                        if movie.get('message_url'):
+                            movie['url'] = movie['message_url']
+                        elif movie.get('bot_username'):
+                            movie['url'] = f"https://t.me/{movie['bot_username'].replace('@', '')}"
+                    
+                    all_results.extend(telegram_movies)
+                    logger.info(f"Telegram returned {len(telegram_movies)} movies")
+                finally:
+                    loop.close()
+                    
+            except Exception as e:
+                logger.error(f"Telegram search failed: {str(e)}")
+        elif 'telegram' in sources and not telegram_agent:
+            logger.warning("Telegram search requested but agent not configured")
         
         # Calculate pagination for combined results
         total_movies = len(all_results)
@@ -632,7 +677,7 @@ def extract_download_links():
                 
                 # Determine which agent to use based on movie source
                 movie_source = selected_movie.get('source', 'DownloadHub')
-                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
                 
                 if movie_source == 'MoviezWap':
                     agent = moviezwap_agent

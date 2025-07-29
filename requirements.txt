@@ -4,4 +4,4 @@ selenium>=4.15.0
 lxml>=4.9.0
 fake-useragent>=1.4.0
 flask>=2.3.0
-python-dotenv>=1.0.0
+python-dotenv>=1.0.0telethon>=1.24.0
