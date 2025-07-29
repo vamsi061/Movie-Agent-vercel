@@ -864,6 +864,50 @@ def unlock_shortlink():
         print(f"DEBUG: Unlock failed: {str(e)}")
         return jsonify({'error': f'Unlock failed: {str(e)}'}), 500
 
+@app.route('/check_links_health', methods=['POST'])
+def check_links_health():
+    """Check health status of multiple download links and prioritize Gofile"""
+    try:
+        data = request.get_json()
+        links = data.get('links', [])
+        
+        if not links:
+            return jsonify({'error': 'No links provided'}), 400
+        
+        print(f"DEBUG: Checking health of {len(links)} links")
+        
+        # Initialize SkySetX agent for health checking
+        skysetx_agent = SkySetXAgent()
+        
+        # First, filter and prioritize Gofile links
+        filter_result = skysetx_agent.filter_and_prioritize_gofile_links(links)
+        filtered_links = filter_result['filtered_links']
+        has_gofile = filter_result['has_gofile']
+        hidden_count = filter_result['hidden_count']
+        hidden_links = filter_result.get('hidden_links', [])
+        
+        # Check health of filtered links
+        enhanced_links = skysetx_agent.check_multiple_links_health(filtered_links)
+        
+        print(f"DEBUG: Health check complete. Priority links: {sum(1 for link in enhanced_links if link.get('is_priority'))}")
+        print(f"DEBUG: Working links: {sum(1 for link in enhanced_links if link.get('is_working'))}")
+        print(f"DEBUG: Gofile prioritization: {has_gofile}, Hidden links: {hidden_count}")
+        
+        return jsonify({
+            'status': 'success',
+            'enhanced_links': enhanced_links,
+            'total_links': len(enhanced_links),
+            'priority_count': sum(1 for link in enhanced_links if link.get('is_priority')),
+            'working_count': sum(1 for link in enhanced_links if link.get('is_working')),
+            'has_gofile_priority': has_gofile,
+            'hidden_links_count': hidden_count,
+            'hidden_links': hidden_links if not has_gofile else []
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Health check failed: {str(e)}")
+        return jsonify({'error': f'Health check failed: {str(e)}'}), 500
+
 @app.route('/resolve_download', methods=['POST'])
 def resolve_download():
     """Automatically resolve MoviezWap download.php URLs to final download links"""

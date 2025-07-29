@@ -640,6 +640,44 @@ class SkySetXAgent:
         enhanced_links.sort(key=sort_key)
         return enhanced_links
 
+    def filter_and_prioritize_gofile_links(self, links: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Filter links to show only Gofile if available, otherwise show all"""
+        if not links:
+            return {'filtered_links': [], 'has_gofile': False, 'hidden_count': 0}
+        
+        # Check for Gofile links
+        gofile_links = []
+        other_links = []
+        
+        for link in links:
+            host = link.get('host', '')
+            url = link.get('url', link.get('original_url', ''))
+            
+            # Check if it's a Gofile link
+            if 'gofile' in host.lower() or 'gofile.io' in url.lower():
+                link['is_priority'] = True
+                gofile_links.append(link)
+            else:
+                other_links.append(link)
+        
+        # If Gofile links exist, prioritize them and hide others
+        if gofile_links:
+            self.logger.info(f"SkySetX: Found {len(gofile_links)} Gofile links, hiding {len(other_links)} other links")
+            return {
+                'filtered_links': gofile_links,
+                'has_gofile': True,
+                'hidden_count': len(other_links),
+                'hidden_links': other_links
+            }
+        else:
+            # No Gofile links, return all links
+            return {
+                'filtered_links': links,
+                'has_gofile': False,
+                'hidden_count': 0,
+                'hidden_links': []
+            }
+
 if __name__ == "__main__":
     agent = SkySetXAgent()
     print("SkySetX Agent initialized successfully!")
