@@ -513,7 +513,7 @@ def search_movie():
             return jsonify({'error': 'Movie name is required'}), 400
         
         # Initialize our agents
-        downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
+        downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
         
         # Get page number from request
         per_page = 10
@@ -970,7 +970,7 @@ def resolve_download():
             print(f"DEBUG: MoviezWap URL detected (download.php, extlinks_, or getlinks_) - using automation to resolve")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
             
             # Use the MoviezWap agent's resolve_fast_download_server method
             final_url = moviezwap_agent.resolve_fast_download_server(download_url)
@@ -999,7 +999,7 @@ def resolve_download():
             print(f"DEBUG: Protected moviezzwaphd.xyz URL detected - using Selenium to handle")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
             
             # Use Selenium to handle the protected link with proper headers and referrer
             try:
