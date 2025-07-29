@@ -110,23 +110,19 @@ class MovieRulzAgent:
         try:
             logger.info("Testing known working MovieRulz domains first...")
             
-            # First, try known working domains
-            for domain in self.known_working_domains:
+            # Test only first 2 known domains with quick timeout (like DownloadHub)
+            quick_test_domains = self.known_working_domains[:2]
+            for domain in quick_test_domains:
                 logger.info(f"Testing known domain: {domain}")
                 if self._test_url_accessibility(domain):
                     logger.info(f"Found working MovieRulz domain: {domain}")
                     return domain
             
             
-            logger.info("Known domains failed, searching Google for current working MovieRulz domain...")
-            
-            # Google search query for MovieRulz
-            search_queries = [
-                "5movierulz official site 2024",
-                "movierulz latest working domain",
-                "movierulz new link 2025",
-                "4movierulz working site"
-            ]
+            # Skip Google search and extensive domain testing - too slow
+            logger.warning("Quick domain test failed - MovieRulz appears to be inaccessible")
+            logger.info("Skipping MovieRulz search to avoid delays (similar to DownloadHub behavior)")
+            return None
             
             for query in search_queries:
                 try:
@@ -187,7 +183,7 @@ class MovieRulzAgent:
         try:
             logger.info(f"Testing URL accessibility: {url}")
             # Test the main page first
-            response = self.session.get(url, timeout=15)
+            response = self.session.get(url, timeout=5)
             if response.status_code != 200:
                 logger.info(f"URL {url} - Status: {response.status_code}")
                 return False
