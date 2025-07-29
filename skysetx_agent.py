@@ -480,7 +480,8 @@ class SkySetXAgent:
                 'uptobhai.blog': 'UpToBhai',
                 'uptobhai.org': 'UpToBhai',
                 'shortlinkto.onl': 'ShortLinkTo',
-                'shortlinkto.biz': 'ShortLinkTo'
+                'shortlinkto.biz': 'ShortLinkTo',
+                'gofile.io': 'Gofile'
             }
             
             for domain_key, host_name in host_mapping.items():
@@ -555,6 +556,89 @@ class SkySetXAgent:
             
         except:
             return url
+
+    def check_link_health(self, url: str) -> Dict[str, Any]:
+        """Check if a download link is working and accessible"""
+        try:
+            # Make a HEAD request to check if the link is accessible
+            response = self.session.head(url, timeout=10, allow_redirects=True)
+            
+            status_code = response.status_code
+            is_working = status_code in [200, 206, 302, 301]  # Include redirect codes
+            
+            # Get content length if available
+            content_length = response.headers.get('content-length')
+            file_size = None
+            if content_length:
+                try:
+                    size_bytes = int(content_length)
+                    if size_bytes > 1024 * 1024 * 1024:  # GB
+                        file_size = f"{size_bytes / (1024**3):.1f}GB"
+                    elif size_bytes > 1024 * 1024:  # MB
+                        file_size = f"{size_bytes / (1024**2):.1f}MB"
+                    else:  # KB
+                        file_size = f"{size_bytes / 1024:.1f}KB"
+                except:
+                    pass
+            
+            # Determine priority based on host
+            host = self.get_host_name(url)
+            is_priority = host.lower() == 'gofile'
+            
+            return {
+                'is_working': is_working,
+                'status_code': status_code,
+                'file_size': file_size,
+                'is_priority': is_priority,
+                'host': host,
+                'health_status': 'working' if is_working else 'broken',
+                'response_time': None  # Could add timing if needed
+            }
+            
+        except Exception as e:
+            self.logger.warning(f"Health check failed for {url}: {str(e)}")
+            return {
+                'is_working': False,
+                'status_code': None,
+                'file_size': None,
+                'is_priority': False,
+                'host': self.get_host_name(url),
+                'health_status': 'unknown',
+                'error': str(e)
+            }
+
+    def check_multiple_links_health(self, links: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Check health of multiple links and sort by priority and health"""
+        enhanced_links = []
+        
+        for link in links:
+            url = link.get('url', link.get('original_url', ''))
+            if url:
+                health_info = self.check_link_health(url)
+                
+                # Merge health info into link data
+                enhanced_link = {**link, **health_info}
+                enhanced_links.append(enhanced_link)
+            else:
+                enhanced_links.append(link)
+        
+        # Sort links: Priority (Gofile) first, then working links, then broken
+        def sort_key(link):
+            is_priority = link.get('is_priority', False)
+            is_working = link.get('is_working', False)
+            
+            # Priority order: (priority, working) -> (0,0) is best
+            if is_priority and is_working:
+                return (0, 0)  # Gofile working - highest priority
+            elif is_priority and not is_working:
+                return (0, 1)  # Gofile broken - still high priority
+            elif not is_priority and is_working:
+                return (1, 0)  # Other working links
+            else:
+                return (1, 1)  # Other broken links
+        
+        enhanced_links.sort(key=sort_key)
+        return enhanced_links
 
 if __name__ == "__main__":
     agent = SkySetXAgent()
