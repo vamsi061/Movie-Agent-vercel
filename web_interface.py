@@ -501,7 +501,6 @@ def search_movie():
         language_filter = data.get('language_filter', 'all')
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
-        page = data.get('page', 1)
         sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram'])  # Default to all five sources
         
         if not movie_name:
@@ -510,15 +509,14 @@ def search_movie():
         # Initialize our agents
         downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
         
-        # Get page number from request
-        per_page = 10
+        # Fetch all results without pagination
         all_results = []
         
         # Search DownloadHub (Source 1)
         if 'downloadhub' in sources:
             try:
                 logger.info(f"Searching DownloadHub for: {movie_name}")
-                downloadhub_result = downloadhub_agent.search_movies(movie_name, page=page, per_page=per_page)
+                downloadhub_result = downloadhub_agent.search_movies(movie_name)
                 downloadhub_movies = downloadhub_result['movies']
                 # Add source identifier to each movie
                 for movie in downloadhub_movies:
@@ -533,7 +531,7 @@ def search_movie():
         if 'moviezwap' in sources:
             try:
                 logger.info(f"Searching MoviezWap for: {movie_name}")
-                moviezwap_result = moviezwap_agent.search_movies(movie_name, page=page, per_page=per_page)
+                moviezwap_result = moviezwap_agent.search_movies(movie_name)
                 moviezwap_movies = moviezwap_result['movies']
                 # Add source identifier to each movie
                 for movie in moviezwap_movies:
@@ -548,7 +546,7 @@ def search_movie():
         if 'movierulz' in sources:
             try:
                 logger.info(f"Searching MovieRulz for: {movie_name}")
-                movierulz_result = movierulz_agent.search_movies(movie_name, page=page, per_page=per_page)
+                movierulz_result = movierulz_agent.search_movies(movie_name)
                 movierulz_movies = movierulz_result['movies']
                 # Add source identifier to each movie
                 for movie in movierulz_movies:
@@ -563,7 +561,7 @@ def search_movie():
         if 'skysetx' in sources:
             try:
                 logger.info(f"Searching SkySetX for: {movie_name}")
-                skysetx_movies = skysetx_agent.search_movies(movie_name, limit=per_page)
+                skysetx_movies = skysetx_agent.search_movies(movie_name)
                 # Add source identifier to each movie
                 for movie in skysetx_movies:
                     movie['source'] = 'SkySetX'
@@ -583,7 +581,7 @@ def search_movie():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    telegram_movies = loop.run_until_complete(telegram_agent.search_movies(movie_name, limit=per_page))
+                    telegram_movies = loop.run_until_complete(telegram_agent.search_movies(movie_name))
                     
                     for movie in telegram_movies:
                         movie['source'] = 'Telegram'
@@ -603,22 +601,8 @@ def search_movie():
         elif 'telegram' in sources and not telegram_agent:
             logger.warning("Telegram search requested but agent not configured")
         
-        # Calculate pagination for combined results
+        # Return all results without pagination
         total_movies = len(all_results)
-        start_index = (page - 1) * per_page
-        end_index = start_index + per_page
-        movies_page = all_results[start_index:end_index]
-        
-        total_pages = (total_movies + per_page - 1) // per_page
-        
-        pagination = {
-            'current_page': page,
-            'per_page': per_page,
-            'total_movies': total_movies,
-            'total_pages': total_pages,
-            'has_next': page < total_pages,
-            'has_prev': page > 1
-        }
         
         # Store results for later use
         search_id = f"search_{int(time.time())}"
@@ -629,9 +613,8 @@ def search_movie():
         return jsonify({
             'success': True,
             'search_id': search_id,
-            'results': movies_page,
+            'results': all_results,
             'total': total_movies,
-            'pagination': pagination,
             'sources_used': sources,
             'filters_applied': {
                 'language': language_filter,

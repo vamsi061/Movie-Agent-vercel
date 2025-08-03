@@ -155,6 +155,60 @@
             font-size: 1.5rem;
         }
 
+        .filter-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        .source-filters {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .source-dropdown {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .source-dropdown:focus {
+            outline: none;
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .source-dropdown option {
+            background: white;
+            color: #333;
+            padding: 10px;
+        }
+
+        .filter-stats {
+            margin-left: auto;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
         .movie-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -782,6 +836,21 @@
 
         <div id="resultsSection" class="results-section">
             <h3>Search Results</h3>
+            
+            <!-- Source Filter Section -->
+            <div id="filterSection" class="filter-section" style="display: none;">
+                <div class="filter-title">Filter by Source:</div>
+                <div class="source-filters">
+                    <select id="sourceDropdown" class="source-dropdown" onchange="filterBySource(this.value)">
+                        <option value="all">All Sources</option>
+                        <!-- Source options will be populated here -->
+                    </select>
+                    <div class="filter-stats" id="filterStats">
+                        Showing all results
+                    </div>
+                </div>
+            </div>
+            
             <div id="movieGrid" class="movie-grid"></div>
             
             <!-- Pagination Controls -->
@@ -808,6 +877,8 @@
 
     <script>
         let currentSearchId = null;
+        let allMovies = []; // Store all movies for filtering
+        let currentFilter = 'all'; // Current active filter
         let selectedMovieIndex = null;
         let extractionId = null;
         let currentPage = 1;
@@ -861,14 +932,11 @@
                 console.log('Response keys:', Object.keys(data));
                 if (data.success) {
                     currentSearchId = data.search_id;
-                    if (data.pagination) {
-                        currentPage = data.pagination.current_page;
-                        totalPages = data.pagination.total_pages;
-                        updatePaginationControls(data.pagination);
-                    } else {
-                        currentPage = 1;
-                        totalPages = 1;
-                    }
+                    // Pagination removed - showing all results
+                    currentPage = 1;
+                    totalPages = 1;
+                    allMovies = data.results; // Store all movies
+                    setupSourceFilters(data.results); // Setup filter buttons
                     displayResults(data.results);
                 } else {
                     showError('Search failed: ' + (data.error || 'Unknown error'));
@@ -1368,6 +1436,61 @@
 
         function hideLoading() {
             // Loading will be replaced by results
+        }
+
+        function setupSourceFilters(movies) {
+            const sourceDropdown = document.getElementById('sourceDropdown');
+            const filterSection = document.getElementById('filterSection');
+            
+            // Get unique sources from movies
+            const sources = [...new Set(movies.map(movie => movie.source))];
+            
+            if (sources.length > 1) {
+                // Show filter section only if there are multiple sources
+                filterSection.style.display = 'block';
+                
+                // Clear existing options except "All Sources"
+                sourceDropdown.innerHTML = '<option value="all">All Sources</option>';
+                
+                // Add option for each source
+                sources.forEach(source => {
+                    const option = document.createElement('option');
+                    option.value = source;
+                    option.textContent = source;
+                    sourceDropdown.appendChild(option);
+                });
+            } else {
+                // Hide filter section if only one source
+                filterSection.style.display = 'none';
+            }
+            
+            // Reset to "All Sources"
+            sourceDropdown.value = 'all';
+            currentFilter = 'all';
+            updateFilterStats();
+        }
+
+        function filterBySource(source) {
+            currentFilter = source;
+            
+            if (source === 'all') {
+                displayResults(allMovies);
+            } else {
+                const filteredMovies = allMovies.filter(movie => movie.source === source);
+                displayResults(filteredMovies);
+            }
+            
+            updateFilterStats();
+        }
+
+        function updateFilterStats() {
+            const filterStats = document.getElementById('filterStats');
+            if (currentFilter === 'all') {
+                filterStats.textContent = `Showing all ${allMovies.length} results`;
+            } else {
+                const filteredCount = allMovies.filter(movie => movie.source === currentFilter).length;
+                filterStats.textContent = `Showing ${filteredCount} results from ${currentFilter}`;
+            }
         }
 
         function showError(message) {
