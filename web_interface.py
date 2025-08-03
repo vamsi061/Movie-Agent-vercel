@@ -19,6 +19,7 @@ from moviezwap_agent import MoviezWapAgent
 from skysetx_agent import SkySetXAgent
 from movierulz_agent import MovieRulzAgent
 from telegram_agent import TelegramMovieAgent
+from movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
 
 # Configure logging
@@ -36,12 +37,13 @@ moviezwap_agent = None
 movierulz_agent = None
 skysetx_agent = None
 telegram_agent = None
+movies4u_agent = None
 
 # Initialize Agent Manager
 agent_manager = AgentManager()
 
 def initialize_agents():
-    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
+    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent
     
     # Initialize agents through agent manager
     agent_manager.initialize_agents()
@@ -53,8 +55,9 @@ def initialize_agents():
     movierulz_agent = enabled_agents.get("movierulz")
     skysetx_agent = enabled_agents.get("skysetx")
     telegram_agent = enabled_agents.get("telegram")
+    movies4u_agent = enabled_agents.get("movies4u")
     
-    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
+    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
@@ -501,13 +504,13 @@ def search_movie():
         language_filter = data.get('language_filter', 'all')
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
-        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram'])  # Default to all five sources
+        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram', 'movies4u'])  # Default to all six sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
         
         # Initialize our agents
-        downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
+        downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
         
         # Fetch all results without pagination
         all_results = []
@@ -601,6 +604,23 @@ def search_movie():
         elif 'telegram' in sources and not telegram_agent:
             logger.warning("Telegram search requested but agent not configured")
         
+        # Search Movies4U (Source 6)
+        if 'movies4u' in sources and movies4u_agent:
+            try:
+                logger.info(f"Searching Movies4U for: {movie_name}")
+                movies4u_result = movies4u_agent.search_movies(movie_name)
+                movies4u_movies = movies4u_result['movies']
+                # Add source identifier to each movie
+                for movie in movies4u_movies:
+                    movie['source'] = 'Movies4U'
+                    movie['source_color'] = '#E91E63'  # Pink
+                all_results.extend(movies4u_movies)
+                logger.info(f"Movies4U returned {len(movies4u_movies)} movies")
+            except Exception as e:
+                logger.error(f"Movies4U search failed: {str(e)}")
+        elif 'movies4u' in sources and not movies4u_agent:
+            logger.warning("Movies4U search requested but agent not configured")
+        
         # Return all results without pagination
         total_movies = len(all_results)
         
@@ -655,7 +675,7 @@ def extract_download_links():
                 
                 # Determine which agent to use based on movie source
                 movie_source = selected_movie.get('source', 'DownloadHub')
-                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
                 
                 if movie_source == 'MoviezWap':
                     agent = moviezwap_agent
@@ -666,6 +686,9 @@ def extract_download_links():
                 elif movie_source == 'SkySetX':
                     agent = skysetx_agent
                     print(f"DEBUG: Using SkySetX agent for extraction")
+                elif movie_source == 'Movies4U':
+                    agent = movies4u_agent
+                    print(f"DEBUG: Using Movies4U agent for extraction")
                 else:
                     agent = downloadhub_agent
                     print(f"DEBUG: Using DownloadHub agent for extraction")
@@ -680,6 +703,9 @@ def extract_download_links():
                     result = agent.get_download_links(movie_url)
                     print(f"DEBUG: SkySetX extraction result type: {type(result)}")
                     print(f"DEBUG: SkySetX extraction result: {result}")
+                elif movie_source == 'Movies4U':
+                    result = agent.extract_download_links(movie_url)
+                    print(f"DEBUG: Movies4U extraction completed")
                 else:
                     result = agent.get_download_links(movie_url)
                 print(f"DEBUG: Extraction completed for {extraction_id} with {len(result) if result else 0} links")

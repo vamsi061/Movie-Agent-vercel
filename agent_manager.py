@@ -12,6 +12,7 @@ from moviezwap_agent import MoviezWapAgent
 from skysetx_agent import SkySetXAgent
 from movierulz_agent import MovieRulzAgent
 from telegram_agent import TelegramMovieAgent
+from movies4u_agent import Movies4UAgent
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,11 @@ class AgentManager:
                             "name": "Telegram Movie Agent",
                             "enabled": False,
                             "description": "Searches movies through Telegram channels"
+                        },
+                        "movies4u": {
+                            "name": "Movies4U Agent",
+                            "enabled": True,
+                            "description": "Searches and extracts download links from Movies4U.fm"
                         }
                     }
                 }
@@ -187,6 +193,21 @@ class AgentManager:
                             logger.warning("Telegram agent enabled in agent config but disabled in telegram_config.json")
                 except Exception as e:
                     logger.warning(f"Failed to initialize Telegram agent: {str(e)}")
+            
+            # Initialize Movies4U Agent
+            if self.is_agent_enabled("movies4u"):
+                try:
+                    agent = Movies4UAgent()
+                    # Update agent URLs from configuration
+                    config = self.config.get("agents", {}).get("movies4u", {})
+                    if config.get("base_url"):
+                        agent.base_url = config["base_url"]
+                        agent.search_url = config.get("search_url", f"{agent.base_url}/?s={{}}&ct_post_type=post%3Apage")
+                    self.agents["movies4u"] = agent
+                    logger.info(f"Movies4U agent initialized with URL: {agent.base_url}")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Movies4U agent: {str(e)}")
+                    logger.info("Movies4U agent disabled due to initialization error")
             
         except Exception as e:
             logger.error(f"Error initializing agents: {str(e)}")
