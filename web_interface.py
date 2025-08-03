@@ -14,12 +14,12 @@ import Levenshtein
 import base64
 import threading
 import logging
-from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
-from moviezwap_agent import MoviezWapAgent
-from skysetx_agent import SkySetXAgent
-from movierulz_agent import MovieRulzAgent
-from telegram_agent import TelegramMovieAgent
-from movies4u_agent import Movies4UAgent
+from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
+from agents.moviezwap_agent import MoviezWapAgent
+from agents.skysetx_agent import SkySetXAgent
+from agents.movierulz_agent import MovieRulzAgent
+from agents.telegram_agent import TelegramMovieAgent
+from agents.movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
 from llm_chat_agent import LLMChatAgent
 

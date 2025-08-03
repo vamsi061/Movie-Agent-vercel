@@ -7,12 +7,12 @@ import json
 import os
 import logging
 from typing import Dict, Any, Optional, List
-from enhanced_downloadhub_agent import EnhancedDownloadHubAgent
-from moviezwap_agent import MoviezWapAgent
-from skysetx_agent import SkySetXAgent
-from movierulz_agent import MovieRulzAgent
-from telegram_agent import TelegramMovieAgent
-from movies4u_agent import Movies4UAgent
+from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
+from agents.moviezwap_agent import MoviezWapAgent
+from agents.skysetx_agent import SkySetXAgent
+from agents.movierulz_agent import MovieRulzAgent
+from agents.telegram_agent import TelegramMovieAgent
+from agents.movies4u_agent import Movies4UAgent
 
 logger = logging.getLogger(__name__)
 
