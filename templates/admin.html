@@ -62,6 +62,7 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
             border: 2px solid transparent;
+            min-height: 400px;
         }
 
         .agent-card:hover {
@@ -259,6 +260,59 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
+        .agent-urls {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+
+        .url-field {
+            margin-bottom: 10px;
+        }
+
+        .url-field label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .update-url-btn {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .update-url-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(243, 156, 18, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -346,6 +400,19 @@
                     </label>
                 </div>
                 <div class="agent-description">${agent.description}</div>
+                <div class="agent-urls">
+                    <div class="url-field">
+                        <label>Base URL:</label>
+                        <input type="url" class="url-input" data-agent="${agentKey}" data-type="base_url" 
+                               value="${agent.base_url || ''}" placeholder="https://example.com">
+                    </div>
+                    <div class="url-field">
+                        <label>Search URL:</label>
+                        <input type="url" class="url-input" data-agent="${agentKey}" data-type="search_url" 
+                               value="${agent.search_url || ''}" placeholder="https://example.com/?s=">
+                    </div>
+                    <button class="update-url-btn" onclick="updateAgentUrl('${agentKey}')">Update URLs</button>
+                </div>
                 <span class="agent-status ${agent.enabled ? 'status-enabled' : 'status-disabled'}">
                     ${agent.enabled ? 'Enabled' : 'Disabled'}
                 </span>
@@ -454,6 +521,60 @@
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 5000);
+        }
+
+        async function updateAgentUrl(agentKey) {
+            try {
+                const baseUrlInput = document.querySelector(`input[data-agent="${agentKey}"][data-type="base_url"]`);
+                const searchUrlInput = document.querySelector(`input[data-agent="${agentKey}"][data-type="search_url"]`);
+                
+                const baseUrl = baseUrlInput.value.trim();
+                const searchUrl = searchUrlInput.value.trim();
+                
+                if (!baseUrl) {
+                    showNotification('Base URL is required', 'error');
+                    return;
+                }
+                
+                // Validate URL format
+                try {
+                    new URL(baseUrl);
+                    if (searchUrl) {
+                        new URL(searchUrl);
+                    }
+                } catch (e) {
+                    showNotification('Please enter valid URLs', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/admin/agents/update-url', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        agent: agentKey,
+                        base_url: baseUrl,
+                        search_url: searchUrl || null
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showNotification(`URLs updated successfully for ${agentConfig.agents[agentKey].name}`, 'success');
+                    
+                    // Update the configuration in memory
+                    agentConfig.agents[agentKey].base_url = baseUrl;
+                    agentConfig.agents[agentKey].search_url = searchUrl || `${baseUrl}/?s=`;
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to update URLs');
+                }
+            } catch (error) {
+                showNotification(`Failed to update URLs: ${error.message}`, 'error');
+                console.error('Error updating agent URLs:', error);
+            }
         }
     </script>
 </body>

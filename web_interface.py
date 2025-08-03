@@ -2481,6 +2481,40 @@ def get_agent_stats():
         logger.error(f"Error getting agent stats: {str(e)}")
         return jsonify({'error': 'Failed to get agent stats'}), 500
 
+@app.route('/admin/agents/update-url', methods=['POST'])
+def update_agent_url():
+    """Update an agent's URL configuration"""
+    try:
+        data = request.get_json()
+        agent_key = data.get('agent')
+        base_url = data.get('base_url')
+        search_url = data.get('search_url')
+        
+        if not agent_key or not base_url:
+            return jsonify({'error': 'Agent key and base URL are required'}), 400
+        
+        success = agent_manager.update_agent_url(agent_key, base_url, search_url)
+        if success:
+            # Reinitialize global agents
+            initialize_agents()
+            return jsonify({'success': True, 'message': f'URLs updated for {agent_key}'})
+        else:
+            return jsonify({'error': 'Failed to update agent URLs'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error updating agent URLs: {str(e)}")
+        return jsonify({'error': 'Failed to update agent URLs'}), 500
+
+@app.route('/admin/agents/<agent_key>/urls', methods=['GET'])
+def get_agent_urls(agent_key):
+    """Get an agent's URL configuration"""
+    try:
+        urls = agent_manager.get_agent_url(agent_key)
+        return jsonify(urls)
+    except Exception as e:
+        logger.error(f"Error getting agent URLs: {str(e)}")
+        return jsonify({'error': 'Failed to get agent URLs'}), 500
+
 if __name__ == '__main__':
     # Initialize agents on startup
     initialize_agents()

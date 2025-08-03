@@ -192,3 +192,41 @@ class AgentManager:
             "enabled": enabled_agents,
             "disabled": disabled_agents
         }
+    
+    def update_agent_url(self, agent_key: str, base_url: str, search_url: str = None) -> bool:
+        """Update an agent's URL configuration"""
+        try:
+            if agent_key in self.config.get("agents", {}):
+                self.config["agents"][agent_key]["base_url"] = base_url
+                if search_url:
+                    self.config["agents"][agent_key]["search_url"] = search_url
+                else:
+                    # Auto-generate search URL if not provided
+                    self.config["agents"][agent_key]["search_url"] = f"{base_url}/?s="
+                
+                # Update last modified timestamp
+                from datetime import datetime
+                self.config["agents"][agent_key]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                self.save_configuration()
+                
+                # Reinitialize agents to use new URLs
+                self.initialize_agents()
+                
+                logger.info(f"Updated URLs for agent {agent_key}: {base_url}")
+                return True
+            else:
+                logger.error(f"Agent {agent_key} not found in configuration")
+                return False
+        except Exception as e:
+            logger.error(f"Error updating agent URLs for {agent_key}: {str(e)}")
+            return False
+    
+    def get_agent_url(self, agent_key: str) -> Dict[str, str]:
+        """Get an agent's URL configuration"""
+        agent_config = self.config.get("agents", {}).get(agent_key, {})
+        return {
+            "base_url": agent_config.get("base_url", ""),
+            "search_url": agent_config.get("search_url", ""),
+            "last_updated": agent_config.get("last_updated", "")
+        }
