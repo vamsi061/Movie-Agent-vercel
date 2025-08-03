@@ -19,6 +19,7 @@ from moviezwap_agent import MoviezWapAgent
 from skysetx_agent import SkySetXAgent
 from movierulz_agent import MovieRulzAgent
 from telegram_agent import TelegramMovieAgent
+from agent_manager import AgentManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,29 +37,23 @@ movierulz_agent = None
 skysetx_agent = None
 telegram_agent = None
 
+# Initialize Agent Manager
+agent_manager = AgentManager()
+
 def initialize_agents():
     global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
-    if downloadhub_agent is None:
-        downloadhub_agent = EnhancedDownloadHubAgent()
-    if moviezwap_agent is None:
-        moviezwap_agent = MoviezWapAgent()
-    if movierulz_agent is None:
-        movierulz_agent = MovieRulzAgent()
-    if skysetx_agent is None:
-        skysetx_agent = SkySetXAgent()
-    if telegram_agent is None:
-        # Load Telegram config
-        try:
-            with open('telegram_config.json', 'r') as f:
-                config = json.load(f)
-                telegram_config = config.get('telegram_settings', {})
-                if telegram_config.get('enabled', False):
-                    telegram_agent = TelegramMovieAgent(telegram_config)
-                else:
-                    telegram_agent = None
-        except Exception as e:
-            logger.warning(f"Failed to load Telegram config: {str(e)}")
-            telegram_agent = None
+    
+    # Initialize agents through agent manager
+    agent_manager.initialize_agents()
+    enabled_agents = agent_manager.get_enabled_agents()
+    
+    # Set global agent variables based on enabled agents
+    downloadhub_agent = enabled_agents.get("downloadhub")
+    moviezwap_agent = enabled_agents.get("moviezwap")
+    movierulz_agent = enabled_agents.get("movierulz")
+    skysetx_agent = enabled_agents.get("skysetx")
+    telegram_agent = enabled_agents.get("telegram")
+    
     return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent
 
 def clean_text(text):
@@ -2371,8 +2366,7 @@ def download_file():
         print(f"DEBUG: Error in download proxy: {str(e)}")
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+# Removed duplicate main block - admin routes are below
 @app.route('/auto_health_results/<extraction_id>')
 def get_auto_health_results(extraction_id):
     """Get auto health check results"""
@@ -2405,3 +2399,89 @@ def get_auto_health_results(extraction_id):
             'completed': False,
             'in_progress': False
         })
+
+# Admin Panel Routes
+@app.route('/admin')
+def admin_panel():
+    """Render the admin panel"""
+    return render_template('admin.html')
+
+@app.route('/admin/agents', methods=['GET'])
+def get_agent_configuration():
+    """Get the current agent configuration"""
+    try:
+        config = agent_manager.get_configuration()
+        return jsonify(config)
+    except Exception as e:
+        logger.error(f"Error getting agent configuration: {str(e)}")
+        return jsonify({'error': 'Failed to get agent configuration'}), 500
+
+@app.route('/admin/agents/toggle', methods=['POST'])
+def toggle_agent():
+    """Toggle an agent's enabled state"""
+    try:
+        data = request.get_json()
+        agent_key = data.get('agent')
+        enabled = data.get('enabled', False)
+        
+        if not agent_key:
+            return jsonify({'error': 'Agent key is required'}), 400
+        
+        success = agent_manager.toggle_agent(agent_key, enabled)
+        if success:
+            # Reinitialize global agents
+            initialize_agents()
+            return jsonify({'success': True, 'message': f'Agent {agent_key} {"enabled" if enabled else "disabled"}'})
+        else:
+            return jsonify({'error': 'Failed to toggle agent'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error toggling agent: {str(e)}")
+        return jsonify({'error': 'Failed to toggle agent'}), 500
+
+@app.route('/admin/agents/enable-all', methods=['POST'])
+def enable_all_agents():
+    """Enable all agents"""
+    try:
+        agent_manager.enable_all_agents()
+        initialize_agents()
+        return jsonify({'success': True, 'message': 'All agents enabled'})
+    except Exception as e:
+        logger.error(f"Error enabling all agents: {str(e)}")
+        return jsonify({'error': 'Failed to enable all agents'}), 500
+
+@app.route('/admin/agents/disable-all', methods=['POST'])
+def disable_all_agents():
+    """Disable all agents"""
+    try:
+        agent_manager.disable_all_agents()
+        initialize_agents()
+        return jsonify({'success': True, 'message': 'All agents disabled'})
+    except Exception as e:
+        logger.error(f"Error disabling all agents: {str(e)}")
+        return jsonify({'error': 'Failed to disable all agents'}), 500
+
+@app.route('/admin/agents/save', methods=['POST'])
+def save_agent_configuration():
+    """Save the current agent configuration"""
+    try:
+        agent_manager.save_configuration()
+        return jsonify({'success': True, 'message': 'Configuration saved'})
+    except Exception as e:
+        logger.error(f"Error saving configuration: {str(e)}")
+        return jsonify({'error': 'Failed to save configuration'}), 500
+
+@app.route('/admin/agents/stats', methods=['GET'])
+def get_agent_stats():
+    """Get agent statistics"""
+    try:
+        stats = agent_manager.get_agent_stats()
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting agent stats: {str(e)}")
+        return jsonify({'error': 'Failed to get agent stats'}), 500
+
+if __name__ == '__main__':
+    # Initialize agents on startup
+    initialize_agents()
+    app.run(host='0.0.0.0', port=8080, debug=True)
