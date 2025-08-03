@@ -879,6 +879,7 @@
         let currentSearchId = null;
         let allMovies = []; // Store all movies for filtering
         let currentFilter = 'all'; // Current active filter
+        let currentDisplayedMovies = []; // Store currently displayed movies
         let selectedMovieIndex = null;
         let extractionId = null;
         let currentPage = 1;
@@ -1019,6 +1020,9 @@
             resultsSection.style.display = 'block';
             movieGrid.innerHTML = '';
             
+            // Store currently displayed movies for index mapping
+            currentDisplayedMovies = results;
+            
             if (results.length === 0) {
                 movieGrid.innerHTML = '<p>No movies found. Try a different search term.</p>';
                 return;
@@ -1071,6 +1075,25 @@
                 return;
             }
             
+            // Get the actual movie from currently displayed movies
+            const selectedMovie = currentDisplayedMovies[index];
+            if (!selectedMovie) {
+                showError('Invalid movie selection');
+                return;
+            }
+            
+            // Find the original index in allMovies array
+            const originalIndex = allMovies.findIndex(movie => 
+                movie.title === selectedMovie.title && 
+                movie.source === selectedMovie.source &&
+                movie.url === selectedMovie.url
+            );
+            
+            if (originalIndex === -1) {
+                showError('Could not find movie in original results');
+                return;
+            }
+            
             selectMovie(index);
             
             const extractionSection = document.getElementById('extractionSection');
@@ -1088,7 +1111,7 @@
                 },
                 body: JSON.stringify({
                     search_id: currentSearchId,
-                    movie_index: index
+                    movie_index: originalIndex  // Use original index from allMovies
                 })
             })
             .then(response => response.json())
