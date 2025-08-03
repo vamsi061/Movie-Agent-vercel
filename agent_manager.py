@@ -129,23 +129,49 @@ class AgentManager:
         try:
             # Initialize DownloadHub Agent
             if self.is_agent_enabled("downloadhub"):
-                self.agents["downloadhub"] = EnhancedDownloadHubAgent()
-                logger.info("DownloadHub agent initialized")
+                agent = EnhancedDownloadHubAgent()
+                # Update agent URLs from configuration
+                config = self.config.get("agents", {}).get("downloadhub", {})
+                if config.get("base_url"):
+                    agent.base_url = config["base_url"]
+                self.agents["downloadhub"] = agent
+                logger.info(f"DownloadHub agent initialized with URL: {agent.base_url}")
             
             # Initialize MoviezWap Agent
             if self.is_agent_enabled("moviezwap"):
-                self.agents["moviezwap"] = MoviezWapAgent()
-                logger.info("MoviezWap agent initialized")
+                agent = MoviezWapAgent()
+                # Update agent URLs from configuration
+                config = self.config.get("agents", {}).get("moviezwap", {})
+                if config.get("base_url"):
+                    agent.base_url = config["base_url"]
+                self.agents["moviezwap"] = agent
+                logger.info(f"MoviezWap agent initialized with URL: {agent.base_url}")
             
             # Initialize MovieRulz Agent
             if self.is_agent_enabled("movierulz"):
-                self.agents["movierulz"] = MovieRulzAgent()
-                logger.info("MovieRulz agent initialized")
+                agent = MovieRulzAgent()
+                # Update agent URLs from configuration
+                config = self.config.get("agents", {}).get("movierulz", {})
+                if config.get("base_url"):
+                    agent.base_url = config["base_url"]
+                    # Also update the priority domains list to include the configured URL
+                    agent.priority_domains = [config["base_url"]] + [d for d in agent.priority_domains if d != config["base_url"]]
+                    # Update known working domains if it exists
+                    if hasattr(agent, 'known_working_domains'):
+                        agent.known_working_domains = [config["base_url"]] + [d for d in agent.known_working_domains if d != config["base_url"]]
+                self.agents["movierulz"] = agent
+                logger.info(f"MovieRulz agent initialized with URL: {agent.base_url}")
             
             # Initialize SkySetX Agent
             if self.is_agent_enabled("skysetx"):
-                self.agents["skysetx"] = SkySetXAgent()
-                logger.info("SkySetX agent initialized")
+                agent = SkySetXAgent()
+                # Update agent URLs from configuration
+                config = self.config.get("agents", {}).get("skysetx", {})
+                if config.get("base_url"):
+                    agent.base_url = config["base_url"]
+                    agent.search_url = f"{agent.base_url}/?s="
+                self.agents["skysetx"] = agent
+                logger.info(f"SkySetX agent initialized with URL: {agent.base_url}")
             
             # Initialize Telegram Agent
             if self.is_agent_enabled("telegram"):
