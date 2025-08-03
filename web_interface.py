@@ -21,6 +21,7 @@ from movierulz_agent import MovieRulzAgent
 from telegram_agent import TelegramMovieAgent
 from movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
+from llm_chat_agent import LLMChatAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,6 +42,20 @@ movies4u_agent = None
 
 # Initialize Agent Manager
 agent_manager = AgentManager()
+
+# Initialize LLM Chat Agent
+llm_chat_agent = None
+try:
+    # Try to initialize with API key
+    together_api_key = '4c5cffacdd859cda65379811c500fa703359c93e1ffdcce5fc1adc17eaaa578e'
+    if together_api_key:
+        llm_chat_agent = LLMChatAgent(together_api_key)
+        logger.info("LLM Chat Agent initialized successfully")
+    else:
+        logger.warning("TOGETHER_API_KEY not found. Chat features will be limited.")
+except Exception as e:
+    logger.error(f"Failed to initialize LLM Chat Agent: {str(e)}")
+    llm_chat_agent = None
 
 def initialize_agents():
     global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent
@@ -2523,6 +2538,112 @@ def get_agent_urls(agent_key):
     except Exception as e:
         logger.error(f"Error getting agent URLs: {str(e)}")
         return jsonify({'error': 'Failed to get agent URLs'}), 500
+
+# Chat Routes
+@app.route('/chat')
+def chat_interface():
+    """Render the chat interface"""
+    return render_template('chat.html')
+
+@app.route('/chat', methods=['POST'])
+def chat_with_ai():
+    """Handle chat messages with AI"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        conversation_history = data.get('conversation_history', [])
+        
+        if not user_message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        if not llm_chat_agent:
+            # Fallback response when LLM is not available
+            return jsonify({
+                'success': True,
+                'response': "I'm sorry, but the AI chat feature is currently unavailable. You can still search for movies using the main search page!",
+                'movie_results': [],
+                'suggestions': ["Try the main search page", "Search for specific movie titles"],
+                'conversation_history': conversation_history
+            })
+        
+        # Extract movie intent from user message
+        intent = llm_chat_agent.extract_movie_intent(user_message)
+        search_query = intent.get('search_query', user_message)
+        
+        # Search for movies if intent suggests it
+        movie_results = []
+        if intent.get('confidence', 0) > 0.3 or any(keyword in user_message.lower() 
+                                                   for keyword in ['movie', 'watch', 'film', 'search', 'find']):
+            try:
+                # Initialize agents
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
+                
+                # Quick search (limit results for chat)
+                all_results = []
+                
+                # Search MoviezWap
+                if moviezwap_agent:
+                    try:
+                        moviezwap_result = moviezwap_agent.search_movies(search_query)
+                        moviezwap_movies = moviezwap_result['movies'][:3]  # Limit for chat
+                        for movie in moviezwap_movies:
+                            movie['source'] = 'MoviezWap'
+                        all_results.extend(moviezwap_movies)
+                    except Exception as e:
+                        logger.error(f"MoviezWap search failed in chat: {str(e)}")
+                
+                # Search MovieRulz
+                if movierulz_agent:
+                    try:
+                        movierulz_result = movierulz_agent.search_movies(search_query)
+                        movierulz_movies = movierulz_result['movies'][:3]  # Limit for chat
+                        for movie in movierulz_movies:
+                            movie['source'] = 'MovieRulz'
+                        all_results.extend(movierulz_movies)
+                    except Exception as e:
+                        logger.error(f"MovieRulz search failed in chat: {str(e)}")
+                
+                # Search SkySetX
+                if skysetx_agent:
+                    try:
+                        skysetx_movies = skysetx_agent.search_movies(search_query, limit=3)
+                        for movie in skysetx_movies:
+                            movie['source'] = 'SkySetX'
+                        all_results.extend(skysetx_movies)
+                    except Exception as e:
+                        logger.error(f"SkySetX search failed in chat: {str(e)}")
+                
+                movie_results = all_results[:10]  # Limit total results for chat
+                
+            except Exception as e:
+                logger.error(f"Movie search failed in chat: {str(e)}")
+                movie_results = []
+        
+        # Generate AI response
+        ai_response = llm_chat_agent.generate_movie_suggestions(user_message, movie_results)
+        
+        # Generate search suggestions
+        suggestions = []
+        if len(movie_results) == 0:
+            suggestions = llm_chat_agent.generate_search_suggestions(user_message)
+        
+        return jsonify({
+            'success': True,
+            'response': ai_response,
+            'movie_results': movie_results,
+            'search_query': search_query,
+            'suggestions': suggestions,
+            'conversation_history': llm_chat_agent.conversation_history[-10:]  # Keep last 10 messages
+        })
+        
+    except Exception as e:
+        logger.error(f"Chat error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Sorry, I encountered an error. Please try again.',
+            'movie_results': [],
+            'suggestions': []
+        }), 500
 
 if __name__ == '__main__':
     # Initialize agents on startup

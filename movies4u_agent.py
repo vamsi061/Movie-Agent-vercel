@@ -107,8 +107,8 @@ class Movies4UAgent:
                 
                 if has_verification:
                     logger.info(f"Human verification detected, waiting...")
-                    # Wait for verification to complete (reduced timeout)
-                    WebDriverWait(driver, 15).until(
+                    # Wait for verification to complete (very short timeout)
+                    WebDriverWait(driver, 8).until(
                         lambda d: not any(indicator in d.page_source.lower() 
                                         for indicator in verification_indicators)
                     )
