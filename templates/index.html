@@ -709,9 +709,16 @@
                 this.parentElement.style.transform = 'scale(1)';
             });
 
-            // Override form submission to show loading
+            // Handle form submission
             searchForm.addEventListener('submit', function(e) {
-                showLoading();
+                e.preventDefault();
+                const movieName = searchInput.value.trim();
+                console.log('Search form submitted with:', movieName);
+                if (movieName) {
+                    searchMovies(movieName);
+                } else {
+                    alert('Please enter a movie name to search');
+                }
             });
         }
 
