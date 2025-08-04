@@ -652,6 +652,29 @@
                 min-height: 45px;
             }
         }
+
+        /* Download link styling */
+        .download-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white !important;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin: 5px 5px 5px 0;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .download-link:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+            text-decoration: none;
+            color: white !important;
+        }
     </style>
 </head>
 <body>
@@ -946,6 +969,7 @@
             return text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="download-link">$1</a>')
                 .replace(/\n/g, '<br>');
         }
 
@@ -981,9 +1005,49 @@
             suggestionsContainer.style.display = 'flex';
         }
 
-        function extractMovieLinks(title, url, source) {
-            // Redirect to extraction page
-            window.location.href = `/extract?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`;
+        async function extractMovieLinks(title, url, source) {
+            // Show loading message in chat
+            addMessage(`Extracting download links for "${title}"...`, 'assistant');
+            
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        source: source,
+                        title: title
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.download_links && data.download_links.length > 0) {
+                    // Create formatted download links message
+                    let linksMessage = `**Download Links for "${title}"**\n\n`;
+                    
+                    data.download_links.forEach((link, index) => {
+                        const quality = Array.isArray(link.quality) ? link.quality.join(', ') : (link.quality || 'Unknown');
+                        const size = link.file_size || 'Unknown';
+                        const host = link.host || 'Unknown';
+                        
+                        linksMessage += `**${index + 1}. ${link.text || 'Download Link'}**\n`;
+                        linksMessage += `Quality: ${quality} | Size: ${size} | Host: ${host}\n`;
+                        linksMessage += `[Download Here](${link.url})\n\n`;
+                    });
+                    
+                    linksMessage += `Found ${data.download_links.length} download links from ${source}`;
+                    addMessage(linksMessage, 'assistant');
+                } else {
+                    addMessage(`Sorry, couldn't extract download links for "${title}". The movie page might be protected or unavailable.`, 'assistant');
+                }
+                
+            } catch (error) {
+                console.error('Error extracting links:', error);
+                addMessage(`Error extracting links for "${title}". Please try again later.`, 'assistant');
+            }
         }
 
         function searchMovie(title) {

@@ -21,7 +21,7 @@ from agents.movierulz_agent import MovieRulzAgent
 from agents.telegram_agent import TelegramMovieAgent
 from agents.movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
-from llm_chat_agent import LLMChatAgent
+from enhanced_llm_chat_agent import EnhancedLLMChatAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,7 +49,7 @@ try:
     # Try to initialize with API key
     together_api_key = '4c5cffacdd859cda65379811c500fa703359c93e1ffdcce5fc1adc17eaaa578e'
     if together_api_key:
-        llm_chat_agent = LLMChatAgent(together_api_key)
+        llm_chat_agent = EnhancedLLMChatAgent(together_api_key)
         logger.info("LLM Chat Agent initialized successfully")
     else:
         logger.warning("TOGETHER_API_KEY not found. Chat features will be limited.")
@@ -2677,28 +2677,27 @@ def chat_with_ai():
                 'conversation_history': conversation_history
             })
         
-        # Extract movie intent from user message
-        intent = llm_chat_agent.extract_movie_intent(user_message)
+        # Analyze user intent (personal, movie request, etc.)
+        intent = llm_chat_agent.analyze_user_intent(user_message)
         
-        # Generate AI response first to get movie recommendations
-        ai_response = llm_chat_agent.generate_movie_suggestions(user_message, [])
+        # Generate contextual response based on intent
+        ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
         
         # Extract movie titles from AI response
         movie_titles_from_ai = extract_movie_titles_from_response(ai_response)
         
-        # Search for movies if we have specific titles or general movie intent
+        # Search for movies only if it's a movie request
         movie_results = []
         search_queries = []
         
-        if movie_titles_from_ai:
-            # Use specific movie titles from AI response
-            search_queries = movie_titles_from_ai[:3]  # Limit to top 3 recommendations
-        elif intent.get('confidence', 0) > 0.3:
-            # Use intent-based search query
-            search_queries = [intent.get('search_query', user_message)]
-        elif any(keyword in user_message.lower() for keyword in ['movie', 'watch', 'film', 'search', 'find']):
-            # Generic movie search
-            search_queries = [user_message]
+        if intent.get('intent_type') == 'movie_request':
+            # Extract search query from intent
+            search_query = llm_chat_agent.extract_movie_search_query(intent)
+            search_queries = [search_query]
+            
+            # Also check for specific movie titles from AI response
+            if movie_titles_from_ai:
+                search_queries.extend(movie_titles_from_ai[:2])  # Add top 2 from AI
         
         if search_queries:
             try:
@@ -2751,12 +2750,12 @@ def chat_with_ai():
         
         # Update AI response with search results if we found movies
         if movie_results:
-            ai_response = llm_chat_agent.generate_movie_suggestions(user_message, movie_results)
-        # ai_response already generated above
+            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, movie_results)
+        # ai_response already generated above for non-movie requests
         
-        # Generate search suggestions
+        # Generate search suggestions for movie requests with no results
         suggestions = []
-        if len(movie_results) == 0:
+        if intent.get('intent_type') == 'movie_request' and len(movie_results) == 0:
             suggestions = llm_chat_agent.generate_search_suggestions(user_message)
         
         return jsonify({

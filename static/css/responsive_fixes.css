@@ -35,9 +35,9 @@ html, body {
     padding-bottom: 20px !important;
 }
 
-/* Sidebar toggle button - always visible on mobile */
+/* Sidebar toggle button - always visible on all devices */
 .sidebar-toggle {
-    display: none;
+    display: flex !important;
     position: fixed;
     top: 15px;
     left: 15px;
@@ -52,6 +52,8 @@ html, body {
     font-size: 18px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
+    align-items: center;
+    justify-content: center;
 }
 
 .sidebar-toggle:hover {
@@ -59,41 +61,53 @@ html, body {
     transform: scale(1.1);
 }
 
-/* Mobile responsive adjustments */
+/* Responsive adjustments for all devices */
+.header {
+    padding-left: 70px !important;
+}
+
+.chat-container {
+    flex-direction: column;
+}
+
+.sidebar {
+    position: fixed;
+    top: 80px;
+    left: -280px;
+    width: 280px;
+    height: calc(100vh - 80px);
+    z-index: 1000;
+    transition: left 0.3s ease;
+    background: rgba(248, 249, 250, 0.98);
+    backdrop-filter: blur(20px);
+    box-shadow: 2px 0 15px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar.open {
+    left: 0;
+}
+
+.chat-main {
+    width: 100% !important;
+    flex: 1;
+    max-width: 100% !important;
+}
+
+/* Mobile specific adjustments */
 @media (max-width: 768px) {
-    .sidebar-toggle {
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .header {
-        padding-left: 70px !important;
-    }
-    
-    .chat-container {
-        flex-direction: column;
-    }
-    
     .sidebar {
-        position: fixed;
-        top: 0;
-        left: -100%;
-        width: 280px;
-        height: 100vh;
-        z-index: 1000;
-        transition: left 0.3s ease;
-        background: rgba(248, 249, 250, 0.98);
-        backdrop-filter: blur(20px);
+        top: 60px;
+        height: calc(100vh - 60px);
     }
     
-    .sidebar.open {
-        left: 0;
+    .chat-messages {
+        padding: 15px 20px !important;
+        max-width: 100% !important;
     }
     
-    .chat-main {
-        width: 100%;
-        flex: 1;
+    .input-wrapper {
+        max-width: 100% !important;
+        padding: 0 15px;
     }
     
     .message-content {
