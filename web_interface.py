@@ -2839,10 +2839,36 @@ def chat_with_ai():
                         else:
                             logger.info(f"FILTERED OUT: {movie.get('title')} ({movie.get('year')}) - no match for {target_title}")
                     
-                    movie_results = filtered_results[:5]  # Show top 5 matches for specific movies
-                    logger.info(f"Filtered to {len(movie_results)} specific movie matches")
+                    # Remove duplicates from filtered results
+                    deduplicated_results = []
+                    seen_movies = set()
+                    
+                    for movie in filtered_results:
+                        # Create a unique identifier for the movie
+                        movie_key = f"{movie.get('title', '').lower().strip()}_{movie.get('year', '')}"
+                        
+                        if movie_key not in seen_movies:
+                            seen_movies.add(movie_key)
+                            deduplicated_results.append(movie)
+                            logger.info(f"KEPT: {movie.get('title')} ({movie.get('year')}) from {movie.get('source')}")
+                        else:
+                            logger.info(f"DUPLICATE REMOVED: {movie.get('title')} ({movie.get('year')}) from {movie.get('source')}")
+                    
+                    movie_results = deduplicated_results[:5]  # Show top 5 unique matches for specific movies
+                    logger.info(f"After deduplication: {len(movie_results)} unique specific movie matches")
                 else:
-                    movie_results = all_results[:10]  # Limit total results for general requests
+                    # Remove duplicates from general results too
+                    deduplicated_results = []
+                    seen_movies = set()
+                    
+                    for movie in all_results:
+                        movie_key = f"{movie.get('title', '').lower().strip()}_{movie.get('year', '')}"
+                        
+                        if movie_key not in seen_movies:
+                            seen_movies.add(movie_key)
+                            deduplicated_results.append(movie)
+                    
+                    movie_results = deduplicated_results[:10]  # Limit total unique results for general requests
                 
             except Exception as e:
                 logger.error(f"Movie search failed in chat: {str(e)}")
