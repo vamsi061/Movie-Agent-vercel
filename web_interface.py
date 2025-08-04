@@ -2812,7 +2812,37 @@ def chat_with_ai():
                         except Exception as e:
                             logger.error(f"SkySetX search failed for '{search_query}': {str(e)}")
                 
-                movie_results = all_results[:10]  # Limit total results for chat
+                # FILTER RESULTS FOR SPECIFIC MOVIE REQUESTS
+                if user_analysis.get("is_specific_movie", False):
+                    movie_research = intent.get("movie_details", {}).get("movie_research", {})
+                    target_title = movie_research.get("full_title", "")
+                    target_year = movie_research.get("release_year", "")
+                    
+                    logger.info(f"Filtering results for specific movie: {target_title} ({target_year})")
+                    
+                    # Filter results to only show movies that match the specific request
+                    filtered_results = []
+                    for movie in all_results:
+                        movie_title = movie.get('title', '').lower()
+                        movie_year = str(movie.get('year', ''))
+                        
+                        # Check if this movie matches the target
+                        title_match = (target_title.lower() in movie_title or 
+                                     movie_title in target_title.lower() or
+                                     any(alt.lower() in movie_title for alt in movie_research.get("alternate_names", [])))
+                        
+                        year_match = (not target_year or target_year in movie_year or movie_year in target_year)
+                        
+                        if title_match and year_match:
+                            logger.info(f"MATCH: {movie.get('title')} ({movie.get('year')}) from {movie.get('source')}")
+                            filtered_results.append(movie)
+                        else:
+                            logger.info(f"FILTERED OUT: {movie.get('title')} ({movie.get('year')}) - no match for {target_title}")
+                    
+                    movie_results = filtered_results[:5]  # Show top 5 matches for specific movies
+                    logger.info(f"Filtered to {len(movie_results)} specific movie matches")
+                else:
+                    movie_results = all_results[:10]  # Limit total results for general requests
                 
             except Exception as e:
                 logger.error(f"Movie search failed in chat: {str(e)}")
