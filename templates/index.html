@@ -726,14 +726,34 @@
                 console.log('Search form submitted with:', movieName);
                 if (movieName) {
                     console.log('Calling searchMovies with:', movieName);
-                    // Check if searchMovies function exists
-                    if (typeof searchMovies === 'function') {
-                        console.log('searchMovies function found, calling it...');
-                        searchMovies(movieName);
-                    } else {
-                        console.error('searchMovies function not found!');
-                        alert('Search function not loaded. Please refresh the page.');
-                    }
+                    // Implement search directly here since app.js isn't loading properly
+                    console.log('Implementing search directly...');
+                    showLoading();
+                    
+                    fetch('/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            movie_name: movieName
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        hideLoading();
+                        console.log('Search results:', data);
+                        if (data.success && data.movies && data.movies.length > 0) {
+                            displaySearchResults(data.movies, data.search_id);
+                        } else {
+                            alert('No movies found for: ' + movieName);
+                        }
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        console.error('Search error:', error);
+                        alert('Search failed. Please try again.');
+                    });
                 } else {
                     console.log('No movie name entered');
                     alert('Please enter a movie name to search');
@@ -741,6 +761,46 @@
             });
             
             console.log('Search enhancements setup complete!');
+        }
+
+        // Function to display search results
+        function displaySearchResults(movies, searchId) {
+            console.log('Displaying', movies.length, 'movies');
+            const resultsContainer = document.getElementById('searchResults');
+            if (!resultsContainer) {
+                console.error('Search results container not found');
+                return;
+            }
+
+            let html = '<div class="results-header"><h2>Search Results</h2></div><div class="movies-grid">';
+            
+            movies.forEach((movie, index) => {
+                html += `
+                    <div class="movie-card">
+                        <div class="movie-info">
+                            <h3>${movie.title}</h3>
+                            <p>Year: ${movie.year || 'Unknown'}</p>
+                            <p>Quality: ${movie.quality || 'Unknown'}</p>
+                            <p>Source: ${movie.source || 'Unknown'}</p>
+                        </div>
+                        <div class="movie-actions">
+                            <button class="extract-btn" onclick="extractLinks('${searchId}', ${index})">
+                                <i class="fas fa-download"></i> Extract Links
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsContainer.innerHTML = html;
+            resultsContainer.style.display = 'block';
+        }
+
+        // Function to extract links (placeholder)
+        function extractLinks(searchId, movieIndex) {
+            console.log('Extracting links for search:', searchId, 'movie:', movieIndex);
+            alert('Extract links functionality - search ID: ' + searchId + ', movie index: ' + movieIndex);
         }
 
         function setupAnimations() {
