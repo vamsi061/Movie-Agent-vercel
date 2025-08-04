@@ -45,45 +45,47 @@ class EnhancedLLMChatAgent:
     def analyze_user_intent(self, user_message: str) -> Dict[str, Any]:
         """Analyze user intent to determine response type"""
         try:
-            system_prompt = """You are an intelligent assistant that analyzes user messages to understand their intent. 
+            system_prompt = """You are an expert movie recommendation assistant that analyzes user messages to understand their exact movie preferences.
 
-Analyze the user's message and determine:
+ANALYZE THE USER'S MESSAGE CAREFULLY and extract:
 1. Intent type: "personal", "movie_request", "general_chat", or "greeting"
-2. If movie-related, extract detailed movie preferences
-3. If personal, identify the emotional context
-4. Confidence level of your analysis
+2. Detailed movie preferences (be very specific and thorough)
+3. The best search terms for finding movies
 
 Respond in JSON format:
 {
     "intent_type": "personal|movie_request|general_chat|greeting",
     "confidence": 0.9,
     "movie_details": {
-        "movie_titles": ["specific movie names if mentioned"],
-        "genres": ["action", "comedy", "drama"],
-        "years": ["2023", "2020"],
-        "actors": ["actor names"],
-        "directors": ["director names"],
-        "mood": "exciting/funny/romantic/scary/thrilling",
-        "language": "hindi/english/tamil/telugu/any",
-        "quality": "1080p/720p/480p/any",
-        "search_query": "best search term for API"
+        "movie_titles": ["exact movie names if mentioned"],
+        "genres": ["specific genres mentioned or implied"],
+        "years": ["specific years mentioned"],
+        "actors": ["actor names mentioned"],
+        "directors": ["director names mentioned"],
+        "mood": "user's emotional preference",
+        "language": "preferred language",
+        "quality": "quality preference",
+        "themes": ["themes like superhero, space, war, family, etc"],
+        "search_query": "BEST search term for movie APIs"
     },
-    "personal_context": {
-        "topic": "greeting/mood/personal_question/recommendation/compliment",
-        "emotional_tone": "happy/sad/excited/curious/neutral",
-        "requires_empathy": true/false,
-        "conversation_starter": true/false
-    },
-    "response_style": "conversational|informative|empathetic|professional|enthusiastic"
+    "user_intent_analysis": {
+        "what_they_want": "clear description of what user is looking for",
+        "specific_preferences": "any specific requirements mentioned",
+        "context": "context or reason for the request"
+    }
 }
 
-Examples:
-- "Hello" → intent_type: "greeting", response_style: "conversational"
-- "How are you?" → intent_type: "personal", personal_context: {"topic": "greeting", "requires_empathy": true}
-- "I'm feeling sad today" → intent_type: "personal", personal_context: {"emotional_tone": "sad", "requires_empathy": true}
-- "I want to watch The Matrix" → intent_type: "movie_request", movie_details: {"movie_titles": ["The Matrix"]}
-- "Suggest some action movies from 2023" → intent_type: "movie_request", movie_details: {"genres": ["action"], "years": ["2023"]}
-- "What's a good romantic comedy?" → intent_type: "movie_request", movie_details: {"genres": ["romance", "comedy"]}"""
+EXAMPLES OF BETTER ANALYSIS:
+- "I want something exciting and action-packed" → genres: ["action"], mood: "exciting", themes: ["adventure"], search_query: "action movies"
+- "Show me some superhero movies" → themes: ["superhero"], genres: ["action", "adventure"], search_query: "superhero movies"
+- "I'm in the mood for a good laugh" → genres: ["comedy"], mood: "funny", search_query: "comedy movies"
+- "Any good sci-fi from 2023?" → genres: ["sci-fi"], years: ["2023"], search_query: "sci-fi 2023"
+- "I want to watch Avengers" → movie_titles: ["Avengers"], themes: ["superhero"], search_query: "Avengers"
+- "Something like John Wick" → movie_titles: ["John Wick"], genres: ["action"], themes: ["crime"], search_query: "John Wick"
+- "Hindi action movies" → language: "hindi", genres: ["action"], search_query: "hindi action movies"
+- "Latest Hollywood blockbusters" → language: "english", themes: ["blockbuster"], search_query: "hollywood movies"
+
+BE SMART about extracting preferences from natural language!"""
 
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -137,21 +139,69 @@ Examples:
                 "response_style": "empathetic"
             }
         
-        # Check for movie keywords
-        movie_keywords = ['movie', 'film', 'watch', 'download', 'stream', 'cinema', 'bollywood', 'hollywood']
-        if any(keyword in message_lower for keyword in movie_keywords):
-            # Extract basic movie details
+        # Enhanced movie keyword detection
+        movie_keywords = ['movie', 'film', 'watch', 'download', 'stream', 'cinema', 'bollywood', 'hollywood', 'show', 'series']
+        mood_keywords = ['exciting', 'funny', 'romantic', 'scary', 'thrilling', 'action-packed', 'laugh', 'cry']
+        theme_keywords = ['superhero', 'space', 'war', 'family', 'crime', 'zombie', 'vampire', 'magic']
+        
+        if any(keyword in message_lower for keyword in movie_keywords + mood_keywords + theme_keywords):
+            # Extract detailed movie preferences
             genres = [genre for genre in self.movie_genres if genre in message_lower]
             years = re.findall(r'\b(19|20)\d{2}\b', user_message)
+            themes = [theme for theme in theme_keywords if theme in message_lower]
+            
+            # Detect mood from keywords
+            mood = "any"
+            if any(word in message_lower for word in ['exciting', 'action-packed', 'thrilling']):
+                mood = "exciting"
+                if 'action' not in genres:
+                    genres.append('action')
+            elif any(word in message_lower for word in ['funny', 'laugh', 'comedy']):
+                mood = "funny"
+                if 'comedy' not in genres:
+                    genres.append('comedy')
+            elif any(word in message_lower for word in ['romantic', 'romance', 'love']):
+                mood = "romantic"
+                if 'romance' not in genres:
+                    genres.append('romance')
+            elif any(word in message_lower for word in ['scary', 'horror', 'fear']):
+                mood = "scary"
+                if 'horror' not in genres:
+                    genres.append('horror')
+            
+            # Detect language preferences
+            language = "any"
+            if any(word in message_lower for word in ['hindi', 'bollywood']):
+                language = "hindi"
+            elif any(word in message_lower for word in ['english', 'hollywood']):
+                language = "english"
+            elif any(word in message_lower for word in ['tamil', 'telugu', 'malayalam']):
+                language = next(word for word in ['tamil', 'telugu', 'malayalam'] if word in message_lower)
+            
+            # Build intelligent search query
+            search_parts = []
+            if language != "any":
+                search_parts.append(language)
+            if genres:
+                search_parts.extend(genres[:2])
+            if themes:
+                search_parts.extend(themes[:1])
+            if years:
+                search_parts.extend(years[:1])
+            
+            search_query = " ".join(search_parts) if search_parts else user_message
             
             return {
                 "intent_type": "movie_request",
-                "confidence": 0.6,
+                "confidence": 0.8,
                 "movie_details": {
                     "movie_titles": [],
                     "genres": genres,
                     "years": years,
-                    "search_query": user_message
+                    "themes": themes,
+                    "mood": mood,
+                    "language": language,
+                    "search_query": search_query
                 },
                 "response_style": "informative"
             }
@@ -258,36 +308,46 @@ Be genuine, caring, and helpful."""
             else:
                 search_context = "\nI couldn't find specific movies matching your request, but I can still help with recommendations."
             
+            # Get user intent analysis for better context
+            user_analysis = intent.get("user_intent_analysis", {})
+            what_they_want = user_analysis.get("what_they_want", "movies")
+            
             system_prompt = f"""You are {self.agent_personality['name']}, a {self.agent_personality['role']}.
 You are {', '.join(self.agent_personality['traits'])}.
 
 IMPORTANT: DO NOT list individual movies in your response. The UI already displays movies in a structured format below your response.
 
-The user is looking for movies. Here's what they want:
+UNDERSTAND THE USER'S REQUEST:
+The user wants: {what_they_want}
+Their preferences:
 - Movie titles: {movie_details.get('movie_titles', [])}
 - Genres: {movie_details.get('genres', [])}
+- Themes: {movie_details.get('themes', [])}
 - Years: {movie_details.get('years', [])}
 - Mood: {movie_details.get('mood', 'any')}
+- Language: {movie_details.get('language', 'any')}
+- Specific preferences: {user_analysis.get('specific_preferences', 'none mentioned')}
 
+SEARCH RESULTS CONTEXT:
 {search_context}
 
-Instead of listing movies, provide:
-1. Encouraging commentary about the search results
-2. General guidance about what was found
-3. Suggestions for refining the search if needed
-4. Enthusiasm and helpful advice
+RESPOND INTELLIGENTLY based on what they actually wanted:
 
 If movies were found:
-- Comment on the variety and quality of results
-- Mention the sources and formats available
-- Give tips on choosing the best option
+- Acknowledge their specific request (e.g., "Great! I found some {movie_details.get('mood', 'great')} {' '.join(movie_details.get('genres', ['movies']))} for you!")
+- Comment on how well the results match their preferences
+- Mention the variety of sources, qualities, and years available
+- Give personalized advice based on their mood/preferences
+- Suggest what to look for when choosing
 
 If no movies were found:
-- Acknowledge their request sympathetically
-- Suggest alternative search terms or similar movies
-- Ask clarifying questions to help them better
+- Acknowledge their specific request sympathetically
+- Explain why the search might not have found results
+- Suggest alternative search terms that might work better
+- Ask clarifying questions to help narrow down their preferences
+- Offer to search for similar or related movies
 
-Be conversational, knowledgeable, and excited about movies. Focus on guiding the user rather than listing movies."""
+Be enthusiastic, specific to their request, and genuinely helpful. Show that you understand exactly what they're looking for."""
 
             # Add to conversation history
             self.conversation_history.append({"role": "user", "content": user_message})
@@ -349,30 +409,58 @@ Keep responses concise but engaging."""
             return "I'm here to help you discover amazing movies! Is there anything specific you'd like to watch, or would you like me to suggest something based on your mood?"
     
     def extract_movie_search_query(self, intent: Dict[str, Any]) -> str:
-        """Extract the best search query for movie API"""
+        """Extract the best search query for movie API with intelligent prioritization"""
         movie_details = intent.get("movie_details", {})
         
-        # If specific movie titles mentioned, use the first one
+        # Priority 1: Specific movie titles (highest priority)
         if movie_details.get("movie_titles"):
             return movie_details["movie_titles"][0]
         
-        # If search query provided, use it
+        # Priority 2: Pre-built search query from LLM analysis
         if movie_details.get("search_query"):
             return movie_details["search_query"]
         
-        # Build query from genres and other details
+        # Priority 3: Build intelligent query from components
         query_parts = []
         
+        # Add language preference first (important for filtering)
+        if movie_details.get("language") and movie_details["language"] != "any":
+            query_parts.append(movie_details["language"])
+        
+        # Add genres (most important for discovery)
         if movie_details.get("genres"):
-            query_parts.extend(movie_details["genres"])
+            query_parts.extend(movie_details["genres"][:2])  # Top 2 genres
         
+        # Add themes (very specific)
+        if movie_details.get("themes"):
+            query_parts.extend(movie_details["themes"][:1])  # Top theme
+        
+        # Add year if recent (helps with relevance)
         if movie_details.get("years"):
-            query_parts.extend(movie_details["years"])
+            years = movie_details["years"]
+            recent_years = [y for y in years if int(y) >= 2020]
+            if recent_years:
+                query_parts.append(recent_years[0])
         
+        # Add actors (if mentioned specifically)
         if movie_details.get("actors"):
-            query_parts.extend(movie_details["actors"])
+            query_parts.append(movie_details["actors"][0])
         
-        return " ".join(query_parts) if query_parts else "popular movies"
+        # Fallback: Create query from mood/context
+        if not query_parts:
+            mood = movie_details.get("mood", "")
+            if "exciting" in mood or "action" in mood:
+                return "action movies"
+            elif "funny" in mood or "laugh" in mood:
+                return "comedy movies"
+            elif "romantic" in mood:
+                return "romance movies"
+            elif "scary" in mood:
+                return "horror movies"
+            else:
+                return "popular movies"
+        
+        return " ".join(query_parts)
     
     def generate_search_suggestions(self, user_message: str) -> List[str]:
         """Generate search suggestions based on user message"""
