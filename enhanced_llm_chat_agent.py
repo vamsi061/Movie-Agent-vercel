@@ -45,47 +45,56 @@ class EnhancedLLMChatAgent:
     def analyze_user_intent(self, user_message: str) -> Dict[str, Any]:
         """Analyze user intent to determine response type"""
         try:
-            system_prompt = """You are an expert movie recommendation assistant that analyzes user messages to understand their exact movie preferences.
+            system_prompt = """You are an expert movie database assistant that analyzes user messages to understand their exact movie requests.
 
 ANALYZE THE USER'S MESSAGE CAREFULLY and extract:
 1. Intent type: "personal", "movie_request", "general_chat", or "greeting"
-2. Detailed movie preferences (be very specific and thorough)
+2. If they mention a specific movie, research and provide complete details
 3. The best search terms for finding movies
+
+FOR SPECIFIC MOVIE REQUESTS (like "rrr movie", "avatar", "john wick"):
+- Research the movie thoroughly
+- Provide the correct full title, year, and key details
+- Handle common abbreviations and alternate names
+- Suggest the best search terms
 
 Respond in JSON format:
 {
     "intent_type": "personal|movie_request|general_chat|greeting",
     "confidence": 0.9,
     "movie_details": {
-        "movie_titles": ["exact movie names if mentioned"],
-        "genres": ["specific genres mentioned or implied"],
-        "years": ["specific years mentioned"],
-        "actors": ["actor names mentioned"],
-        "directors": ["director names mentioned"],
-        "mood": "user's emotional preference",
-        "language": "preferred language",
-        "quality": "quality preference",
-        "themes": ["themes like superhero, space, war, family, etc"],
-        "search_query": "BEST search term for movie APIs"
+        "movie_titles": ["exact movie names with full details"],
+        "genres": ["specific genres"],
+        "years": ["release years"],
+        "actors": ["main actors"],
+        "directors": ["directors"],
+        "language": "movie language",
+        "movie_research": {
+            "full_title": "complete official movie title",
+            "release_year": "year",
+            "alternate_names": ["other known names"],
+            "key_details": "important info about the movie"
+        },
+        "search_query": "BEST search term for movie APIs",
+        "search_variations": ["alternative search terms to try"]
     },
     "user_intent_analysis": {
-        "what_they_want": "clear description of what user is looking for",
-        "specific_preferences": "any specific requirements mentioned",
-        "context": "context or reason for the request"
+        "what_they_want": "specific movie or general preference",
+        "is_specific_movie": true/false,
+        "confidence_in_movie_match": "high/medium/low"
     }
 }
 
-EXAMPLES OF BETTER ANALYSIS:
-- "I want something exciting and action-packed" → genres: ["action"], mood: "exciting", themes: ["adventure"], search_query: "action movies"
-- "Show me some superhero movies" → themes: ["superhero"], genres: ["action", "adventure"], search_query: "superhero movies"
-- "I'm in the mood for a good laugh" → genres: ["comedy"], mood: "funny", search_query: "comedy movies"
-- "Any good sci-fi from 2023?" → genres: ["sci-fi"], years: ["2023"], search_query: "sci-fi 2023"
-- "I want to watch Avengers" → movie_titles: ["Avengers"], themes: ["superhero"], search_query: "Avengers"
-- "Something like John Wick" → movie_titles: ["John Wick"], genres: ["action"], themes: ["crime"], search_query: "John Wick"
-- "Hindi action movies" → language: "hindi", genres: ["action"], search_query: "hindi action movies"
-- "Latest Hollywood blockbusters" → language: "english", themes: ["blockbuster"], search_query: "hollywood movies"
+MOVIE RESEARCH EXAMPLES:
+- "rrr movie" → movie_research: {"full_title": "RRR", "release_year": "2022", "alternate_names": ["RRR (Rise Roar Revolt)", "Roudram Ranam Rudhiram"], "key_details": "Telugu epic action film by S.S. Rajamouli starring Ram Charan and Jr. NTR"}, search_query: "RRR 2022", search_variations: ["RRR", "RRR movie", "RRR 2022"]
 
-BE SMART about extracting preferences from natural language!"""
+- "avatar" → movie_research: {"full_title": "Avatar", "release_year": "2009", "alternate_names": ["Avatar: The Way of Water (2022 sequel)"], "key_details": "James Cameron sci-fi film"}, search_query: "Avatar 2009", search_variations: ["Avatar", "Avatar movie", "Avatar James Cameron"]
+
+- "john wick" → movie_research: {"full_title": "John Wick", "release_year": "2014", "alternate_names": ["John Wick Chapter series"], "key_details": "Action thriller starring Keanu Reeves"}, search_query: "John Wick", search_variations: ["John Wick", "John Wick 2014", "John Wick movie"]
+
+- "avengers endgame" → movie_research: {"full_title": "Avengers: Endgame", "release_year": "2019", "key_details": "Marvel superhero film, final Infinity Saga movie"}, search_query: "Avengers Endgame", search_variations: ["Avengers Endgame", "Avengers: Endgame", "Endgame"]
+
+BE THOROUGH in movie research and provide multiple search variations!"""
 
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -116,7 +125,7 @@ BE SMART about extracting preferences from natural language!"""
             return self._fallback_intent_analysis(user_message)
     
     def _fallback_intent_analysis(self, user_message: str) -> Dict[str, Any]:
-        """Fallback method for intent analysis when LLM fails"""
+        """Enhanced fallback method for intent analysis when LLM fails"""
         message_lower = user_message.lower()
         
         # Check for greetings
@@ -139,7 +148,12 @@ BE SMART about extracting preferences from natural language!"""
                 "response_style": "empathetic"
             }
         
-        # Enhanced movie keyword detection
+        # ENHANCED SPECIFIC MOVIE DETECTION
+        specific_movies = self._detect_specific_movie(user_message)
+        if specific_movies:
+            return specific_movies
+        
+        # Enhanced movie keyword detection for general requests
         movie_keywords = ['movie', 'film', 'watch', 'download', 'stream', 'cinema', 'bollywood', 'hollywood', 'show', 'series']
         mood_keywords = ['exciting', 'funny', 'romantic', 'scary', 'thrilling', 'action-packed', 'laugh', 'cry']
         theme_keywords = ['superhero', 'space', 'war', 'family', 'crime', 'zombie', 'vampire', 'magic']
@@ -203,6 +217,11 @@ BE SMART about extracting preferences from natural language!"""
                     "language": language,
                     "search_query": search_query
                 },
+                "user_intent_analysis": {
+                    "what_they_want": "general movie recommendations",
+                    "is_specific_movie": False,
+                    "confidence_in_movie_match": "medium"
+                },
                 "response_style": "informative"
             }
         
@@ -212,6 +231,99 @@ BE SMART about extracting preferences from natural language!"""
             "confidence": 0.5,
             "response_style": "conversational"
         }
+    
+    def _detect_specific_movie(self, user_message: str) -> Optional[Dict[str, Any]]:
+        """Detect and research specific movie requests in fallback mode"""
+        message_lower = user_message.lower().strip()
+        
+        # Known movie database (fallback when LLM API fails)
+        known_movies = {
+            "rrr": {
+                "full_title": "RRR",
+                "release_year": "2022",
+                "alternate_names": ["RRR (Rise Roar Revolt)", "Roudram Ranam Rudhiram"],
+                "key_details": "Telugu epic action film by S.S. Rajamouli starring Ram Charan and Jr. NTR",
+                "language": "telugu",
+                "genres": ["action", "drama"],
+                "search_variations": ["RRR", "RRR 2022", "RRR movie", "RRR telugu"]
+            },
+            "avatar": {
+                "full_title": "Avatar",
+                "release_year": "2009",
+                "alternate_names": ["Avatar: The Way of Water (2022 sequel)"],
+                "key_details": "James Cameron sci-fi film starring Sam Worthington",
+                "language": "english",
+                "genres": ["sci-fi", "action"],
+                "search_variations": ["Avatar", "Avatar 2009", "Avatar James Cameron"]
+            },
+            "john wick": {
+                "full_title": "John Wick",
+                "release_year": "2014",
+                "alternate_names": ["John Wick Chapter series"],
+                "key_details": "Action thriller starring Keanu Reeves",
+                "language": "english",
+                "genres": ["action", "thriller"],
+                "search_variations": ["John Wick", "John Wick 2014", "John Wick movie"]
+            },
+            "avengers endgame": {
+                "full_title": "Avengers: Endgame",
+                "release_year": "2019",
+                "alternate_names": ["Endgame"],
+                "key_details": "Marvel superhero film, final Infinity Saga movie",
+                "language": "english",
+                "genres": ["action", "adventure"],
+                "search_variations": ["Avengers Endgame", "Avengers: Endgame", "Endgame"]
+            },
+            "kgf": {
+                "full_title": "K.G.F: Chapter 1",
+                "release_year": "2018",
+                "alternate_names": ["KGF", "K.G.F Chapter 2 (2022)"],
+                "key_details": "Kannada action film starring Yash",
+                "language": "kannada",
+                "genres": ["action", "drama"],
+                "search_variations": ["KGF", "K.G.F", "KGF Chapter 1"]
+            },
+            "pushpa": {
+                "full_title": "Pushpa: The Rise",
+                "release_year": "2021",
+                "alternate_names": ["Pushpa Part 1"],
+                "key_details": "Telugu action drama starring Allu Arjun",
+                "language": "telugu",
+                "genres": ["action", "drama"],
+                "search_variations": ["Pushpa", "Pushpa The Rise", "Pushpa movie"]
+            }
+        }
+        
+        # Clean the message for matching
+        clean_message = re.sub(r'\b(movie|film|watch|download)\b', '', message_lower).strip()
+        
+        # Check for exact matches or close matches
+        for movie_key, movie_data in known_movies.items():
+            if (movie_key in clean_message or 
+                clean_message in movie_key or
+                any(alt.lower() in clean_message for alt in movie_data["alternate_names"])):
+                
+                return {
+                    "intent_type": "movie_request",
+                    "confidence": 0.9,
+                    "movie_details": {
+                        "movie_titles": [movie_data["full_title"]],
+                        "genres": movie_data["genres"],
+                        "years": [movie_data["release_year"]],
+                        "language": movie_data["language"],
+                        "movie_research": movie_data,
+                        "search_query": f"{movie_data['full_title']} {movie_data['release_year']}",
+                        "search_variations": movie_data["search_variations"]
+                    },
+                    "user_intent_analysis": {
+                        "what_they_want": f"the specific movie {movie_data['full_title']} ({movie_data['release_year']})",
+                        "is_specific_movie": True,
+                        "confidence_in_movie_match": "high"
+                    },
+                    "response_style": "informative"
+                }
+        
+        return None
     
     def generate_contextual_response(self, user_message: str, intent: Dict[str, Any], search_results: List[Dict] = None) -> str:
         """Generate contextual response based on intent analysis"""
@@ -311,6 +423,10 @@ Be genuine, caring, and helpful."""
             # Get user intent analysis for better context
             user_analysis = intent.get("user_intent_analysis", {})
             what_they_want = user_analysis.get("what_they_want", "movies")
+            is_specific_movie = user_analysis.get("is_specific_movie", False)
+            
+            # Get movie research details if available
+            movie_research = movie_details.get("movie_research", {})
             
             system_prompt = f"""You are {self.agent_personality['name']}, a {self.agent_personality['role']}.
 You are {', '.join(self.agent_personality['traits'])}.
@@ -319,35 +435,44 @@ IMPORTANT: DO NOT list individual movies in your response. The UI already displa
 
 UNDERSTAND THE USER'S REQUEST:
 The user wants: {what_they_want}
-Their preferences:
+Is this a specific movie request: {is_specific_movie}
+
+{'MOVIE RESEARCH DETAILS:' if movie_research else ''}
+{f"- Full Title: {movie_research.get('full_title', '')}" if movie_research.get('full_title') else ''}
+{f"- Release Year: {movie_research.get('release_year', '')}" if movie_research.get('release_year') else ''}
+{f"- Key Details: {movie_research.get('key_details', '')}" if movie_research.get('key_details') else ''}
+{f"- Alternate Names: {movie_research.get('alternate_names', [])}" if movie_research.get('alternate_names') else ''}
+
+User preferences:
 - Movie titles: {movie_details.get('movie_titles', [])}
 - Genres: {movie_details.get('genres', [])}
 - Themes: {movie_details.get('themes', [])}
 - Years: {movie_details.get('years', [])}
-- Mood: {movie_details.get('mood', 'any')}
 - Language: {movie_details.get('language', 'any')}
-- Specific preferences: {user_analysis.get('specific_preferences', 'none mentioned')}
 
 SEARCH RESULTS CONTEXT:
 {search_context}
 
-RESPOND INTELLIGENTLY based on what they actually wanted:
+RESPOND INTELLIGENTLY:
 
-If movies were found:
-- Acknowledge their specific request (e.g., "Great! I found some {movie_details.get('mood', 'great')} {' '.join(movie_details.get('genres', ['movies']))} for you!")
-- Comment on how well the results match their preferences
-- Mention the variety of sources, qualities, and years available
-- Give personalized advice based on their mood/preferences
-- Suggest what to look for when choosing
+If this is a SPECIFIC MOVIE request and movies were found:
+- Confirm if the found movie matches what they're looking for
+- Mention the movie details you researched (title, year, key info)
+- Ask for confirmation: "Is this the {movie_research.get('full_title', 'movie')} you were looking for?"
+- Highlight the available qualities and sources
 
-If no movies were found:
-- Acknowledge their specific request sympathetically
-- Explain why the search might not have found results
-- Suggest alternative search terms that might work better
-- Ask clarifying questions to help narrow down their preferences
-- Offer to search for similar or related movies
+If this is a SPECIFIC MOVIE request but no movies found:
+- Acknowledge the specific movie they wanted
+- Mention the correct details you found about the movie
+- Suggest alternative search terms or spellings
+- Offer to search for similar movies or the sequel/prequel
 
-Be enthusiastic, specific to their request, and genuinely helpful. Show that you understand exactly what they're looking for."""
+If this is a GENERAL movie request:
+- Acknowledge their preferences and mood
+- Comment on the variety of results found
+- Give personalized recommendations based on their criteria
+
+Be helpful, specific, and always confirm when dealing with specific movie requests!"""
 
             # Add to conversation history
             self.conversation_history.append({"role": "user", "content": user_message})
@@ -411,16 +536,29 @@ Keep responses concise but engaging."""
     def extract_movie_search_query(self, intent: Dict[str, Any]) -> str:
         """Extract the best search query for movie API with intelligent prioritization"""
         movie_details = intent.get("movie_details", {})
+        user_analysis = intent.get("user_intent_analysis", {})
         
-        # Priority 1: Specific movie titles (highest priority)
+        # Priority 1: Specific movie with research (highest priority)
+        if user_analysis.get("is_specific_movie") and movie_details.get("movie_research"):
+            movie_research = movie_details["movie_research"]
+            full_title = movie_research.get("full_title", "")
+            release_year = movie_research.get("release_year", "")
+            
+            # Use full title with year for specific movies
+            if full_title and release_year:
+                return f"{full_title} {release_year}"
+            elif full_title:
+                return full_title
+        
+        # Priority 2: Specific movie titles mentioned
         if movie_details.get("movie_titles"):
             return movie_details["movie_titles"][0]
         
-        # Priority 2: Pre-built search query from LLM analysis
+        # Priority 3: Pre-built search query from LLM analysis
         if movie_details.get("search_query"):
             return movie_details["search_query"]
         
-        # Priority 3: Build intelligent query from components
+        # Priority 4: Build intelligent query from components
         query_parts = []
         
         # Add language preference first (important for filtering)
@@ -461,6 +599,30 @@ Keep responses concise but engaging."""
                 return "popular movies"
         
         return " ".join(query_parts)
+    
+    def get_search_variations(self, intent: Dict[str, Any]) -> List[str]:
+        """Get multiple search variations for better movie finding"""
+        movie_details = intent.get("movie_details", {})
+        
+        # If we have search variations from movie research, use them
+        if movie_details.get("search_variations"):
+            return movie_details["search_variations"]
+        
+        # Otherwise, create variations from the main search query
+        main_query = self.extract_movie_search_query(intent)
+        variations = [main_query]
+        
+        # Add variations for specific movies
+        if movie_details.get("movie_titles"):
+            title = movie_details["movie_titles"][0]
+            variations.extend([title, f"{title} movie"])
+            
+            # Add year variations if available
+            if movie_details.get("years"):
+                year = movie_details["years"][0]
+                variations.append(f"{title} {year}")
+        
+        return list(set(variations))  # Remove duplicates
     
     def generate_search_suggestions(self, user_message: str) -> List[str]:
         """Generate search suggestions based on user message"""

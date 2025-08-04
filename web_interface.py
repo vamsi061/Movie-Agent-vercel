@@ -2748,10 +2748,20 @@ def chat_with_ai():
         # Extract search queries from intent FIRST (before generating response)
         search_queries = []
         if intent.get('intent_type') == 'movie_request':
-            # Extract search queries from user intent
-            search_query = llm_chat_agent.extract_movie_search_query(intent)
-            search_queries = [search_query]
-            logger.info(f"Extracted search query from intent: {search_query}")
+            # Check if this is a specific movie request
+            user_analysis = intent.get("user_intent_analysis", {})
+            is_specific_movie = user_analysis.get("is_specific_movie", False)
+            
+            if is_specific_movie:
+                # For specific movies, use multiple search variations
+                search_variations = llm_chat_agent.get_search_variations(intent)
+                search_queries = search_variations[:3]  # Use top 3 variations
+                logger.info(f"Specific movie request - using search variations: {search_queries}")
+            else:
+                # For general requests, use single optimized query
+                search_query = llm_chat_agent.extract_movie_search_query(intent)
+                search_queries = [search_query]
+                logger.info(f"General movie request - using search query: {search_query}")
         else:
             # For non-movie requests, no search needed
             search_queries = []
