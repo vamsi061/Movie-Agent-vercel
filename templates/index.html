@@ -739,20 +739,33 @@
                             movie_name: movieName
                         })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        console.log('Response headers:', response.headers);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         hideLoading();
                         console.log('Search results:', data);
+                        console.log('Data type:', typeof data);
+                        console.log('Data keys:', Object.keys(data));
+                        
                         if (data.success && data.movies && data.movies.length > 0) {
+                            console.log('Found', data.movies.length, 'movies');
                             displaySearchResults(data.movies, data.search_id);
                         } else {
+                            console.log('No movies found or data format issue');
                             alert('No movies found for: ' + movieName);
                         }
                     })
                     .catch(error => {
                         hideLoading();
                         console.error('Search error:', error);
-                        alert('Search failed. Please try again.');
+                        console.error('Error details:', error.message);
+                        alert('Search failed: ' + error.message);
                     });
                 } else {
                     console.log('No movie name entered');
