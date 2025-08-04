@@ -806,8 +806,7 @@
         // Auto-hide loading on page load
         window.addEventListener('load', function() {
             setTimeout(hideLoading, 500);
-            // Initialize search functionality
-            setupSearchEnhancements();
+            // Don't call setupSearchEnhancements - app.js handles search
             setupAnimations();
             createParticles();
         });
