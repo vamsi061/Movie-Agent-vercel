@@ -697,8 +697,17 @@
         }
 
         function setupSearchEnhancements() {
+            console.log('Setting up search enhancements...');
             const searchInput = document.getElementById('movieName');
             const searchForm = document.getElementById('searchForm');
+            
+            console.log('searchForm:', searchForm);
+            console.log('searchInput:', searchInput);
+            
+            if (!searchForm || !searchInput) {
+                console.error('Search form elements not found');
+                return;
+            }
 
             // Enhanced search input behavior
             searchInput.addEventListener('focus', function() {
@@ -710,16 +719,21 @@
             });
 
             // Handle form submission
+            console.log('Adding form submit event listener...');
             searchForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const movieName = searchInput.value.trim();
                 console.log('Search form submitted with:', movieName);
                 if (movieName) {
+                    console.log('Calling searchMovies with:', movieName);
                     searchMovies(movieName);
                 } else {
+                    console.log('No movie name entered');
                     alert('Please enter a movie name to search');
                 }
             });
+            
+            console.log('Search enhancements setup complete!');
         }
 
         function setupAnimations() {
