@@ -2545,6 +2545,117 @@ def chat_interface():
     """Render the chat interface"""
     return render_template('chat.html')
 
+@app.route('/enhanced-chat')
+def enhanced_chat_interface():
+    """Render the enhanced chat interface"""
+    return render_template('enhanced_chat.html')
+
+@app.route('/extract', methods=['POST'])
+def extract_from_chat():
+    """Handle extraction requests from chat interface"""
+    try:
+        data = request.get_json()
+        movie_title = data.get('movie_title')
+        movie_url = data.get('movie_url')
+        movie_source = data.get('movie_source')
+        
+        if not all([movie_title, movie_url, movie_source]):
+            return jsonify({'error': 'Missing required movie information'}), 400
+        
+        # Generate extraction ID
+        import time
+        extraction_id = f"extract_{int(time.time() * 1000)}"
+        
+        # Start extraction in background
+        def extract_links():
+            try:
+                # Initialize agents
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
+                
+                # Determine which agent to use
+                agent = None
+                if movie_source == 'DownloadHub':
+                    agent = downloadhub_agent
+                elif movie_source == 'MoviezWap':
+                    agent = moviezwap_agent
+                elif movie_source == 'MovieRulz':
+                    agent = movierulz_agent
+                elif movie_source == 'SkySetX':
+                    agent = skysetx_agent
+                elif movie_source == 'Movies4U':
+                    agent = movies4u_agent
+                elif movie_source == 'Telegram':
+                    agent = telegram_agent
+                
+                if not agent:
+                    extraction_results[extraction_id] = {
+                        'status': 'failed',
+                        'error': f'Agent not available for {movie_source}',
+                        'download_links': []
+                    }
+                    return
+                
+                # Extract download links
+                if movie_source == 'SkySetX':
+                    result = agent.get_download_links(movie_url)
+                elif movie_source == 'Telegram':
+                    result = agent.get_download_links(movie_url)
+                else:
+                    result = agent.extract_download_links(movie_url)
+                
+                # Store results
+                extraction_results[extraction_id] = {
+                    'status': 'completed',
+                    'movie_title': movie_title,
+                    'movie_url': movie_url,
+                    'movie_source': movie_source,
+                    'download_links': result.get('download_links', []) if isinstance(result, dict) else result,
+                    'timestamp': time.time()
+                }
+                
+            except Exception as e:
+                logger.error(f"Extraction failed for {extraction_id}: {str(e)}")
+                extraction_results[extraction_id] = {
+                    'status': 'failed',
+                    'error': str(e),
+                    'download_links': []
+                }
+        
+        # Start extraction in background thread
+        import threading
+        thread = threading.Thread(target=extract_links)
+        thread.daemon = True
+        thread.start()
+        
+        # Store initial status
+        extraction_results[extraction_id] = {
+            'status': 'processing',
+            'movie_title': movie_title,
+            'movie_source': movie_source
+        }
+        
+        return jsonify({
+            'success': True,
+            'extraction_id': extraction_id,
+            'message': 'Extraction started'
+        })
+        
+    except Exception as e:
+        logger.error(f"Chat extraction error: {str(e)}")
+        return jsonify({'error': 'Failed to start extraction'}), 500
+
+@app.route('/extraction-results')
+def extraction_results_page():
+    """Show extraction results page"""
+    extraction_id = request.args.get('id')
+    if not extraction_id or extraction_id not in extraction_results:
+        return render_template('error.html', error='Extraction not found'), 404
+    
+    result = extraction_results[extraction_id]
+    return render_template('extraction_results.html', 
+                         extraction_id=extraction_id,
+                         result=result)
+
 @app.route('/chat', methods=['POST'])
 def chat_with_ai():
     """Handle chat messages with AI"""
@@ -2568,50 +2679,69 @@ def chat_with_ai():
         
         # Extract movie intent from user message
         intent = llm_chat_agent.extract_movie_intent(user_message)
-        search_query = intent.get('search_query', user_message)
         
-        # Search for movies if intent suggests it
+        # Generate AI response first to get movie recommendations
+        ai_response = llm_chat_agent.generate_movie_suggestions(user_message, [])
+        
+        # Extract movie titles from AI response
+        movie_titles_from_ai = extract_movie_titles_from_response(ai_response)
+        
+        # Search for movies if we have specific titles or general movie intent
         movie_results = []
-        if intent.get('confidence', 0) > 0.3 or any(keyword in user_message.lower() 
-                                                   for keyword in ['movie', 'watch', 'film', 'search', 'find']):
+        search_queries = []
+        
+        if movie_titles_from_ai:
+            # Use specific movie titles from AI response
+            search_queries = movie_titles_from_ai[:3]  # Limit to top 3 recommendations
+        elif intent.get('confidence', 0) > 0.3:
+            # Use intent-based search query
+            search_queries = [intent.get('search_query', user_message)]
+        elif any(keyword in user_message.lower() for keyword in ['movie', 'watch', 'film', 'search', 'find']):
+            # Generic movie search
+            search_queries = [user_message]
+        
+        if search_queries:
             try:
                 # Initialize agents
                 downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
                 
-                # Quick search (limit results for chat)
+                # Search for each query
                 all_results = []
                 
-                # Search MoviezWap
-                if moviezwap_agent:
-                    try:
-                        moviezwap_result = moviezwap_agent.search_movies(search_query)
-                        moviezwap_movies = moviezwap_result['movies'][:3]  # Limit for chat
-                        for movie in moviezwap_movies:
-                            movie['source'] = 'MoviezWap'
-                        all_results.extend(moviezwap_movies)
-                    except Exception as e:
-                        logger.error(f"MoviezWap search failed in chat: {str(e)}")
-                
-                # Search MovieRulz
-                if movierulz_agent:
-                    try:
-                        movierulz_result = movierulz_agent.search_movies(search_query)
-                        movierulz_movies = movierulz_result['movies'][:3]  # Limit for chat
-                        for movie in movierulz_movies:
-                            movie['source'] = 'MovieRulz'
-                        all_results.extend(movierulz_movies)
-                    except Exception as e:
-                        logger.error(f"MovieRulz search failed in chat: {str(e)}")
-                
-                # Search SkySetX
-                if skysetx_agent:
-                    try:
-                        skysetx_movies = skysetx_agent.search_movies(search_query, limit=3)
-                        for movie in skysetx_movies:
-                            movie['source'] = 'SkySetX'
-                        all_results.extend(skysetx_movies)
-                    except Exception as e:
-                        logger.error(f"SkySetX search failed in chat: {str(e)}")
+                for search_query in search_queries:
+                    logger.info(f"Searching for: {search_query}")
+                    
+                    # Search MoviezWap
+                    if moviezwap_agent:
+                        try:
+                            moviezwap_result = moviezwap_agent.search_movies(search_query)
+                            moviezwap_movies = moviezwap_result['movies'][:2]  # Limit per query
+                            for movie in moviezwap_movies:
+                                movie['source'] = 'MoviezWap'
+                            all_results.extend(moviezwap_movies)
+                        except Exception as e:
+                            logger.error(f"MoviezWap search failed for '{search_query}': {str(e)}")
+                    
+                    # Search MovieRulz
+                    if movierulz_agent:
+                        try:
+                            movierulz_result = movierulz_agent.search_movies(search_query)
+                            movierulz_movies = movierulz_result['movies'][:2]  # Limit per query
+                            for movie in movierulz_movies:
+                                movie['source'] = 'MovieRulz'
+                            all_results.extend(movierulz_movies)
+                        except Exception as e:
+                            logger.error(f"MovieRulz search failed for '{search_query}': {str(e)}")
+                    
+                    # Search SkySetX
+                    if skysetx_agent:
+                        try:
+                            skysetx_movies = skysetx_agent.search_movies(search_query, limit=2)
+                            for movie in skysetx_movies:
+                                movie['source'] = 'SkySetX'
+                            all_results.extend(skysetx_movies)
+                        except Exception as e:
+                            logger.error(f"SkySetX search failed for '{search_query}': {str(e)}")
                 
                 movie_results = all_results[:10]  # Limit total results for chat
                 
@@ -2619,8 +2749,10 @@ def chat_with_ai():
                 logger.error(f"Movie search failed in chat: {str(e)}")
                 movie_results = []
         
-        # Generate AI response
-        ai_response = llm_chat_agent.generate_movie_suggestions(user_message, movie_results)
+        # Update AI response with search results if we found movies
+        if movie_results:
+            ai_response = llm_chat_agent.generate_movie_suggestions(user_message, movie_results)
+        # ai_response already generated above
         
         # Generate search suggestions
         suggestions = []
@@ -2644,6 +2776,39 @@ def chat_with_ai():
             'movie_results': [],
             'suggestions': []
         }), 500
+
+def extract_movie_titles_from_response(ai_response):
+    """Extract movie titles from AI response text"""
+    import re
+    
+    movie_titles = []
+    
+    # Pattern 1: "Movie Title (Year)" format
+    pattern1 = r'([A-Za-z0-9\s:&\-\'\.]+)\s*\((\d{4})\)'
+    matches1 = re.findall(pattern1, ai_response)
+    for title, year in matches1:
+        clean_title = title.strip()
+        if len(clean_title) > 2 and clean_title not in movie_titles:
+            movie_titles.append(clean_title)
+    
+    # Pattern 2: Numbered list format "1. Movie Title"
+    pattern2 = r'\d+\.\s*([A-Za-z0-9\s:&\-\'\.]+?)(?:\s*\(|\s*-|\n|$)'
+    matches2 = re.findall(pattern2, ai_response)
+    for title in matches2:
+        clean_title = title.strip()
+        if len(clean_title) > 2 and clean_title not in movie_titles:
+            movie_titles.append(clean_title)
+    
+    # Filter out common non-movie words
+    filtered_titles = []
+    exclude_words = ['movie', 'film', 'action', 'comedy', 'drama', 'thriller', 'horror']
+    
+    for title in movie_titles:
+        if not any(exclude.lower() == title.lower() for exclude in exclude_words):
+            filtered_titles.append(title)
+    
+    logger.info(f"Extracted movie titles from AI response: {filtered_titles}")
+    return filtered_titles[:3]  # Return top 3 titles
 
 if __name__ == '__main__':
     # Initialize agents on startup

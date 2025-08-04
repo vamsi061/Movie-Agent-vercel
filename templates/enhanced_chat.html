@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced AI Movie Chat - Movie Agent</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/responsive_fixes.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Header with improved design */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            text-decoration: none;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .ai-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(40, 167, 69, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #28a745;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Main chat container */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px 20px 0 0;
+            overflow: hidden;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Sidebar for quick actions */
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+
+        .sidebar-header h3 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .quick-actions {
+            margin-bottom: 25px;
+        }
+
+        .quick-actions h4 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .quick-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        .quick-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .quick-btn i {
+            margin-right: 10px;
+            width: 16px;
+        }
+
+        /* Chat messages area */
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            height: calc(100% - 120px); /* Reserve space for input */
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideInUp 0.3s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        /* Movie results in chat */
+        .movie-results {
+            margin-top: 15px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .movie-results h4 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .movie-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .movie-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .movie-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .movie-details {
+            font-size: 0.9rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .movie-badge {
+            background: #667eea;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .movie-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .extract-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .extract-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .search-btn {
+            background: #6c757d;
+            color: white;
+        }
+
+        .search-btn:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 20px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Input area */
+        .chat-input-container {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            flex-shrink: 0;
+            min-height: 100px;
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            max-width: 100%;
+        }
+
+        .input-field {
+            flex: 1;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .input-field:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Suggestions */
+        .suggestions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .suggestion-chip {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .suggestion-chip:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Welcome screen */
+        .welcome-screen {
+            text-align: center;
+            padding: 60px 40px;
+            color: #666;
+        }
+
+        .welcome-screen h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .welcome-screen p {
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .welcome-suggestions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .welcome-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .welcome-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .welcome-card h4 {
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .welcome-card p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        /* Mobile sidebar overlay */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .sidebar-overlay.active {
+                display: block;
+            }
+            
+            .chat-container {
+                flex-direction: column;
+                border-radius: 0;
+                margin: 0;
+                max-width: 100vw;
+                overflow-x: hidden;
+                height: calc(100vh - 60px);
+            }
+            
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: -100%;
+                width: 280px;
+                height: 100vh;
+                z-index: 1000;
+                transition: left 0.3s ease;
+                background: rgba(248, 249, 250, 0.98);
+                backdrop-filter: blur(20px);
+            }
+            
+            .sidebar.open {
+                left: 0;
+            }
+            
+            .chat-main {
+                width: 100%;
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .header {
+                padding: 10px 20px 10px 70px;
+            }
+            
+            .header h1 {
+                font-size: 1.2rem;
+            }
+            
+            .message-content {
+                max-width: 85%;
+                word-break: break-word;
+            }
+            
+            .welcome-suggestions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 8px 15px 8px 60px;
+                min-height: 50px;
+            }
+            
+            .header h1 {
+                font-size: 1.1rem;
+            }
+            
+            .nav-btn {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+            
+            .sidebar {
+                width: 260px;
+            }
+            
+            .chat-container {
+                height: calc(100vh - 50px);
+            }
+            
+            .chat-messages {
+                height: calc(100% - 100px);
+                padding: 15px;
+            }
+            
+            .chat-input-container {
+                padding: 15px;
+                min-height: 85px;
+            }
+            
+            .message-content {
+                max-width: 90%;
+            }
+            
+            .input-field {
+                font-size: 16px; /* Prevents zoom on iOS */
+                min-height: 45px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile sidebar toggle -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <a href="/" class="logo">
+                <i class="fas fa-film"></i>
+                <h1>Movie Agent</h1>
+            </a>
+            <div class="ai-status">
+                <div class="status-dot"></div>
+                <span>AI Online</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="/" class="nav-btn">
+                <i class="fas fa-search"></i> Search
+            </a>
+            <a href="/admin" class="nav-btn">
+                <i class="fas fa-cog"></i> Admin
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Chat Container -->
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>Quick Actions</h3>
+                <p>Get started with these options</p>
+            </div>
+            <div class="sidebar-content">
+                <div class="quick-actions">
+                    <h4>Popular Requests</h4>
+                    <button class="quick-btn" onclick="sendQuickMessage('Show me the latest action movies')">
+                        <i class="fas fa-fire"></i> Latest Action Movies
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('I want to watch a good comedy')">
+                        <i class="fas fa-laugh"></i> Comedy Movies
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Suggest some thriller movies')">
+                        <i class="fas fa-mask"></i> Thriller Movies
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('What are the best movies of 2024?')">
+                        <i class="fas fa-star"></i> Best of 2024
+                    </button>
+                </div>
+                
+                <div class="quick-actions">
+                    <h4>By Genre</h4>
+                    <button class="quick-btn" onclick="sendQuickMessage('Show me romantic movies')">
+                        <i class="fas fa-heart"></i> Romance
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('I want to watch horror movies')">
+                        <i class="fas fa-ghost"></i> Horror
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Suggest sci-fi movies')">
+                        <i class="fas fa-rocket"></i> Sci-Fi
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Show me animated movies')">
+                        <i class="fas fa-palette"></i> Animation
+                    </button>
+                </div>
+                
+                <div class="quick-actions">
+                    <h4>Special</h4>
+                    <button class="quick-btn" onclick="sendQuickMessage('Movies based on true stories')">
+                        <i class="fas fa-book"></i> True Stories
+                    </button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Award winning movies')">
+                        <i class="fas fa-trophy"></i> Award Winners
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-main">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <h3>🎬 Welcome to AI Movie Assistant!</h3>
+                    <p>I'm here to help you discover amazing movies. Just tell me what you're in the mood for, and I'll find the perfect recommendations for you!</p>
+                    
+                    <div class="welcome-suggestions">
+                        <div class="welcome-card" onclick="sendQuickMessage('I want to watch something exciting and action-packed')">
+                            <h4>🔥 Action & Adventure</h4>
+                            <p>High-octane thrills and epic adventures</p>
+                        </div>
+                        <div class="welcome-card" onclick="sendQuickMessage('I need something funny to cheer me up')">
+                            <h4>😄 Comedy & Fun</h4>
+                            <p>Laugh-out-loud moments and feel-good vibes</p>
+                        </div>
+                        <div class="welcome-card" onclick="sendQuickMessage('I want to watch a mind-bending movie')">
+                            <h4>🧠 Mind-Bending</h4>
+                            <p>Complex plots and thought-provoking stories</p>
+                        </div>
+                        <div class="welcome-card" onclick="sendQuickMessage('Show me the most popular movies right now')">
+                            <h4>⭐ Trending Now</h4>
+                            <p>What everyone is talking about</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="message-avatar" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">AI</div>
+                <span>AI is thinking</span>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="suggestions" id="suggestions" style="display: none;"></div>
+                <div class="input-wrapper">
+                    <textarea 
+                        id="chatInput" 
+                        class="input-field" 
+                        placeholder="Ask me about movies... (e.g., 'I want to watch a thriller from 2023')"
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                    <button id="sendBtn" class="send-btn" onclick="sendMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversationHistory = [];
+        let isWaitingForResponse = false;
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendQuickMessage(message) {
+            document.getElementById('chatInput').value = message;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message || isWaitingForResponse) return;
+            
+            // Clear input and hide welcome screen
+            input.value = '';
+            input.style.height = 'auto';
+            hideWelcomeScreen();
+            
+            // Add user message
+            addMessage(message, 'user');
+            
+            // Show typing indicator
+            showTypingIndicator();
+            isWaitingForResponse = true;
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Add AI response
+                    addMessage(data.response, 'assistant', data.movie_results);
+                    
+                    // Update conversation history
+                    conversationHistory = data.conversation_history || [];
+                    
+                    // Show suggestions if any
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        showSuggestions(data.suggestions);
+                    }
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, I encountered a connection error. Please try again.', 'assistant');
+            } finally {
+                hideTypingIndicator();
+                isWaitingForResponse = false;
+            }
+        }
+
+        function addMessage(content, sender, movieResults = null) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'user' ? 'You' : 'AI';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            let messageHTML = `<div>${formatMessage(content)}</div>`;
+            
+            // Add timestamp
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            messageHTML += `<div class="message-time">${timeString}</div>`;
+            
+            // Add movie results if available
+            if (movieResults && movieResults.length > 0) {
+                messageHTML += createMovieResultsHTML(movieResults);
+            }
+            
+            messageContent.innerHTML = messageHTML;
+            
+            if (sender === 'user') {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function createMovieResultsHTML(movies) {
+            let html = `
+                <div class="movie-results">
+                    <h4><i class="fas fa-film"></i> Found ${movies.length} movies:</h4>
+            `;
+            
+            movies.slice(0, 5).forEach(movie => {
+                html += `
+                    <div class="movie-item">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="movie-details">
+                            <span class="movie-badge">${movie.year || 'Unknown'}</span>
+                            <span class="movie-badge">${movie.quality || 'Unknown'}</span>
+                            <span class="movie-badge">${movie.source}</span>
+                        </div>
+                        <div class="movie-actions">
+                            <button class="action-btn extract-btn" onclick="extractMovieLinks('${movie.title}', '${movie.url}', '${movie.source}')">
+                                <i class="fas fa-download"></i> Extract Links
+                            </button>
+                            <button class="action-btn search-btn" onclick="searchMovie('${movie.title}')">
+                                <i class="fas fa-search"></i> Search More
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        function formatMessage(text) {
+            // Basic markdown-like formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function showTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'flex';
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+
+        function hideWelcomeScreen() {
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
+        }
+
+        function showSuggestions(suggestions) {
+            const suggestionsContainer = document.getElementById('suggestions');
+            suggestionsContainer.innerHTML = '';
+            
+            suggestions.forEach(suggestion => {
+                const chip = document.createElement('div');
+                chip.className = 'suggestion-chip';
+                chip.textContent = suggestion;
+                chip.onclick = () => sendQuickMessage(suggestion);
+                suggestionsContainer.appendChild(chip);
+            });
+            
+            suggestionsContainer.style.display = 'flex';
+        }
+
+        function extractMovieLinks(title, url, source) {
+            // Redirect to extraction page
+            window.location.href = `/extract?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source)}&title=${encodeURIComponent(title)}`;
+        }
+
+        function searchMovie(title) {
+            // Redirect to main search with the movie title
+            window.location.href = `/?search=${encodeURIComponent(title)}`;
+        }
+
+        // Mobile sidebar functionality
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const toggle = document.getElementById('sidebarToggle');
+            
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+            
+            // Update toggle icon
+            const icon = toggle.querySelector('i');
+            if (sidebar.classList.contains('open')) {
+                icon.className = 'fas fa-times';
+            } else {
+                icon.className = 'fas fa-bars';
+            }
+        }
+
+        function closeSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const toggle = document.getElementById('sidebarToggle');
+            
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            
+            // Reset toggle icon
+            const icon = toggle.querySelector('i');
+            icon.className = 'fas fa-bars';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('chatInput').focus();
+            
+            // Setup mobile sidebar
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', closeSidebar);
+            }
+            
+            // Close sidebar when clicking on quick actions (mobile)
+            document.querySelectorAll('.quick-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        setTimeout(closeSidebar, 300);
+                    }
+                });
+            });
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    closeSidebar();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

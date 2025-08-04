@@ -1,0 +1,203 @@
+/* Responsive Fixes for Enhanced Chat Interface */
+
+/* Ensure no horizontal overflow and proper viewport */
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container fixes */
+.chat-container {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    height: calc(100vh - 80px) !important;
+}
+
+/* Ensure chat input is always visible */
+.chat-input-container {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #f8f9fa !important;
+    z-index: 1000 !important;
+    flex-shrink: 0 !important;
+}
+
+.chat-messages {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding-bottom: 20px !important;
+}
+
+/* Sidebar toggle button - always visible on mobile */
+.sidebar-toggle {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    background: rgba(102, 126, 234, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    color: white;
+    cursor: pointer;
+    z-index: 1001;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: scale(1.1);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .header {
+        padding-left: 70px !important;
+    }
+    
+    .chat-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        background: rgba(248, 249, 250, 0.98);
+        backdrop-filter: blur(20px);
+    }
+    
+    .sidebar.open {
+        left: 0;
+    }
+    
+    .chat-main {
+        width: 100%;
+        flex: 1;
+    }
+    
+    .message-content {
+        max-width: 85% !important;
+        word-break: break-word;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .sidebar-toggle {
+        width: 40px;
+        height: 40px;
+        top: 10px;
+        left: 10px;
+        font-size: 16px;
+    }
+    
+    .header {
+        padding: 10px 15px 10px 60px !important;
+    }
+    
+    .header h1 {
+        font-size: 1.2rem !important;
+    }
+    
+    .nav-btn {
+        padding: 6px 10px !important;
+        font-size: 0.8rem !important;
+    }
+    
+    .sidebar {
+        width: 260px;
+    }
+    
+    .welcome-suggestions {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    .movie-actions {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .action-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+    .sidebar {
+        width: 240px;
+    }
+    
+    .message-content {
+        max-width: 90% !important;
+        padding: 10px 15px;
+    }
+    
+    .input-field {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Landscape orientation on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+    .sidebar-toggle {
+        top: 5px;
+        left: 5px;
+        width: 35px;
+        height: 35px;
+    }
+    
+    .header {
+        padding: 5px 15px 5px 50px !important;
+        min-height: 50px;
+    }
+    
+    .welcome-screen {
+        padding: 10px;
+    }
+    
+    .welcome-suggestions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Overlay for mobile sidebar */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+@media (max-width: 768px) {
+    .sidebar-overlay.active {
+        display: block;
+    }
+}
