@@ -40,3 +40,4 @@ AUTO_*
 movie_web_interface/
 github_dir/
 movie_web_ai_agent/
+.env
