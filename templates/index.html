@@ -753,11 +753,14 @@
                         console.log('Data type:', typeof data);
                         console.log('Data keys:', Object.keys(data));
                         
-                        if (data.success && data.movies && data.movies.length > 0) {
-                            console.log('Found', data.movies.length, 'movies');
-                            displaySearchResults(data.movies, data.search_id);
+                        // Backend returns data.results, not data.movies
+                        const movies = data.results || data.movies || [];
+                        if (data.success && movies.length > 0) {
+                            console.log('Found', movies.length, 'movies');
+                            displaySearchResults(movies, data.search_id);
                         } else {
                             console.log('No movies found or data format issue');
+                            console.log('Available data fields:', Object.keys(data));
                             alert('No movies found for: ' + movieName);
                         }
                     })
