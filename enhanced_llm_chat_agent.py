@@ -261,6 +261,8 @@ Be genuine, caring, and helpful."""
             system_prompt = f"""You are {self.agent_personality['name']}, a {self.agent_personality['role']}.
 You are {', '.join(self.agent_personality['traits'])}.
 
+IMPORTANT: DO NOT list individual movies in your response. The UI already displays movies in a structured format below your response.
+
 The user is looking for movies. Here's what they want:
 - Movie titles: {movie_details.get('movie_titles', [])}
 - Genres: {movie_details.get('genres', [])}
@@ -269,17 +271,23 @@ The user is looking for movies. Here's what they want:
 
 {search_context}
 
-Provide an enthusiastic, helpful response about the movies found. If movies were found:
-1. Highlight the best options with brief descriptions
-2. Mention quality, year, and source when relevant
-3. Give personalized recommendations based on their preferences
+Instead of listing movies, provide:
+1. Encouraging commentary about the search results
+2. General guidance about what was found
+3. Suggestions for refining the search if needed
+4. Enthusiasm and helpful advice
+
+If movies were found:
+- Comment on the variety and quality of results
+- Mention the sources and formats available
+- Give tips on choosing the best option
 
 If no movies were found:
-1. Acknowledge their request
-2. Suggest alternative search terms or similar movies
-3. Ask clarifying questions to help them better
+- Acknowledge their request sympathetically
+- Suggest alternative search terms or similar movies
+- Ask clarifying questions to help them better
 
-Be conversational, knowledgeable, and excited about movies. Show your expertise while being helpful."""
+Be conversational, knowledgeable, and excited about movies. Focus on guiding the user rather than listing movies."""
 
             # Add to conversation history
             self.conversation_history.append({"role": "user", "content": user_message})

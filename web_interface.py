@@ -2745,29 +2745,15 @@ def chat_with_ai():
         # Analyze user intent (personal, movie request, etc.)
         intent = llm_chat_agent.analyze_user_intent(user_message)
         
-        # For movie requests, generate AI response first to get movie suggestions
+        # Extract search queries from intent FIRST (before generating response)
+        search_queries = []
         if intent.get('intent_type') == 'movie_request':
-            # Generate initial AI response to get movie suggestions
-            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
-            
-            # Extract movie titles from AI response - these are the movies LLM actually suggested
-            movie_titles_from_ai = extract_movie_titles_from_response(ai_response)
-            
-            # Search for movies using LLM-suggested titles as priority
-            search_queries = []
-            
-            if movie_titles_from_ai:
-                # Use the exact movies LLM suggested
-                search_queries = movie_titles_from_ai[:5]  # Top 5 LLM suggestions
-                logger.info(f"Using LLM-suggested movies for search: {search_queries}")
-            else:
-                # Fallback to intent-based search if no specific titles found
-                search_query = llm_chat_agent.extract_movie_search_query(intent)
-                search_queries = [search_query]
-                logger.info(f"Using intent-based search: {search_queries}")
+            # Extract search queries from user intent
+            search_query = llm_chat_agent.extract_movie_search_query(intent)
+            search_queries = [search_query]
+            logger.info(f"Extracted search query from intent: {search_query}")
         else:
-            # For non-movie requests, generate response without search
-            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
+            # For non-movie requests, no search needed
             search_queries = []
         
         # Search for movies
@@ -2822,10 +2808,8 @@ def chat_with_ai():
                 logger.error(f"Movie search failed in chat: {str(e)}")
                 movie_results = []
         
-        # Update AI response with search results if we found movies
-        if movie_results:
-            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, movie_results)
-        # ai_response already generated above for non-movie requests
+        # Generate AI response AFTER search is complete (synchronized)
+        ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, movie_results)
         
         # Generate search suggestions for movie requests with no results
         suggestions = []
