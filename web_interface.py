@@ -2680,24 +2680,33 @@ def chat_with_ai():
         # Analyze user intent (personal, movie request, etc.)
         intent = llm_chat_agent.analyze_user_intent(user_message)
         
-        # Generate contextual response based on intent
-        ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
-        
-        # Extract movie titles from AI response
-        movie_titles_from_ai = extract_movie_titles_from_response(ai_response)
-        
-        # Search for movies only if it's a movie request
-        movie_results = []
-        search_queries = []
-        
+        # For movie requests, generate AI response first to get movie suggestions
         if intent.get('intent_type') == 'movie_request':
-            # Extract search query from intent
-            search_query = llm_chat_agent.extract_movie_search_query(intent)
-            search_queries = [search_query]
+            # Generate initial AI response to get movie suggestions
+            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
             
-            # Also check for specific movie titles from AI response
+            # Extract movie titles from AI response - these are the movies LLM actually suggested
+            movie_titles_from_ai = extract_movie_titles_from_response(ai_response)
+            
+            # Search for movies using LLM-suggested titles as priority
+            search_queries = []
+            
             if movie_titles_from_ai:
-                search_queries.extend(movie_titles_from_ai[:2])  # Add top 2 from AI
+                # Use the exact movies LLM suggested
+                search_queries = movie_titles_from_ai[:5]  # Top 5 LLM suggestions
+                logger.info(f"Using LLM-suggested movies for search: {search_queries}")
+            else:
+                # Fallback to intent-based search if no specific titles found
+                search_query = llm_chat_agent.extract_movie_search_query(intent)
+                search_queries = [search_query]
+                logger.info(f"Using intent-based search: {search_queries}")
+        else:
+            # For non-movie requests, generate response without search
+            ai_response = llm_chat_agent.generate_contextual_response(user_message, intent, [])
+            search_queries = []
+        
+        # Search for movies
+        movie_results = []
         
         if search_queries:
             try:
@@ -2758,11 +2767,17 @@ def chat_with_ai():
         if intent.get('intent_type') == 'movie_request' and len(movie_results) == 0:
             suggestions = llm_chat_agent.generate_search_suggestions(user_message)
         
+        # Determine the primary search query for frontend display
+        primary_search_query = ""
+        if search_queries:
+            primary_search_query = search_queries[0]
+        
         return jsonify({
             'success': True,
             'response': ai_response,
             'movie_results': movie_results,
-            'search_query': search_query,
+            'search_query': primary_search_query,
+            'search_queries_used': search_queries,  # Show all queries used
             'suggestions': suggestions,
             'conversation_history': llm_chat_agent.conversation_history[-10:]  # Keep last 10 messages
         })
@@ -2791,9 +2806,17 @@ def extract_movie_titles_from_response(ai_response):
             movie_titles.append(clean_title)
     
     # Pattern 2: Numbered list format "1. Movie Title"
-    pattern2 = r'\d+\.\s*([A-Za-z0-9\s:&\-\'\.]+?)(?:\s*\(|\s*-|\n|$)'
+    pattern2 = r'\d+\.\s*"([^"]+)"'  # Quoted titles in numbered lists
     matches2 = re.findall(pattern2, ai_response)
     for title in matches2:
+        clean_title = title.strip()
+        if len(clean_title) > 2 and clean_title not in movie_titles:
+            movie_titles.append(clean_title)
+    
+    # Pattern 3: Numbered list without quotes "1. Movie Title (Year)"
+    pattern3 = r'\d+\.\s*([A-Za-z0-9\s:&\-\'\.!]+?)(?:\s*\(|\s*-|\n|$)'
+    matches3 = re.findall(pattern3, ai_response)
+    for title in matches3:
         clean_title = title.strip()
         if len(clean_title) > 2 and clean_title not in movie_titles:
             movie_titles.append(clean_title)
