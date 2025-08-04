@@ -2721,6 +2721,103 @@ def extraction_results_page():
                          extraction_id=extraction_id,
                          result=result)
 
+@app.route('/enhanced_chat_extract', methods=['POST'])
+def enhanced_chat_extract():
+    """Enhanced chat extraction endpoint for modal"""
+    try:
+        data = request.get_json()
+        movie_title = data.get('movie_title')
+        movie_url = data.get('movie_url')
+        movie_source = data.get('movie_source')
+        
+        if not movie_title or not movie_url or not movie_source:
+            return jsonify({'error': 'Movie title, URL, and source are required'}), 400
+        
+        extraction_id = f"chat_extract_{int(time.time())}"
+        
+        # Initialize extraction status
+        extraction_results[extraction_id] = {
+            'status': 'processing',
+            'progress': 0
+        }
+        
+        # Start extraction in background
+        def extract_in_background_chat():
+            try:
+                print(f"DEBUG: Starting enhanced chat extraction for {extraction_id}")
+                
+                # Determine which agent to use based on movie source
+                downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
+                
+                if movie_source == 'MoviezWap':
+                    agent = moviezwap_agent
+                    print(f"DEBUG: Using MoviezWap agent for extraction")
+                elif movie_source == 'MovieRulz':
+                    agent = movierulz_agent
+                    print(f"DEBUG: Using MovieRulz agent for extraction")
+                elif movie_source == 'SkySetX':
+                    agent = skysetx_agent
+                    print(f"DEBUG: Using SkySetX agent for extraction")
+                elif movie_source == 'Movies4U':
+                    agent = movies4u_agent
+                    print(f"DEBUG: Using Movies4U agent for extraction")
+                else:
+                    agent = downloadhub_agent
+                    print(f"DEBUG: Using DownloadHub agent for extraction")
+                
+                print(f"DEBUG: Agent initialized, extracting from {movie_url}")
+                
+                # Use appropriate method based on agent type
+                if movie_source == 'MovieRulz':
+                    result = agent.extract_download_links(movie_url)
+                elif movie_source == 'SkySetX':
+                    result = agent.get_download_links(movie_url)
+                elif movie_source == 'Movies4U':
+                    result = agent.extract_download_links(movie_url)
+                else:
+                    result = agent.get_download_links(movie_url)
+                
+                print(f"DEBUG: Extraction completed for {extraction_id} with {len(result) if result else 0} links")
+                
+                # Normalize result format
+                if isinstance(result, dict) and 'download_links' in result:
+                    download_links = result['download_links']
+                elif isinstance(result, list):
+                    download_links = result
+                else:
+                    download_links = []
+                
+                extraction_results[extraction_id] = {
+                    'status': 'completed',
+                    'movie_title': movie_title,
+                    'movie_url': movie_url,
+                    'movie_source': movie_source,
+                    'result': download_links,
+                    'timestamp': time.time()
+                }
+            except Exception as e:
+                print(f"DEBUG: Extraction failed for {extraction_id} in chat: {str(e)}")
+                extraction_results[extraction_id] = {
+                    'status': 'failed',
+                    'error': str(e),
+                    'result': []
+                }
+
+        import threading
+        thread = threading.Thread(target=extract_in_background_chat)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'extraction_id': extraction_id,
+            'message': 'Extraction started'
+        })
+        
+    except Exception as e:
+        logger.error(f"Enhanced chat extraction failed: {str(e)}")
+        return jsonify({'error': f'Extraction failed: {str(e)}'}), 500
+
 @app.route('/chat', methods=['POST'])
 def chat_with_ai():
     """Handle chat messages with AI"""
