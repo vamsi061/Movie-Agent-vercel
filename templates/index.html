@@ -728,7 +728,20 @@
                     console.log('Calling searchMovies with:', movieName);
                     // Implement search directly here since app.js isn't loading properly
                     console.log('Implementing search directly...');
-                    showLoading();
+                    
+                    // Check if showLoading function exists
+                    if (typeof showLoading === 'function') {
+                        console.log('Calling showLoading...');
+                        showLoading();
+                    } else {
+                        console.log('showLoading function not found, showing manual loading...');
+                        // Manual loading display
+                        const resultsContainer = document.getElementById('searchResults');
+                        if (resultsContainer) {
+                            resultsContainer.innerHTML = '<div class="loading">Searching for movies...</div>';
+                            resultsContainer.style.display = 'block';
+                        }
+                    }
                     
                     fetch('/search', {
                         method: 'POST',
@@ -748,7 +761,12 @@
                         return response.json();
                     })
                     .then(data => {
-                        hideLoading();
+                        console.log('Got response, hiding loading...');
+                        if (typeof hideLoading === 'function') {
+                            hideLoading();
+                        } else {
+                            console.log('hideLoading function not found');
+                        }
                         console.log('Search results:', data);
                         console.log('Data type:', typeof data);
                         console.log('Data keys:', Object.keys(data));
@@ -765,11 +783,16 @@
                         }
                     })
                     .catch(error => {
-                        hideLoading();
+                        console.log('Catch block triggered, hiding loading...');
+                        if (typeof hideLoading === 'function') {
+                            hideLoading();
+                        }
                         console.error('Search error:', error);
                         console.error('Error details:', error.message);
                         alert('Search failed: ' + error.message);
                     });
+                    
+                    console.log('Fetch request initiated...');
                 } else {
                     console.log('No movie name entered');
                     alert('Please enter a movie name to search');
