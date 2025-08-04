@@ -830,3 +830,25 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Add window close/unload event listener to cancel extractions
+window.addEventListener('beforeunload', function(e) {
+    // Cancel all active extractions when window is closing
+    cancelAllExtractions();
+});
+
+// Function to cancel all active extractions
+function cancelAllExtractions() {
+    fetch('/cancel_all_extractions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    }).then(response => response.json())
+    .then(data => {
+        console.log('All extractions cancelled:', data);
+    }).catch(error => {
+        console.error('Error cancelling extractions:', error);
+    });
+}
