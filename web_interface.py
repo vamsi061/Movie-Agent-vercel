@@ -2540,6 +2540,71 @@ def get_agent_urls(agent_key):
         return jsonify({'error': 'Failed to get agent URLs'}), 500
 
 # Chat Routes
+@app.route('/cancel_extraction', methods=['POST'])
+def cancel_extraction():
+    """Cancel an active extraction"""
+    try:
+        data = request.get_json()
+        extraction_id = data.get('extraction_id')
+        
+        if not extraction_id:
+            return jsonify({'error': 'Extraction ID is required'}), 400
+        
+        # Set the stop flag
+        if extraction_id in extraction_stop_flags:
+            extraction_stop_flags[extraction_id] = True
+            logger.info(f"Cancellation requested for extraction {extraction_id}")
+            
+            # Update the extraction result to show cancellation
+            if extraction_id in extraction_results:
+                extraction_results[extraction_id].update({
+                    'status': 'cancelled',
+                    'message': 'Extraction cancelled by user'
+                })
+            
+            return jsonify({
+                'success': True,
+                'message': f'Extraction {extraction_id} cancelled successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Extraction {extraction_id} not found or already completed'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error cancelling extraction: {str(e)}")
+        return jsonify({'error': f'Failed to cancel extraction: {str(e)}'}), 500
+
+@app.route('/cancel_all_extractions', methods=['POST'])
+def cancel_all_extractions():
+    """Cancel all active extractions"""
+    try:
+        cancelled_count = 0
+        
+        # Cancel all active extractions
+        for extraction_id in list(extraction_stop_flags.keys()):
+            extraction_stop_flags[extraction_id] = True
+            cancelled_count += 1
+            
+            # Update the extraction result to show cancellation
+            if extraction_id in extraction_results:
+                extraction_results[extraction_id].update({
+                    'status': 'cancelled',
+                    'message': 'Extraction cancelled by user'
+                })
+        
+        logger.info(f"Cancelled {cancelled_count} active extractions")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cancelled {cancelled_count} active extractions'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error cancelling all extractions: {str(e)}")
+        return jsonify({'error': f'Failed to cancel extractions: {str(e)}'}), 500
+
 @app.route('/chat')
 def chat_interface():
     """Render the chat interface"""
