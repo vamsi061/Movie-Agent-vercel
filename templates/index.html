@@ -785,6 +785,10 @@
         // Auto-hide loading on page load
         window.addEventListener('load', function() {
             setTimeout(hideLoading, 500);
+            // Initialize search functionality
+            setupSearchEnhancements();
+            setupAnimations();
+            createParticles();
         });
 
         // Handle URL search parameter
