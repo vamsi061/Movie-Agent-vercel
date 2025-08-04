@@ -20,6 +20,7 @@ class EnhancedChatInterface {
         this.setupKeyboardShortcuts();
         this.setupAutoSave();
         this.setupNotifications();
+        this.setupVisualEnhancements();
         this.loadChatHistory();
         
         // Focus input on load
@@ -28,6 +29,93 @@ class EnhancedChatInterface {
         }, 100);
     }
 
+    setupVisualEnhancements() {
+        // Add floating particles effect
+        this.createFloatingParticles();
+        
+        // Setup smooth scrolling
+        this.setupSmoothScrolling();
+        
+        // Add message entrance animations
+        this.setupMessageAnimations();
+        
+        // Setup theme transitions
+        this.setupThemeTransitions();
+    }
+
+    createFloatingParticles() {
+        const particleCount = 20;
+        const container = document.body;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'floating-particle';
+            particle.style.cssText = `
+                position: fixed;
+                width: ${Math.random() * 4 + 2}px;
+                height: ${Math.random() * 4 + 2}px;
+                background: rgba(255, 255, 255, ${Math.random() * 0.3 + 0.1});
+                border-radius: 50%;
+                left: ${Math.random() * 100}%;
+                top: ${Math.random() * 100}%;
+                pointer-events: none;
+                z-index: 0;
+                animation: float ${Math.random() * 3 + 4}s ease-in-out infinite;
+                animation-delay: ${Math.random() * 2}s;
+            `;
+            container.appendChild(particle);
+        }
+    }
+
+    setupSmoothScrolling() {
+        const messagesContainer = document.getElementById('chatMessages');
+        if (messagesContainer) {
+            messagesContainer.style.scrollBehavior = 'smooth';
+        }
+    }
+
+    setupMessageAnimations() {
+        // Enhanced message entrance animations
+        const style = document.createElement('style');
+        style.textContent = `
+            .message {
+                animation: messageSlideIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                animation-fill-mode: both;
+            }
+            
+            @keyframes messageSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            .message.user {
+                animation: messageSlideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            @keyframes messageSlideInRight {
+                from {
+                    opacity: 0;
+                    transform: translateX(30px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0) scale(1);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    setupThemeTransitions() {
+        // Add smooth transitions for theme changes
+        document.documentElement.style.transition = 'all 0.3s ease';
+    }
     setupEventListeners() {
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
@@ -36,6 +124,8 @@ class EnhancedChatInterface {
             chatInput.addEventListener('input', this.handleInputChange.bind(this));
             chatInput.addEventListener('keydown', this.handleKeyDown.bind(this));
             chatInput.addEventListener('paste', this.handlePaste.bind(this));
+            chatInput.addEventListener('focus', this.handleInputFocus.bind(this));
+            chatInput.addEventListener('blur', this.handleInputBlur.bind(this));
         }
 
         if (sendBtn) {
@@ -49,6 +139,21 @@ class EnhancedChatInterface {
         this.setupSidebarToggle();
     }
 
+    handleInputFocus(e) {
+        const inputWrapper = e.target.closest('.input-wrapper');
+        if (inputWrapper) {
+            inputWrapper.style.transform = 'translateY(-2px)';
+            inputWrapper.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.2)';
+        }
+    }
+
+    handleInputBlur(e) {
+        const inputWrapper = e.target.closest('.input-wrapper');
+        if (inputWrapper) {
+            inputWrapper.style.transform = 'translateY(0)';
+            inputWrapper.style.boxShadow = 'none';
+        }
+    }
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             // Ctrl/Cmd + Enter to send message
@@ -66,6 +171,12 @@ class EnhancedChatInterface {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
                 document.getElementById('chatInput')?.focus();
+            }
+            
+            // Ctrl/Cmd + / to toggle sidebar
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                e.preventDefault();
+                this.toggleSidebar();
             }
         });
     }
