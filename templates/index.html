@@ -726,7 +726,14 @@
                 console.log('Search form submitted with:', movieName);
                 if (movieName) {
                     console.log('Calling searchMovies with:', movieName);
-                    searchMovies(movieName);
+                    // Check if searchMovies function exists
+                    if (typeof searchMovies === 'function') {
+                        console.log('searchMovies function found, calling it...');
+                        searchMovies(movieName);
+                    } else {
+                        console.error('searchMovies function not found!');
+                        alert('Search function not loaded. Please refresh the page.');
+                    }
                 } else {
                     console.log('No movie name entered');
                     alert('Please enter a movie name to search');
