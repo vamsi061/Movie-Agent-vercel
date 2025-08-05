@@ -2253,6 +2253,20 @@
             checkStatus();
         }
 
+        // Check if URL is a shortlink that needs unlocking
+        function isShortlinkService(url) {
+            const shortlinkDomains = [
+                'short2url.in', 'earn4link.in', 'teralink.me', 'indianshortner.in',
+                'open2get.in', 'dulink.in', 'bindaaslinks.com', 'rocklinks.net',
+                'rocklink.in', 'earn.moneykamalo.com', 'indianshortner.com',
+                'short-url.link', 'short.link', 'za.gl', 'za.uy',
+                'uptobhai.blog', 'uptobhai.com', 'linkvertise.com', 'link-center.net',
+                'link-target.net', 'fc.lc', 'shorte.st', 'ouo.io', 'adf.ly',
+                'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly'
+            ];
+            return shortlinkDomains.some(domain => url.includes(domain));
+        }
+
         function displayModalDownloadLinks(data, movieTitle) {
             const modalContent = document.getElementById('modalContent');
             const links = data.result || data.download_links || [];
@@ -2281,12 +2295,14 @@
                 const linkTitle = link.text || link.quality || `Download Link ${index + 1}`;
                 const linkUrl = link.url || '#';
                 const isPriority = link.is_priority || false;
+                const isShortlink = isShortlinkService(linkUrl);
                 
                 content += `
-                    <div class="download-link-item ${isPriority ? 'priority' : ''}">
+                    <div class="download-link-item ${isPriority ? 'priority' : ''}" id="modal-link-${index}" data-unlock-status="none">
                         <div class="download-link-header">
                             <div class="download-link-title">${linkTitle}</div>
                             ${isPriority ? '<span class="priority-badge">Priority</span>' : ''}
+                            ${isShortlink ? '<span class="priority-badge" style="background: #f59e0b;">Shortlink</span>' : ''}
                         </div>
                         <div class="download-link-meta">
                             ${link.quality ? `<span class="download-meta-tag"><i class="fas fa-video"></i> ${link.quality}</span>` : ''}
@@ -2294,16 +2310,148 @@
                             ${link.host ? `<span class="download-meta-tag"><i class="fas fa-server"></i> ${link.host}</span>` : ''}
                             ${link.language ? `<span class="download-meta-tag"><i class="fas fa-language"></i> ${link.language}</span>` : ''}
                         </div>
-                        <a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
-                            <i class="fas fa-download"></i>
-                            ${isPriority ? 'Download Now (Priority)' : 'Download Now'}
-                        </a>
+                        <div id="modal-download-section-${index}">
+                            ${isShortlink ? `
+                                <button class="download-link-button ${isPriority ? 'priority' : ''}" onclick="unlockModalShortlink(${index}, '${encodeURIComponent(linkUrl)}')">
+                                    <i class="fas fa-unlock"></i>
+                                    ${isPriority ? 'Unlock & Download (Priority)' : 'Unlock & Download'}
+                                </button>
+                            ` : `
+                                <a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
+                                    <i class="fas fa-download"></i>
+                                    ${isPriority ? 'Download Now (Priority)' : 'Download Now'}
+                                </a>
+                            `}
+                        </div>
+                        <div id="modal-unlocked-container-${index}"></div>
                     </div>
                 `;
             });
             
             content += '</div>';
             modalContent.innerHTML = content;
+            
+            // Note: Manual unlock only - users click "Unlock & Download" button
+        }
+
+        // Unlock shortlink in modal
+        function unlockModalShortlink(index, url) {
+            const linkDiv = document.getElementById(`modal-link-${index}`);
+            const downloadSection = document.getElementById(`modal-download-section-${index}`);
+            
+            if (linkDiv.getAttribute('data-unlock-status') === 'unlocking') {
+                return; // Already unlocking
+            }
+            
+            linkDiv.setAttribute('data-unlock-status', 'unlocking');
+            
+            // Update button to show unlocking status
+            if (downloadSection) {
+                downloadSection.innerHTML = `
+                    <button class="download-link-button" style="background: #6b7280; cursor: not-allowed;" disabled>
+                        <i class="fas fa-spinner fa-spin"></i> Unlocking...
+                    </button>
+                `;
+            }
+            
+            // Call backend to unlock
+            fetch('/unlock_shortlink', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: decodeURIComponent(url) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.unlocked_links && data.unlocked_links.length > 0) {
+                    displayModalUnlockedLinks(index, data.unlocked_links, linkDiv);
+                } else {
+                    displayModalUnlockError(index, 'Failed to unlock the link. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Unlock error:', error);
+                displayModalUnlockError(index, 'Error unlocking the link. Please try again.');
+            });
+        }
+
+        // Display unlocked links in modal
+        function displayModalUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
+            originalLinkDiv.setAttribute('data-unlock-status', 'completed');
+            
+            const downloadSection = document.getElementById(`modal-download-section-${originalIndex}`);
+            const unlockedContainer = document.getElementById(`modal-unlocked-container-${originalIndex}`);
+            
+            // Hide original download button
+            if (downloadSection) {
+                downloadSection.style.display = 'none';
+            }
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = 'background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 8px 12px; border-radius: 6px; margin: 8px 0; font-size: 12px; font-weight: 500;';
+            successMsg.innerHTML = `<i class="fas fa-check-circle"></i> Unlocked ${unlockedLinks.length} download link${unlockedLinks.length > 1 ? 's' : ''}!`;
+            
+            // Create unlocked links
+            let unlockedContent = '';
+            unlockedLinks.forEach((link, subIndex) => {
+                const isPriority = link.is_priority || false;
+                unlockedContent += `
+                    <div style="background: #0f0f23; border: 1px solid #2a2a3e; border-radius: 8px; padding: 12px; margin: 6px 0;">
+                        <div style="font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 6px;">
+                            ${isPriority ? '<i class="fas fa-star" style="color: #10ac84;"></i> ' : ''}
+                            ${link.text || link.service_type + ' Download'}
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+                            ${link.host ? `<span class="download-meta-tag">${link.host}</span>` : ''}
+                            ${link.quality ? `<span class="download-meta-tag">${link.quality}</span>` : ''}
+                            ${link.file_size ? `<span class="download-meta-tag">${link.file_size}</span>` : ''}
+                        </div>
+                        <a href="${link.url}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}" style="font-size: 12px; padding: 6px 12px;">
+                            <i class="fas fa-download"></i>
+                            ${isPriority ? 'Priority Download' : 'Download'}
+                        </a>
+                    </div>
+                `;
+            });
+            
+            if (unlockedContainer) {
+                unlockedContainer.innerHTML = '';
+                unlockedContainer.appendChild(successMsg);
+                unlockedContainer.innerHTML += unlockedContent;
+            }
+        }
+
+        // Display unlock error in modal
+        function displayModalUnlockError(index, errorMessage) {
+            const downloadSection = document.getElementById(`modal-download-section-${index}`);
+            const unlockedContainer = document.getElementById(`modal-unlocked-container-${index}`);
+            
+            // Show error message
+            if (unlockedContainer) {
+                unlockedContainer.innerHTML = `
+                    <div style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 8px 12px; border-radius: 6px; margin: 8px 0; font-size: 12px;">
+                        <i class="fas fa-exclamation-triangle"></i> ${errorMessage}
+                    </div>
+                `;
+            }
+            
+            // Reset download button to allow retry
+            if (downloadSection) {
+                const linkDiv = document.getElementById(`modal-link-${index}`);
+                linkDiv.setAttribute('data-unlock-status', 'none');
+                
+                // Get original URL from the button
+                const originalUrl = downloadSection.querySelector('button') ? 
+                    downloadSection.querySelector('button').getAttribute('onclick').match(/'([^']+)'/)[1] : '';
+                
+                downloadSection.innerHTML = `
+                    <button class="download-link-button" onclick="unlockModalShortlink(${index}, '${originalUrl}')" style="background: #f59e0b;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                `;
+            }
         }
 
         function displayModalError(errorMessage) {
