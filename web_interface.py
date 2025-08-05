@@ -2434,7 +2434,13 @@ def admin_panel():
     """Render the admin panel"""
     return render_template('admin.html')
 
+@app.route('/api')
+def api_panel():
+    """Render the API access panel (same as admin)"""
+    return render_template('admin.html')
+
 @app.route('/admin/agents', methods=['GET'])
+@app.route('/api/agents', methods=['GET'])
 def get_agent_configuration():
     """Get the current agent configuration"""
     try:
@@ -2445,6 +2451,7 @@ def get_agent_configuration():
         return jsonify({'error': 'Failed to get agent configuration'}), 500
 
 @app.route('/admin/agents/toggle', methods=['POST'])
+@app.route('/api/agents/toggle', methods=['POST'])
 def toggle_agent():
     """Toggle an agent's enabled state"""
     try:
@@ -2468,6 +2475,7 @@ def toggle_agent():
         return jsonify({'error': 'Failed to toggle agent'}), 500
 
 @app.route('/admin/agents/enable-all', methods=['POST'])
+@app.route('/api/agents/enable-all', methods=['POST'])
 def enable_all_agents():
     """Enable all agents"""
     try:
@@ -2479,6 +2487,7 @@ def enable_all_agents():
         return jsonify({'error': 'Failed to enable all agents'}), 500
 
 @app.route('/admin/agents/disable-all', methods=['POST'])
+@app.route('/api/agents/disable-all', methods=['POST'])
 def disable_all_agents():
     """Disable all agents"""
     try:
@@ -2490,6 +2499,7 @@ def disable_all_agents():
         return jsonify({'error': 'Failed to disable all agents'}), 500
 
 @app.route('/admin/agents/save', methods=['POST'])
+@app.route('/api/agents/save', methods=['POST'])
 def save_agent_configuration():
     """Save the current agent configuration"""
     try:
@@ -2500,6 +2510,7 @@ def save_agent_configuration():
         return jsonify({'error': 'Failed to save configuration'}), 500
 
 @app.route('/admin/agents/stats', methods=['GET'])
+@app.route('/api/agents/stats', methods=['GET'])
 def get_agent_stats():
     """Get agent statistics"""
     try:
@@ -2510,6 +2521,7 @@ def get_agent_stats():
         return jsonify({'error': 'Failed to get agent stats'}), 500
 
 @app.route('/admin/agents/update-url', methods=['POST'])
+@app.route('/api/agents/update-url', methods=['POST'])
 def update_agent_url():
     """Update an agent's URL configuration"""
     try:
@@ -2534,6 +2546,7 @@ def update_agent_url():
         return jsonify({'error': 'Failed to update agent URLs'}), 500
 
 @app.route('/admin/agents/<agent_key>/urls', methods=['GET'])
+@app.route('/api/agents/<agent_key>/urls', methods=['GET'])
 def get_agent_urls(agent_key):
     """Get an agent's URL configuration"""
     try:
