@@ -298,7 +298,8 @@
 
         .user-message {
             display: flex;
-            justify-content: flex-end;
+            flex-direction: column;
+            align-items: flex-end;
             margin-bottom: 16px;
         }
 
@@ -315,7 +316,8 @@
 
         .ai-message {
             display: flex;
-            justify-content: flex-start;
+            flex-direction: column;
+            align-items: flex-start;
             margin-bottom: 16px;
         }
 
@@ -331,19 +333,184 @@
             word-wrap: break-word;
         }
 
+        /* Markdown formatting in AI messages */
+        .ai-message .message-content h1,
+        .ai-message .message-content h2,
+        .ai-message .message-content h3 {
+            color: #ffffff;
+            margin: 12px 0 8px 0;
+            font-weight: 600;
+        }
+
+        .ai-message .message-content h1 { font-size: 18px; }
+        .ai-message .message-content h2 { font-size: 16px; }
+        .ai-message .message-content h3 { font-size: 15px; }
+
+        .ai-message .message-content p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+
+        .ai-message .message-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .ai-message .message-content em {
+            font-style: italic;
+            color: #d1d5db;
+        }
+
+        .ai-message .message-content ul,
+        .ai-message .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .ai-message .message-content li {
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+
+        .ai-message .message-content code {
+            background: #374151;
+            color: #f9fafb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+        }
+
+        .ai-message .message-content pre {
+            background: #374151;
+            color: #f9fafb;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+        }
+
+        .ai-message .message-content blockquote {
+            border-left: 3px solid #667eea;
+            padding-left: 12px;
+            margin: 8px 0;
+            color: #d1d5db;
+            font-style: italic;
+        }
+
         .message-timestamp {
             font-size: 11px;
             color: #6b7280;
             margin-top: 4px;
             opacity: 0.7;
+            padding: 0 4px;
         }
 
         .user-message .message-timestamp {
             text-align: right;
+            align-self: flex-end;
         }
 
         .ai-message .message-timestamp {
             text-align: left;
+            align-self: flex-start;
+        }
+
+        /* Sources Section - Perplexity Style */
+        .sources-section {
+            margin-top: 16px;
+            border-top: 1px solid #2a2a3e;
+            padding-top: 16px;
+        }
+
+        .sources-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #9ca3af;
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .source-card {
+            background: #0f0f23;
+            border: 1px solid #2a2a3e;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .source-card:hover {
+            background: #1a1a2e;
+            border-color: #667eea;
+        }
+
+        .source-number {
+            position: absolute;
+            top: -6px;
+            left: 8px;
+            background: #667eea;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .source-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 4px;
+            line-height: 1.3;
+            padding-top: 8px;
+        }
+
+        .source-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .source-tag {
+            background: #2a2a3e;
+            color: #9ca3af;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .source-url {
+            font-size: 11px;
+            color: #6b7280;
+            text-decoration: none;
+            display: block;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .source-url:hover {
+            color: #667eea;
+            text-decoration: underline;
         }
 
         /* Movie Results Styling */
@@ -1199,6 +1366,31 @@
             return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         }
 
+        // Simple markdown parser for AI responses
+        function parseMarkdown(text) {
+            return text
+                // Headers
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/__(.*?)__/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/_(.*?)_/g, '<em>$1</em>')
+                // Code
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // Line breaks
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+                // Wrap in paragraphs
+                .replace(/^(.*)$/gim, '<p>$1</p>')
+                // Clean up empty paragraphs
+                .replace(/<p><\/p>/g, '')
+                .replace(/<p>(<h[1-6]>.*?<\/h[1-6]>)<\/p>/g, '$1');
+        }
+
         // Auto-resize textarea
         function autoResize() {
             const textarea = document.getElementById('chatInput');
@@ -1236,7 +1428,7 @@
         }
 
         // Add message to chat
-        function addMessage(content, isUser = false, isHtml = false) {
+        function addMessage(content, isUser = false, isHtml = false, sources = null) {
             const messagesContainer = document.getElementById('chatMessages');
             
             // Hide welcome section on first user message
@@ -1252,8 +1444,49 @@
             
             if (isHtml) {
                 messageContent.innerHTML = content;
+            } else if (!isUser) {
+                // Parse markdown for AI messages
+                messageContent.innerHTML = parseMarkdown(content);
             } else {
                 messageContent.textContent = content;
+            }
+            
+            messageDiv.appendChild(messageContent);
+            
+            // Add sources section if provided (Perplexity style)
+            if (sources && sources.length > 0) {
+                const sourcesSection = document.createElement('div');
+                sourcesSection.className = 'sources-section';
+                
+                const sourcesHeader = document.createElement('div');
+                sourcesHeader.className = 'sources-header';
+                sourcesHeader.innerHTML = '<i class="fas fa-link"></i> Sources';
+                
+                const sourcesGrid = document.createElement('div');
+                sourcesGrid.className = 'sources-grid';
+                
+                sources.forEach((source, index) => {
+                    const sourceCard = document.createElement('div');
+                    sourceCard.className = 'source-card';
+                    sourceCard.onclick = () => extractMovieLinksFromChat(source.title, source.url, source.source);
+                    
+                    sourceCard.innerHTML = `
+                        <div class="source-number">${index + 1}</div>
+                        <div class="source-title">${source.title}</div>
+                        <div class="source-meta">
+                            ${source.year ? `<span class="source-tag">${source.year}</span>` : ''}
+                            ${source.language ? `<span class="source-tag">${source.language}</span>` : ''}
+                            ${source.quality ? `<span class="source-tag">${source.quality}</span>` : ''}
+                        </div>
+                        <div class="source-url">${source.source}</div>
+                    `;
+                    
+                    sourcesGrid.appendChild(sourceCard);
+                });
+                
+                sourcesSection.appendChild(sourcesHeader);
+                sourcesSection.appendChild(sourcesGrid);
+                messageContent.appendChild(sourcesSection);
             }
             
             // Add timestamp
@@ -1261,7 +1494,6 @@
             timestamp.className = 'message-timestamp';
             timestamp.textContent = getCurrentTimestamp();
             
-            messageDiv.appendChild(messageContent);
             messageDiv.appendChild(timestamp);
             messagesContainer.appendChild(messageDiv);
             
@@ -1370,76 +1602,17 @@
 
         // Display movie results in chat
         function displayMovieResultsInChat(movies, aiResponse) {
-            // First add the AI response
-            if (aiResponse && aiResponse.trim()) {
-                addMessage(aiResponse, false);
-            }
-            
+            // Update movie count
             if (movies && movies.length > 0) {
-                // Update movie count
                 movieCount += movies.length;
                 updateStats();
-                
-                let content = `
-                    <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%); border-radius: 20px; padding: 20px; margin-top: 15px; border: 1px solid rgba(255, 255, 255, 0.25); backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.2);">
-                            <h4 style="margin: 0; color: white; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                                <i class="fas fa-film"></i> Found Movies
-                            </h4>
-                            <span style="background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: 600;">${movies.length} result${movies.length > 1 ? 's' : ''}</span>
-                        </div>
-                `;
-                
-                movies.forEach((movie, index) => {
-                    // Escape quotes for onclick handlers
-                    const safeTitle = movie.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                    const safeUrl = movie.url.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                    const safeSource = movie.source.replace(/'/g, "\\'").replace(/"/g, '\\"');
-                    
-                    content += `
-                        <div onclick="extractMovieLinksFromChat('${safeTitle}', '${safeUrl}', '${safeSource}')" style="
-                            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
-                            border-radius: 18px;
-                            padding: 20px;
-                            margin-bottom: 15px;
-                            border: 1px solid rgba(255, 255, 255, 0.25);
-                            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-                            cursor: pointer;
-                            position: relative;
-                            overflow: hidden;
-                        " onmouseover="this.style.background='linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.2) 100%)'; this.style.transform='translateY(-5px) scale(1.02)'; this.style.boxShadow='0 15px 40px rgba(0, 0, 0, 0.2)'; this.style.borderColor='rgba(255, 255, 255, 0.4)';" onmouseout="this.style.background='linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)'; this.style.transform='none'; this.style.boxShadow='none'; this.style.borderColor='rgba(255, 255, 255, 0.25)';">
-                            <div style="font-weight: 700; margin-bottom: 12px; color: white; font-size: 1.1rem; line-height: 1.3; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);">
-                                ${movie.title}
-                            </div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
-                                ${movie.year ? `<span style="background: rgba(255, 255, 255, 0.25); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: white; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2);"><i class="fas fa-calendar"></i> ${movie.year}</span>` : ''}
-                                ${movie.language ? `<span style="background: rgba(255, 255, 255, 0.25); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: white; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2);"><i class="fas fa-language"></i> ${movie.language}</span>` : ''}
-                                ${movie.quality ? `<span style="background: rgba(255, 255, 255, 0.25); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: white; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2);"><i class="fas fa-video"></i> ${movie.quality}</span>` : ''}
-                                ${movie.source ? `<span style="background: rgba(255, 255, 255, 0.25); padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: white; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2);"><i class="fas fa-globe"></i> ${movie.source}</span>` : ''}
-                            </div>
-                            <button onclick="event.stopPropagation(); extractMovieLinksFromChat('${safeTitle}', '${safeUrl}', '${safeSource}')" style="
-                                background: linear-gradient(135deg, #10ac84 0%, #00d2d3 100%);
-                                color: white;
-                                border: none;
-                                padding: 12px 20px;
-                                border-radius: 18px;
-                                font-size: 0.9rem;
-                                font-weight: 700;
-                                cursor: pointer;
-                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                                box-shadow: 0 6px 20px rgba(16, 172, 132, 0.3);
-                                position: relative;
-                                overflow: hidden;
-                            " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 30px rgba(16, 172, 132, 0.4)'; this.style.background='linear-gradient(135deg, #0e9f79 0%, #00bfc7 100%)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 6px 20px rgba(16, 172, 132, 0.3)'; this.style.background='linear-gradient(135deg, #10ac84 0%, #00d2d3 100%)';">
-                                <i class="fas fa-download"></i> Get Download Links
-                            </button>
-                        </div>
-                    `;
-                });
-                
-                content += '</div>';
-                addMessage(content, false, true);
-            } else if (!aiResponse || !aiResponse.trim()) {
+            }
+            
+            // Add AI response with sources (Perplexity style)
+            if (aiResponse && aiResponse.trim()) {
+                const sources = movies && movies.length > 0 ? movies : null;
+                addMessage(aiResponse, false, false, sources);
+            } else if (!movies || movies.length === 0) {
                 addMessage("I couldn't find any movies matching your request. Please try a different search term or be more specific.", false);
             }
         }
