@@ -752,6 +752,47 @@
             background: rgba(102, 126, 234, 0.1);
         }
 
+        /* Health Status Colors */
+        .download-link-item.health-checking {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .download-link-item.health-working {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .download-link-item.health-dead {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .health-status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .health-checking {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .health-working {
+            background: #10b981;
+            color: white;
+        }
+
+        .health-dead {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Removed unknown status - all uncertain links are treated as dead */
+
         .download-link-header {
             display: flex;
             justify-content: space-between;
@@ -2376,6 +2417,175 @@
             });
         }
 
+        // Check health of a download link with fast detection
+        function checkLinkHealth(url, linkElement, linkId) {
+            // Add checking status
+            linkElement.classList.add('health-checking');
+            
+            // Add health status badge
+            const headerDiv = linkElement.querySelector('.download-link-header') || linkElement.querySelector('div');
+            if (headerDiv) {
+                const existingBadge = headerDiv.querySelector('.health-status-badge');
+                if (existingBadge) {
+                    existingBadge.remove();
+                }
+                
+                const healthBadge = document.createElement('span');
+                healthBadge.className = 'health-status-badge health-checking';
+                healthBadge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking';
+                headerDiv.appendChild(healthBadge);
+            }
+            
+            // Quick check for known dead link patterns
+            const deadPatterns = [
+                'uptomega.net', 'megaup.net', 'send.now', 'gofile.io', 'mediafire.com',
+                'zippyshare.com', 'rapidgator.net', 'turbobit.net', 'nitroflare.com'
+            ];
+            
+            const isLikelyDead = deadPatterns.some(pattern => url.includes(pattern));
+            if (isLikelyDead) {
+                // For known problematic hosts, do a quick content check
+                checkLinkContentFast(url, linkElement);
+                return;
+            }
+            
+            // Check link health via backend with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            fetch('/check_link_health', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url: url }),
+                signal: controller.signal
+            })
+            .then(response => {
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Health check result:', data);
+                
+                // Handle different response formats from backend
+                if (data.error) {
+                    updateLinkHealthStatus(linkElement, 'dead', data.error);
+                } else if (data.is_working !== undefined) {
+                    // Backend returns is_working boolean
+                    const status = data.is_working ? 'working' : 'dead';
+                    const details = data.details || data.message || (data.is_working ? 'Link is accessible' : 'Link appears to be dead');
+                    updateLinkHealthStatus(linkElement, status, details);
+                } else if (data.status) {
+                    // Backend returns status string - treat unknown as dead
+                    const status = data.status === 'unknown' ? 'dead' : data.status;
+                    updateLinkHealthStatus(linkElement, status, data.details || data.message);
+                } else {
+                    // Fallback - treat unknown as dead
+                    updateLinkHealthStatus(linkElement, 'dead', 'Could not determine link status');
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                console.error('Health check error:', error);
+                if (error.name === 'AbortError') {
+                    updateLinkHealthStatus(linkElement, 'dead', 'Health check timeout (10s) - likely dead');
+                } else {
+                    updateLinkHealthStatus(linkElement, 'dead', `Health check failed: ${error.message}`);
+                }
+            });
+        }
+
+        // Fast content check for known problematic hosts
+        function checkLinkContentFast(url, linkElement) {
+            console.log(`Fast checking content for: ${url}`);
+            
+            // Reduce timeout for fast check
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+            
+            fetch('/check_link_content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    url: url,
+                    fast_check: true,
+                    error_patterns: [
+                        'file expired', 'file was deleted', 'file not found', 
+                        'link expired', 'no longer available', 'removed',
+                        'error 404', 'not found', 'access denied'
+                    ]
+                }),
+                signal: controller.signal
+            })
+            .then(response => {
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Fast content check result:', data);
+                
+                if (data.contains_error_message || data.status === 'dead') {
+                    updateLinkHealthStatus(linkElement, 'dead', data.details || 'File expired or deleted');
+                } else if (data.has_video_content || data.status === 'working') {
+                    updateLinkHealthStatus(linkElement, 'working', data.details || 'Video content detected');
+                } else {
+                    // If unclear, mark as dead to be safe
+                    updateLinkHealthStatus(linkElement, 'dead', 'Could not verify content availability');
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                console.error('Fast content check error:', error);
+                // On error, assume dead
+                updateLinkHealthStatus(linkElement, 'dead', `Content check failed: ${error.message}`);
+            });
+        }
+
+        // Update link health status
+        function updateLinkHealthStatus(linkElement, status, details) {
+            // Remove all health classes
+            linkElement.classList.remove('health-checking', 'health-working', 'health-dead');
+            
+            // Add appropriate health class
+            linkElement.classList.add(`health-${status}`);
+            
+            // Update health badge
+            const headerDiv = linkElement.querySelector('.download-link-header') || linkElement.querySelector('div');
+            if (headerDiv) {
+                const healthBadge = headerDiv.querySelector('.health-status-badge');
+                if (healthBadge) {
+                    healthBadge.className = `health-status-badge health-${status}`;
+                    
+                    switch(status) {
+                        case 'working':
+                            healthBadge.innerHTML = '<i class="fas fa-check-circle"></i> Working';
+                            break;
+                        case 'dead':
+                            healthBadge.innerHTML = '<i class="fas fa-times-circle"></i> Dead Link';
+                            break;
+                        default:
+                            // Treat any unknown status as dead
+                            healthBadge.innerHTML = '<i class="fas fa-times-circle"></i> Dead Link';
+                            break;
+                    }
+                }
+            }
+            
+            // Add tooltip with details if available
+            if (details) {
+                linkElement.title = details;
+            }
+        }
+
         // Display unlocked links in modal
         function displayModalUnlockedLinks(originalIndex, unlockedLinks, originalLinkDiv) {
             originalLinkDiv.setAttribute('data-unlock-status', 'completed');
@@ -2391,17 +2601,21 @@
             // Show success message
             const successMsg = document.createElement('div');
             successMsg.style.cssText = 'background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 8px 12px; border-radius: 6px; margin: 8px 0; font-size: 12px; font-weight: 500;';
-            successMsg.innerHTML = `<i class="fas fa-check-circle"></i> Unlocked ${unlockedLinks.length} download link${unlockedLinks.length > 1 ? 's' : ''}!`;
+            successMsg.innerHTML = `<i class="fas fa-check-circle"></i> Unlocked ${unlockedLinks.length} download link${unlockedLinks.length > 1 ? 's' : ''}! <span style="color: #f59e0b;">Checking link health...</span>`;
             
-            // Create unlocked links
+            // Create unlocked links with health checking
             let unlockedContent = '';
             unlockedLinks.forEach((link, subIndex) => {
                 const isPriority = link.is_priority || false;
+                const linkId = `unlocked-link-${originalIndex}-${subIndex}`;
+                
                 unlockedContent += `
-                    <div style="background: #0f0f23; border: 1px solid #2a2a3e; border-radius: 8px; padding: 12px; margin: 6px 0;">
-                        <div style="font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 6px;">
-                            ${isPriority ? '<i class="fas fa-star" style="color: #10ac84;"></i> ' : ''}
-                            ${link.text || link.service_type + ' Download'}
+                    <div id="${linkId}" class="download-link-item" style="margin: 6px 0;">
+                        <div class="download-link-header">
+                            <div style="font-size: 13px; font-weight: 500; color: #ffffff; margin-bottom: 6px;">
+                                ${isPriority ? '<i class="fas fa-star" style="color: #10ac84;"></i> ' : ''}
+                                ${link.text || link.service_type + ' Download'}
+                            </div>
                         </div>
                         <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
                             ${link.host ? `<span class="download-meta-tag">${link.host}</span>` : ''}
@@ -2420,6 +2634,21 @@
                 unlockedContainer.innerHTML = '';
                 unlockedContainer.appendChild(successMsg);
                 unlockedContainer.innerHTML += unlockedContent;
+                
+                // Start health checking for each unlocked link with staggered timing
+                setTimeout(() => {
+                    unlockedLinks.forEach((link, subIndex) => {
+                        const linkId = `unlocked-link-${originalIndex}-${subIndex}`;
+                        const linkElement = document.getElementById(linkId);
+                        if (linkElement) {
+                            // Stagger health checks to avoid overwhelming the server
+                            setTimeout(() => {
+                                console.log(`Starting health check for: ${link.url}`);
+                                checkLinkHealth(link.url, linkElement, linkId);
+                            }, subIndex * 1000); // 1 second delay between each check
+                        }
+                    });
+                }, 500); // Small delay to let the DOM update
             }
         }
 
