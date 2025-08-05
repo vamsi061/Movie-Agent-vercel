@@ -2881,6 +2881,17 @@ def chat_with_ai():
                 for search_query in search_queries:
                     logger.info(f"Searching for: {search_query}")
                     
+                    # Search DownloadHub
+                    if downloadhub_agent:
+                        try:
+                            downloadhub_result = downloadhub_agent.search_movies(search_query)
+                            downloadhub_movies = downloadhub_result['movies'][:2]  # Limit per query
+                            for movie in downloadhub_movies:
+                                movie['source'] = 'DownloadHub'
+                            all_results.extend(downloadhub_movies)
+                        except Exception as e:
+                            logger.error(f"DownloadHub search failed for '{search_query}': {str(e)}")
+                    
                     # Search MoviezWap
                     if moviezwap_agent:
                         try:
@@ -2912,6 +2923,17 @@ def chat_with_ai():
                             all_results.extend(skysetx_movies)
                         except Exception as e:
                             logger.error(f"SkySetX search failed for '{search_query}': {str(e)}")
+                    
+                    # Search Movies4U
+                    if movies4u_agent:
+                        try:
+                            movies4u_result = movies4u_agent.search_movies(search_query)
+                            movies4u_movies = movies4u_result['movies'][:2]  # Limit per query
+                            for movie in movies4u_movies:
+                                movie['source'] = 'Movies4U'
+                            all_results.extend(movies4u_movies)
+                        except Exception as e:
+                            logger.error(f"Movies4U search failed for '{search_query}': {str(e)}")
                 
                 # FILTER RESULTS FOR SPECIFIC MOVIE REQUESTS
                 if user_analysis.get("is_specific_movie", False):
