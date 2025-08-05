@@ -2434,10 +2434,7 @@ def admin_panel():
     """Render the admin panel"""
     return render_template('admin.html')
 
-@app.route('/api')
-def api_panel():
-    """Render the API access panel (same as admin)"""
-    return render_template('admin.html')
+# Removed duplicate /api route - using the one that serves api/index.html with Filter by Source
 
 @app.route('/admin/agents', methods=['GET'])
 @app.route('/api/agents', methods=['GET'])

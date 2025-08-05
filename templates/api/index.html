@@ -141,6 +141,74 @@
             box-shadow: none;
         }
 
+        .filter-section {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .filter-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .filter-section h3 {
+            color: #ffffff;
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-dropdown {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 12px;
+            padding: 12px 18px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 180px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-dropdown:hover {
+            border-color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .filter-dropdown:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .filter-stats {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
         .results-section {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -169,6 +237,17 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
             cursor: pointer;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .movie-card:hover {
@@ -777,6 +856,24 @@
                     </div>
                 </div>
                 <button class="search-btn" onclick="searchMovies()">Search Movies</button>
+            </div>
+        </div>
+
+        <!-- Filter by Source Section -->
+        <div id="filterSection" class="filter-section" style="display: none;">
+            <h3>Filter by Source:</h3>
+            <div class="filter-controls">
+                <select id="sourceFilter" class="filter-dropdown" onchange="filterBySource()">
+                    <option value="all">All Sources</option>
+                    <option value="MoviezWap">MoviezWap</option>
+                    <option value="MovieRulz">MovieRulz</option>
+                    <option value="SkySetX">SkySetX</option>
+                    <option value="DownloadHub">DownloadHub</option>
+                    <option value="Movies4U">Movies4U</option>
+                </select>
+                <div id="filterStats" class="filter-stats">
+                    Showing all results
+                </div>
             </div>
         </div>
 
@@ -2168,6 +2265,116 @@
             setTimeout(() => {
                 checkGofilePriorityAndEnhance(originalIndex, unlockedLinks, originalLinkDiv);
             }, 1000);
+        };
+
+        
+        // Filter by Source functionality - Frontend only
+        function filterBySource() {
+            const sourceFilter = document.getElementById('sourceFilter').value;
+            const movieCards = document.querySelectorAll('.movie-card');
+            let visibleCount = 0;
+            let totalCount = movieCards.length;
+            
+            movieCards.forEach(card => {
+                // Look for the correct source tag class
+                const sourceTag = card.querySelector('.movie-source-tag');
+                const movieSource = sourceTag ? sourceTag.textContent.trim() : '';
+                
+                if (sourceFilter === 'all' || movieSource === sourceFilter) {
+                    card.style.display = 'block';
+                    card.style.animation = 'fadeIn 0.3s ease';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            updateFilterStats(visibleCount, totalCount, sourceFilter);
+        }
+
+        function updateFilterStats(visible, total, source) {
+            const stats = document.getElementById('filterStats');
+            
+            if (source === 'all') {
+                stats.textContent = `Showing all ${total} results`;
+            } else {
+                stats.textContent = `Showing ${visible} of ${total} results (${source})`;
+            }
+        }
+
+        function populateSourceFilter() {
+            const sourceFilter = document.getElementById('sourceFilter');
+            const movieCards = document.querySelectorAll('.movie-card');
+            const sources = new Set();
+            
+            // Extract unique sources from movie cards - try multiple selectors
+            movieCards.forEach(card => {
+                // Try different possible selectors for source information
+                let sourceText = '';
+                
+                // Method 1: Look for .movie-source-tag class (correct class name)
+                const sourceTag = card.querySelector('.movie-source-tag');
+                if (sourceTag) {
+                    sourceText = sourceTag.textContent.trim();
+                }
+                
+                // Method 2: Look for any element containing source info
+                if (!sourceText) {
+                    const allTags = card.querySelectorAll('.movie-tag, .tag, .badge, .source, .agent');
+                    allTags.forEach(tag => {
+                        const text = tag.textContent.trim();
+                        // Check if this looks like a source name
+                        if (text.includes('Wap') || text.includes('Rulz') || text.includes('Sky') || 
+                            text.includes('Hub') || text.includes('Movies4U') || text.includes('Download')) {
+                            sourceText = text;
+                        }
+                    });
+                }
+                
+                // Method 3: Look in movie card HTML for source patterns
+                if (!sourceText) {
+                    const cardHTML = card.innerHTML;
+                    const sourcePatterns = ['MoviezWap', 'MovieRulz', 'SkySetX', 'DownloadHub', 'Movies4U'];
+                    sourcePatterns.forEach(pattern => {
+                        if (cardHTML.includes(pattern)) {
+                            sourceText = pattern;
+                        }
+                    });
+                }
+                
+                if (sourceText) {
+                    sources.add(sourceText);
+                }
+            });
+            
+            console.log('Found sources:', Array.from(sources)); // Debug log
+            
+            // Clear existing options except "All Sources"
+            sourceFilter.innerHTML = '<option value="all">All Sources</option>';
+            
+            // Add found sources to dropdown
+            Array.from(sources).sort().forEach(source => {
+                const option = document.createElement('option');
+                option.value = source;
+                option.textContent = source;
+                sourceFilter.appendChild(option);
+            });
+        }
+
+        // Override the existing displayResults function
+        const originalDisplayResults = displayResults;
+        displayResults = function(results) {
+            // Call original function first
+            originalDisplayResults(results);
+            
+            // Show filter section and populate sources if we have results
+            if (results.length > 0) {
+                setTimeout(() => {
+                    document.getElementById('filterSection').style.display = 'block';
+                    populateSourceFilter();
+                    updateFilterStats(results.length, results.length, 'all');
+                }, 100);
+            }
         };
 
     </script>
