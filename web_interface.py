@@ -510,6 +510,10 @@ def load_site_urls(file_path="movie_sites.txt"):
 def index():
     return render_template('index.html')
 
+@app.route('/api')
+def api():
+    return render_template('api/index.html')
+
 @app.route('/search', methods=['POST'])
 def search_movie():
     """Enhanced search using multiple sources (DownloadHub + MoviezWap)"""

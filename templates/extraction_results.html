@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Links - {{ result.movie_title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .movie-info {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .movie-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .movie-details {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.failed {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .download-links {
+            margin-top: 20px;
+        }
+
+        .download-links h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .link-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .link-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .link-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .link-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .link-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            text-decoration: none;
+            color: white;
+        }
+
+        .no-links {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .back-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .back-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            text-decoration: none;
+            color: white;
+        }
+
+        .back-btn.secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            background: none;
+            border: 1px solid #667eea;
+            color: #667eea;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Download Links</h1>
+            <p>Extract download links for your selected movie</p>
+        </div>
+
+        <div class="movie-info">
+            <div class="movie-title">{{ result.movie_title }}</div>
+            <div class="movie-details">
+                Source: {{ result.movie_source }}
+                {% if result.movie_url %}
+                • <a href="{{ result.movie_url }}" target="_blank" style="color: #667eea;">View Original Page</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="content">
+            {% if result.status == 'processing' %}
+                <div class="status processing">
+                    <div class="loading-spinner"></div>
+                    Extracting download links... Please wait.
+                    <button class="refresh-btn" onclick="location.reload()">Refresh</button>
+                </div>
+            {% elif result.status == 'completed' %}
+                <div class="status completed">
+                    ✅ Extraction completed successfully!
+                </div>
+                
+                {% if result.download_links and result.download_links|length > 0 %}
+                    <div class="download-links">
+                        <h3>📥 Available Download Links ({{ result.download_links|length }})</h3>
+                        
+                        {% for link in result.download_links %}
+                            <div class="link-item">
+                                <div class="link-title">
+                                    {{ link.text or link.quality or 'Download Link' }}
+                                </div>
+                                <div class="link-details">
+                                    <div class="link-info">
+                                        {% if link.quality %}Quality: {{ link.quality }}{% endif %}
+                                        {% if link.host %} • Host: {{ link.host }}{% endif %}
+                                        {% if link.size %} • Size: {{ link.size }}{% endif %}
+                                    </div>
+                                    <a href="{{ link.url }}" target="_blank" class="download-btn">
+                                        Download
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-links">
+                        <h3>😔 No download links found</h3>
+                        <p>The extraction completed but no download links were found for this movie.</p>
+                        <p>This could be due to:</p>
+                        <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                            <li>The movie page doesn't contain direct download links</li>
+                            <li>The links are behind additional verification</li>
+                            <li>The page structure has changed</li>
+                        </ul>
+                    </div>
+                {% endif %}
+                
+            {% elif result.status == 'failed' %}
+                <div class="status failed">
+                    ❌ Extraction failed: {{ result.error or 'Unknown error occurred' }}
+                </div>
+                <div class="no-links">
+                    <h3>🔧 What you can try:</h3>
+                    <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                        <li>Try a different movie from the same source</li>
+                        <li>Search for the movie on other sources</li>
+                        <li>Check if the original page is accessible</li>
+                        <li>Try again later</li>
+                    </ul>
+                </div>
+            {% endif %}
+
+            <div class="back-buttons">
+                <a href="/chat" class="back-btn">🤖 Back to AI Chat</a>
+                <a href="/" class="back-btn secondary">🔍 Main Search</a>
+                {% if result.movie_title %}
+                    <a href="/?search={{ result.movie_title|urlencode }}" class="back-btn secondary">🎬 Search "{{ result.movie_title }}"</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh for processing status
+        {% if result.status == 'processing' %}
+            setTimeout(function() {
+                location.reload();
+            }, 3000); // Refresh every 3 seconds while processing
+        {% endif %}
+    </script>
+</body>
+</html>
