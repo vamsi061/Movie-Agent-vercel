@@ -759,13 +759,15 @@
         }
 
         .download-link-item.health-working {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid #10b981 !important;
+            background: rgba(16, 185, 129, 0.2) !important;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;
         }
 
         .download-link-item.health-dead {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid #ef4444 !important;
+            background: rgba(239, 68, 68, 0.2) !important;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
         }
 
         .health-status-badge {
@@ -782,13 +784,17 @@
         }
 
         .health-working {
-            background: #10b981;
-            color: white;
+            background: #10b981 !important;
+            color: white !important;
+            border: 1px solid #10b981 !important;
+            font-weight: bold !important;
         }
 
         .health-dead {
-            background: #ef4444;
-            color: white;
+            background: #ef4444 !important;
+            color: white !important;
+            border: 1px solid #ef4444 !important;
+            font-weight: bold !important;
         }
 
         /* Removed unknown status - all uncertain links are treated as dead */
@@ -2552,11 +2558,24 @@
 
         // Update link health status
         function updateLinkHealthStatus(linkElement, status, details) {
+            console.log(`Updating link health status to: ${status}`, linkElement);
+            
             // Remove all health classes
             linkElement.classList.remove('health-checking', 'health-working', 'health-dead');
             
             // Add appropriate health class
             linkElement.classList.add(`health-${status}`);
+            
+            // Force style update for working links
+            if (status === 'working') {
+                linkElement.style.border = '2px solid #10b981';
+                linkElement.style.background = 'rgba(16, 185, 129, 0.2)';
+                linkElement.style.boxShadow = '0 0 10px rgba(16, 185, 129, 0.3)';
+            } else if (status === 'dead') {
+                linkElement.style.border = '2px solid #ef4444';
+                linkElement.style.background = 'rgba(239, 68, 68, 0.2)';
+                linkElement.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.3)';
+            }
             
             // Update health badge
             const headerDiv = linkElement.querySelector('.download-link-header') || linkElement.querySelector('div');
