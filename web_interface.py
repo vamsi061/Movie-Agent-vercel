@@ -2429,12 +2429,12 @@ def get_auto_health_results(extraction_id):
         })
 
 # Admin Panel Routes
-@app.route('/api')
-def api_panel():
-    """Render the API access panel"""
+@app.route('/admin')
+def admin_panel():
+    """Render the admin panel"""
     return render_template('admin.html')
 
-@app.route('/api/agents', methods=['GET'])
+@app.route('/admin/agents', methods=['GET'])
 def get_agent_configuration():
     """Get the current agent configuration"""
     try:
@@ -2444,7 +2444,7 @@ def get_agent_configuration():
         logger.error(f"Error getting agent configuration: {str(e)}")
         return jsonify({'error': 'Failed to get agent configuration'}), 500
 
-@app.route('/api/agents/toggle', methods=['POST'])
+@app.route('/admin/agents/toggle', methods=['POST'])
 def toggle_agent():
     """Toggle an agent's enabled state"""
     try:
@@ -2467,7 +2467,7 @@ def toggle_agent():
         logger.error(f"Error toggling agent: {str(e)}")
         return jsonify({'error': 'Failed to toggle agent'}), 500
 
-@app.route('/api/agents/enable-all', methods=['POST'])
+@app.route('/admin/agents/enable-all', methods=['POST'])
 def enable_all_agents():
     """Enable all agents"""
     try:
@@ -2478,7 +2478,7 @@ def enable_all_agents():
         logger.error(f"Error enabling all agents: {str(e)}")
         return jsonify({'error': 'Failed to enable all agents'}), 500
 
-@app.route('/api/agents/disable-all', methods=['POST'])
+@app.route('/admin/agents/disable-all', methods=['POST'])
 def disable_all_agents():
     """Disable all agents"""
     try:
@@ -2489,7 +2489,7 @@ def disable_all_agents():
         logger.error(f"Error disabling all agents: {str(e)}")
         return jsonify({'error': 'Failed to disable all agents'}), 500
 
-@app.route('/api/agents/save', methods=['POST'])
+@app.route('/admin/agents/save', methods=['POST'])
 def save_agent_configuration():
     """Save the current agent configuration"""
     try:
@@ -2499,7 +2499,7 @@ def save_agent_configuration():
         logger.error(f"Error saving configuration: {str(e)}")
         return jsonify({'error': 'Failed to save configuration'}), 500
 
-@app.route('/api/agents/stats', methods=['GET'])
+@app.route('/admin/agents/stats', methods=['GET'])
 def get_agent_stats():
     """Get agent statistics"""
     try:
@@ -2509,7 +2509,7 @@ def get_agent_stats():
         logger.error(f"Error getting agent stats: {str(e)}")
         return jsonify({'error': 'Failed to get agent stats'}), 500
 
-@app.route('/api/agents/update-url', methods=['POST'])
+@app.route('/admin/agents/update-url', methods=['POST'])
 def update_agent_url():
     """Update an agent's URL configuration"""
     try:
@@ -2533,7 +2533,7 @@ def update_agent_url():
         logger.error(f"Error updating agent URLs: {str(e)}")
         return jsonify({'error': 'Failed to update agent URLs'}), 500
 
-@app.route('/api/agents/<agent_key>/urls', methods=['GET'])
+@app.route('/admin/agents/<agent_key>/urls', methods=['GET'])
 def get_agent_urls(agent_key):
     """Get an agent's URL configuration"""
     try:
@@ -2881,17 +2881,6 @@ def chat_with_ai():
                 for search_query in search_queries:
                     logger.info(f"Searching for: {search_query}")
                     
-                    # Search DownloadHub
-                    if downloadhub_agent:
-                        try:
-                            downloadhub_result = downloadhub_agent.search_movies(search_query)
-                            downloadhub_movies = downloadhub_result['movies'][:2]  # Limit per query
-                            for movie in downloadhub_movies:
-                                movie['source'] = 'DownloadHub'
-                            all_results.extend(downloadhub_movies)
-                        except Exception as e:
-                            logger.error(f"DownloadHub search failed for '{search_query}': {str(e)}")
-                    
                     # Search MoviezWap
                     if moviezwap_agent:
                         try:
@@ -2923,17 +2912,6 @@ def chat_with_ai():
                             all_results.extend(skysetx_movies)
                         except Exception as e:
                             logger.error(f"SkySetX search failed for '{search_query}': {str(e)}")
-                    
-                    # Search Movies4U
-                    if movies4u_agent:
-                        try:
-                            movies4u_result = movies4u_agent.search_movies(search_query)
-                            movies4u_movies = movies4u_result['movies'][:2]  # Limit per query
-                            for movie in movies4u_movies:
-                                movie['source'] = 'Movies4U'
-                            all_results.extend(movies4u_movies)
-                        except Exception as e:
-                            logger.error(f"Movies4U search failed for '{search_query}': {str(e)}")
                 
                 # FILTER RESULTS FOR SPECIFIC MOVIE REQUESTS
                 if user_analysis.get("is_specific_movie", False):
