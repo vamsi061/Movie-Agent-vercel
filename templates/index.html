@@ -436,9 +436,29 @@
         }
 
         .sources-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            display: flex;
             gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            scroll-behavior: smooth;
+        }
+        
+        .sources-grid::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .sources-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .sources-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .sources-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .source-card {
@@ -449,6 +469,8 @@
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
+            min-width: 200px;
+            flex-shrink: 0;
         }
 
         .source-card:hover {
