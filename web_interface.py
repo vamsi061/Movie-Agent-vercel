@@ -2857,15 +2857,39 @@ def chat_with_ai():
                 'conversation_history': conversation_history
             })
         
-        # Analyze user intent (personal, movie request, etc.)
-        intent = llm_chat_agent.analyze_user_intent(user_message)
+        # Use enhanced movie request processing
+        result = llm_chat_agent.process_movie_request(user_message)
         
-        # Extract search queries from intent FIRST (before generating response)
-        search_queries = []
-        if intent.get('intent_type') == 'movie_request':
-            # Check if this is a specific movie request
-            user_analysis = intent.get("user_intent_analysis", {})
-            is_specific_movie = user_analysis.get("is_specific_movie", False)
+        # Extract data from result
+        intent = result.get('intent', {})
+        movies = result.get('movies', [])
+        search_performed = result.get('search_performed', False)
+        response_text = result.get('response_text', '')
+        
+        # Log for debugging
+        if search_performed:
+            logger.info(f"Chat: Found {len(movies)} movies for user request")
+        
+        # Return enhanced response with movies
+        return jsonify({
+            'success': True,
+            'response': response_text,
+            'movie_results': movies,
+            'search_performed': search_performed,
+            'intent_type': intent.get('intent_type', 'unknown'),
+            'conversation_history': conversation_history + [
+                {'role': 'user', 'content': user_message},
+                {'role': 'assistant', 'content': response_text}
+            ]
+        })
+        
+        # OLD CODE BELOW - keeping for reference but not executing
+        if False:  # This block won't execute
+            search_queries = []
+            if intent.get('intent_type') == 'movie_request':
+                # Check if this is a specific movie request
+                user_analysis = intent.get("user_intent_analysis", {})
+                is_specific_movie = user_analysis.get("is_specific_movie", False)
             
             if is_specific_movie:
                 # For specific movies, use multiple search variations
