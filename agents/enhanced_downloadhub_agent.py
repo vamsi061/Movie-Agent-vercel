@@ -84,6 +84,16 @@ class EnhancedDownloadHubAgent:
         self.session.headers.update(headers)
         self.session.timeout = 30
         
+    def _is_same_domain(self, url):
+        """Check if URL belongs to the same domain as base_url"""
+        try:
+            from urllib.parse import urlparse
+            base_domain = urlparse(self.base_url).netloc.lower()
+            url_domain = urlparse(url).netloc.lower()
+            return base_domain == url_domain
+        except:
+            return False
+        
     def search_movies(self, movie_name: str, page: int = 1, per_page: int = 10) -> Dict[str, Any]:
         """
         Search for movies using the correct downloadhub.legal format with pagination
@@ -96,7 +106,14 @@ class EnhancedDownloadHubAgent:
                 logger.info(f"Searching for movie: {movie_name} (page {page}) - Attempt {attempt + 1}")
                 
                 # Use the exact format you specified
-                search_url = f"https://downloadhub.legal/?s={movie_name.replace(' ', '+')}"
+                # Use the search URL from admin panel configuration
+                if '{}' in self.search_url:
+                    search_url = self.search_url.format(movie_name.replace(' ', '+'))
+                elif self.search_url.endswith('?s=') or self.search_url.endswith('&s='):
+                    search_url = f"{self.search_url}{movie_name.replace(' ', '+')}"
+                else:
+                    # Fallback: construct search URL from base URL
+                    search_url = f"{self.base_url}/?s={movie_name.replace(' ', '+')}"
                 
                 # Add retry-specific headers
                 self.session.headers.update({
@@ -146,8 +163,8 @@ class EnhancedDownloadHubAgent:
                 
                 # Look for actual movie download links
                 if (text and len(text) > 20 and 
-                    'downloadhub.legal' in href and
-                    any(keyword in text.lower() for keyword in ['download', 'hdrip', 'bluray', 'webrip', 'dvdrip']) and
+                    self._is_same_domain(href) and
+                    any(keyword in text.lower() for keyword in ['download', 'hdrip', 'bluray', 'webrip', 'dvdrip', 'web-dl', 'hdtv', 'brrip']) and
                     self._is_relevant_to_search(text, movie_name)):
                     
                     # Ensure URL is properly formatted
@@ -215,7 +232,7 @@ class EnhancedDownloadHubAgent:
         """Format movie URL using the correct downloadhub.legal pattern"""
         try:
             # If the original URL is already properly formatted, use it
-            if original_url.endswith('/') and 'downloadhub.legal' in original_url:
+            if original_url.endswith('/') and self._is_same_domain(original_url):
                 return original_url
             
             # Generate URL from title using the pattern you specified
@@ -233,7 +250,7 @@ class EnhancedDownloadHubAgent:
             clean_title = clean_title.strip('-')                 # Remove leading/trailing hyphens
             
             # Construct the proper URL
-            formatted_url = f"https://downloadhub.legal/{clean_title}/"
+            formatted_url = f"{self.base_url}/{clean_title}/"
             
             logger.info(f"Formatted URL: {original_url} -> {formatted_url}")
             return formatted_url
@@ -421,7 +438,7 @@ class EnhancedDownloadHubAgent:
                       '480p', '720p', '1080p', 'hd', 'full movie'
                   ]) and
                   not self._is_other_movie_link(text, href) and
-                  'downloadhub.legal' not in href):  # Exclude internal navigation
+                  not self._is_same_domain(href)):  # Exclude internal navigation
                 
                 link_data = self.process_download_link(link)
                 if link_data:
@@ -429,7 +446,7 @@ class EnhancedDownloadHubAgent:
             
             # Pattern 4: Links that look like quality indicators
             elif re.search(r'\b(480p|720p|1080p|hd|full)\b', text, re.IGNORECASE) and len(text) < 30:
-                if not self._is_other_movie_link(text, href) and 'downloadhub.legal' not in href:
+                if not self._is_other_movie_link(text, href) and not self._is_same_domain(href):
                     link_data = self.process_download_link(link)
                     if link_data:
                         links.append(link_data)
@@ -462,8 +479,8 @@ class EnhancedDownloadHubAgent:
             not re.search(r'(480p|720p|1080p).*?\[.*?(\d+(?:\.\d+)?\s*(?:GB|MB))', text, re.IGNORECASE)):
             return True
         
-        # Skip if it's a link to another downloadhub.legal movie page
-        if ('downloadhub.legal' in href and 
+        # Skip if it's a link to another movie page on the same domain
+        if (self._is_same_domain(href) and 
             len(text) > 50 and 
             'download' in text_lower and
             not re.search(r'(480p|720p|1080p).*?\[.*?(\d+(?:\.\d+)?\s*(?:GB|MB))', text, re.IGNORECASE)):
