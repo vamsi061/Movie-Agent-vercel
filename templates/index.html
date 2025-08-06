@@ -1942,7 +1942,7 @@
                             ${link.file_size ? `<span style="background: rgba(255, 255, 255, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500; color: white;">Size: ${link.file_size}</span>` : ''}
                             ${link.host ? `<span style="background: rgba(255, 255, 255, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500; color: white;">Host: ${link.host}</span>` : ''}
                         </div>
-                        <a href="${linkUrl}" target="_blank" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                        <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;" onclick="handleDownloadClick(event, '${linkUrl}')">
                             <i class="fas fa-download"></i> Download Now
                         </a>
                     </div>
@@ -2332,7 +2332,7 @@
                                     ${isPriority ? 'Unlock & Download (Priority)' : 'Unlock & Download'}
                                 </button>
                             ` : `
-                                <a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
+                                <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" class="download-link-button ${isPriority ? 'priority' : ''}" onclick="handleDownloadClick(event, '${linkUrl}')">
                                     <i class="fas fa-download"></i>
                                     ${isPriority ? 'Download Now (Priority)' : 'Download Now'}
                                 </a>
@@ -2609,7 +2609,7 @@
                             ${link.quality ? `<span class="download-meta-tag">${link.quality}</span>` : ''}
                             ${link.file_size ? `<span class="download-meta-tag">${link.file_size}</span>` : ''}
                         </div>
-                        <a href="${link.url}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}" style="font-size: 12px; padding: 6px 12px;">
+                        <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="download-link-button ${isPriority ? 'priority' : ''}" style="font-size: 12px; padding: 6px 12px;" onclick="handleDownloadClick(event, '${link.url}')">
                             <i class="fas fa-download"></i>
                             ${isPriority ? 'Priority Download' : 'Download'}
                         </a>
@@ -2694,6 +2694,50 @@
                 closeDownloadModal();
             }
         });
+
+        // Handle download button clicks
+        function handleDownloadClick(event, url) {
+            console.log('Download button clicked:', url);
+            
+            // Prevent default action
+            event.preventDefault();
+            
+            // Try multiple methods to open the link
+            try {
+                // Method 1: window.open
+                const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+                
+                // Method 2: If window.open failed, create a temporary link
+                if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+                    console.log('window.open failed, trying alternative method');
+                    
+                    const tempLink = document.createElement('a');
+                    tempLink.href = url;
+                    tempLink.target = '_blank';
+                    tempLink.rel = 'noopener noreferrer';
+                    tempLink.style.display = 'none';
+                    
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                }
+                
+                console.log('Download link opened successfully');
+            } catch (error) {
+                console.error('Error opening download link:', error);
+                
+                // Fallback: copy URL to clipboard and show message
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        alert('Download link copied to clipboard: ' + url);
+                    }).catch(() => {
+                        alert('Please copy this download link manually: ' + url);
+                    });
+                } else {
+                    alert('Please copy this download link manually: ' + url);
+                }
+            }
+        }
 
         // Initialize chat input focus and auto-resize
         document.addEventListener('DOMContentLoaded', function() {
