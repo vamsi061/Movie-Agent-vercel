@@ -431,12 +431,14 @@ class EnhancedDownloadHubAgent:
                     if link_data:
                         links.append(link_data)
             
-            # Pattern 3: Download/Stream links with common keywords
-            elif (text and len(text) > 3 and len(text) < 50 and
-                  any(keyword in text.lower() for keyword in [
-                      'download', 'link 1', 'link 2', 'server', 'mirror', 'watch', 'stream',
-                      '480p', '720p', '1080p', 'hd', 'full movie'
-                  ]) and
+            # Pattern 3: Download/Stream links with specific quality or server indicators
+            elif (text and len(text) > 5 and len(text) < 50 and
+                  (any(keyword in text.lower() for keyword in [
+                      'link 1', 'link 2', 'server 1', 'server 2', 'mirror', 'watch online',
+                      '480p download', '720p download', '1080p download'
+                  ]) or
+                   re.search(r'(server|link|mirror)\s*\d+', text, re.IGNORECASE) or
+                   re.search(r'(480p|720p|1080p).*?(download|link)', text, re.IGNORECASE)) and
                   not self._is_other_movie_link(text, href) and
                   not self._is_same_domain(href)):  # Exclude internal navigation
                 
@@ -444,8 +446,9 @@ class EnhancedDownloadHubAgent:
                 if link_data:
                     links.append(link_data)
             
-            # Pattern 4: Links that look like quality indicators
-            elif re.search(r'\b(480p|720p|1080p|hd|full)\b', text, re.IGNORECASE) and len(text) < 30:
+            # Pattern 4: Links with specific quality indicators and download context
+            elif (re.search(r'\b(480p|720p|1080p)\b.*?(download|link|server)', text, re.IGNORECASE) and 
+                  len(text) < 50 and len(text) > 8):
                 if not self._is_other_movie_link(text, href) and not self._is_same_domain(href):
                     link_data = self.process_download_link(link)
                     if link_data:
@@ -458,13 +461,27 @@ class EnhancedDownloadHubAgent:
         text_lower = text.lower()
         href_lower = href.lower()
         
-        # Skip promotional/advertisement sites
-        promotional_sites = [
+        # Skip promotional/advertisement sites and unwanted links
+        unwanted_sites_and_links = [
             '7starhd', 'hdhub4u', 'filmywap', 'moviesflix', 'worldfree4u',
-            'khatrimaza', 'filmyzilla', 'pagalmovies', 'bolly4u', 'moviescounter'
+            'khatrimaza', 'filmyzilla', 'pagalmovies', 'bolly4u', 'moviescounter',
+            '4khdhub', '4k hd hub', 'hd movies', 'how to download', 'download guide',
+            'telegram', 'whatsapp', 'facebook', 'twitter', 'instagram'
         ]
         
-        if any(site in text_lower or site in href_lower for site in promotional_sites):
+        if any(site in text_lower or site in href_lower for site in unwanted_sites_and_links):
+            return True
+        
+        # Skip generic/vague download text without specific quality or file info
+        generic_download_texts = [
+            'download', 'hd movies', 'full movie', 'watch online', 'stream',
+            'click here', 'get link', 'file', 'link'
+        ]
+        
+        # If text is too generic and short, skip it
+        if (len(text) < 15 and 
+            any(generic in text_lower for generic in generic_download_texts) and
+            not re.search(r'(480p|720p|1080p|\d+(?:\.\d+)?\s*(?:GB|MB))', text, re.IGNORECASE)):
             return True
         
         # Skip links that look like other movie titles
