@@ -540,7 +540,8 @@ class EnhancedDownloadHubAgent:
                 'original_url': href,
                 'host': host,
                 'quality': quality,
-                'file_size': file_size
+                'file_size': file_size,
+                'type': 'Download'
             }
             
         except Exception as e:
