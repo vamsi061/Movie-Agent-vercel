@@ -26,11 +26,50 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class EnhancedDownloadHubAgent:
-    def __init__(self):
-        self.base_url = "https://downloadhub.legal"
+    def __init__(self, config_path="agent_config.json"):
+        self.config_path = config_path
+        self.base_url, self.search_url = self._load_urls_from_config()
         self.session = requests.Session()
         self.ua = UserAgent()
         self.setup_session()
+        
+    def _load_urls_from_config(self):
+        """Load base URL and search URL from admin panel configuration"""
+        try:
+            import os
+            config_file = self.config_path
+            if not os.path.exists(config_file):
+                config_file = os.path.join("..", self.config_path)
+            if not os.path.exists(config_file):
+                config_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), self.config_path)
+            
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+                    downloadhub_config = config.get('agents', {}).get('downloadhub', {})
+                    admin_base_url = downloadhub_config.get('base_url')
+                    admin_search_url = downloadhub_config.get('search_url')
+                    
+                    if admin_base_url and admin_base_url.strip():
+                        base_url = admin_base_url.rstrip('/')
+                        if admin_search_url and admin_search_url.strip():
+                            search_url = admin_search_url
+                            logger.info(f"Using URLs from admin panel - Base: {base_url}, Search: {search_url}")
+                        else:
+                            search_url = f"{base_url}/?s="
+                            logger.info(f"Using base URL from admin panel, constructed search URL: {base_url}, {search_url}")
+                        return base_url, search_url
+                    else:
+                        logger.warning("No base URL found in admin config, using fallback")
+            else:
+                logger.warning(f"Config file not found: {config_file}, using fallback URLs")
+        except Exception as e:
+            logger.error(f"Error loading config: {e}, using fallback URLs")
+        
+        fallback_base_url = "https://downloadhub.legal"
+        fallback_search_url = f"{fallback_base_url}/?s="
+        logger.info(f"Using fallback URLs - Base: {fallback_base_url}, Search: {fallback_search_url}")
+        return fallback_base_url, fallback_search_url
         
     def setup_session(self):
         """Setup session with proper headers and configurations"""
