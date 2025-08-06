@@ -21,7 +21,8 @@ from agents.movierulz_agent import MovieRulzAgent
 from agents.telegram_agent import TelegramMovieAgent
 from agents.movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
-from enhanced_llm_chat_agent import EnhancedLLMChatAgent
+from llm_chat_agent import EnhancedLLMChatAgent
+from admin_routes import register_admin_routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -29,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
+
+# Register admin routes for API key management
+register_admin_routes(app)
 
 # Global variables for our enhanced backend
 search_results = {}
