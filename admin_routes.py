@@ -24,14 +24,11 @@ def get_api_config():
         llm_config = config_manager.load_llm_config()
         together_config = llm_config.get('together_api', {})
         
-        # Don't send the actual API key for security
-        safe_config = together_config.copy()
-        if safe_config.get('api_key'):
-            safe_config['api_key'] = '***HIDDEN***'
-        
+        # Send the actual API key for UI management
+        # Note: This is for admin panel use only
         return jsonify({
             'success': True,
-            'config': safe_config
+            'config': together_config
         })
     except Exception as e:
         logger.error(f"Error getting API config: {e}")
@@ -58,7 +55,7 @@ def update_api_config():
         
         if 'api_key' in data:
             api_key = data['api_key'].strip()
-            if api_key and api_key != '***HIDDEN***':
+            if api_key:  # Allow any non-empty API key
                 updates['api_key'] = api_key
         
         if 'enabled' in data:
@@ -119,8 +116,8 @@ def test_api():
                 'error': 'API key is required for testing'
             }), 400
         
-        # If API key is hidden, get it from config
-        if api_key == '***HIDDEN***':
+        # If no API key provided, get it from config
+        if not api_key:
             api_key = config_manager.get_together_api_key()
             if not api_key:
                 return jsonify({

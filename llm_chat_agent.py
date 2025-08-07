@@ -500,6 +500,59 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         
         return unique_movies
     
+    def _sort_by_relevance(self, movies: List[Dict[str, Any]], search_query: str) -> List[Dict[str, Any]]:
+        """Sort movies by relevance to search query"""
+        if not movies or not search_query:
+            return movies
+        
+        search_lower = search_query.lower()
+        
+        def relevance_score(movie):
+            title = movie.get('title', '').lower()
+            year = str(movie.get('year', ''))
+            
+            score = 0
+            
+            # Exact title match gets highest score
+            if search_lower == title:
+                score += 100
+            
+            # Title contains search query
+            elif search_lower in title:
+                score += 50
+            
+            # Search query contains title (for short titles)
+            elif title in search_lower:
+                score += 30
+            
+            # Year match bonus
+            if year and year in search_query:
+                score += 20
+            
+            # Quality bonus (higher quality = higher score)
+            quality = movie.get('quality', '')
+            if isinstance(quality, list):
+                quality = ' '.join(str(q) for q in quality)
+            quality = str(quality).lower()
+            
+            if '1080p' in quality:
+                score += 10
+            elif '720p' in quality:
+                score += 5
+            
+            # Source reliability bonus
+            source = movie.get('source', '').lower()
+            if 'downloadhub' in source:
+                score += 3
+            elif 'movierulz' in source:
+                score += 2
+            elif 'moviezwap' in source:
+                score += 1
+            
+            return score
+        
+        return sorted(movies, key=relevance_score, reverse=True)
+    
     def process_movie_request(self, user_message: str) -> Dict[str, Any]:
         """Process a movie request and return response with search results"""
         # Analyze user intent
@@ -624,10 +677,21 @@ Be genuine, caring, and helpful."""
             
             # Build context from search results
             search_context = ""
-            if search_results:
+            if search_results and isinstance(search_results, dict):
+                movies_list = search_results.get('movies', [])
+                search_context = f"\nI found these movies for you:\n"
+                for i, movie in enumerate(movies_list[:8]):  # Limit to 8 for context
+                    quality = movie.get('quality', 'Unknown')
+                    if isinstance(quality, list):
+                        quality = ', '.join(str(q) for q in quality)
+                    search_context += f"- {movie.get('title', 'Unknown')} ({movie.get('year', 'Unknown')}) - {quality} from {movie.get('source', 'Unknown')}\n"
+            elif search_results and isinstance(search_results, list):
                 search_context = f"\nI found these movies for you:\n"
                 for i, movie in enumerate(search_results[:8]):  # Limit to 8 for context
-                    search_context += f"- {movie.get('title', 'Unknown')} ({movie.get('year', 'Unknown')}) - {movie.get('quality', 'Unknown')} from {movie.get('source', 'Unknown')}\n"
+                    quality = movie.get('quality', 'Unknown')
+                    if isinstance(quality, list):
+                        quality = ', '.join(str(q) for q in quality)
+                    search_context += f"- {movie.get('title', 'Unknown')} ({movie.get('year', 'Unknown')}) - {quality} from {movie.get('source', 'Unknown')}\n"
             else:
                 search_context = "\nI couldn't find specific movies matching your request, but I can still help with recommendations."
             

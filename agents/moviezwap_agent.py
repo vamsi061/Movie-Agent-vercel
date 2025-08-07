@@ -20,11 +20,26 @@ logger = logging.getLogger(__name__)
 
 class MoviezWapAgent:
     def __init__(self):
-        self.base_url = "https://www.moviezwap.pink"
+        # Load configuration from admin panel
+        self.config = self._load_agent_config()
+        self.base_url = self.config.get('base_url', "https://www.moviezwap.pink")
         self.session = requests.Session()
         self.ua = UserAgent()
         self.setup_session()
         
+    def _load_agent_config(self):
+        """Load agent configuration from admin panel"""
+        try:
+            import os
+            import json
+            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'agent_config.json')
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+            return config_data.get('agents', {}).get('moviezwap', {})
+        except Exception as e:
+            logger.warning(f"Could not load agent config: {e}")
+            return {}
+
     def setup_session(self):
         """Setup session with proper headers and configurations"""
         headers = {

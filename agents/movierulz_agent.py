@@ -25,10 +25,14 @@ logger = logging.getLogger(__name__)
 
 class MovieRulzAgent:
     def __init__(self):
-        self.base_url = "https://www.5movierulz.sarl"  # Default URL
+        # Load configuration from admin panel
+        self.config = self._load_agent_config()
+        self.base_url = self.config.get('base_url', "https://www.5movierulz.sarl")  # Use admin config or fallback
+        self.search_url = self.config.get('search_url', f"{self.base_url}/search_movies?s=")
         
         # Override with known working domains (test these first)
         self.priority_domains = [
+            self.base_url,  # Use admin configured URL first
             "https://www.5movierulz.sarl",
             "https://5movierulz.sarl",
             "https://www.4movierulz.com", 
@@ -41,28 +45,9 @@ class MovieRulzAgent:
         self.ua = UserAgent()
         self.setup_session()
         
-        # Known working MovieRulz domains (prioritized list)
+        # Known working MovieRulz domains (prioritized list with admin config first)
         self.known_working_domains = [
-            "https://www.5movierulz.sarl",
-            "https://5movierulz.sarl", 
-            "https://www.4movierulz.com",
-            "https://4movierulz.com",
-            "https://www.3movierulz.com",
-            "https://3movierulz.com"
-        ]
-        
-        # Known working MovieRulz domains (prioritized list)
-        self.known_working_domains = [
-            "https://www.5movierulz.sarl",
-            "https://5movierulz.sarl", 
-            "https://www.4movierulz.com",
-            "https://4movierulz.com",
-            "https://www.3movierulz.com",
-            "https://3movierulz.com"
-        ]
-        
-        # Known working MovieRulz domains (test these first)
-        self.known_working_domains = [
+            self.base_url,  # Use admin configured URL first
             "https://www.5movierulz.sarl",
             "https://5movierulz.sarl", 
             "https://www.4movierulz.com",
@@ -89,6 +74,18 @@ class MovieRulzAgent:
             ".to", ".me", ".tv", ".com", ".net", ".org", ".in"
         ]
         
+    def _load_agent_config(self):
+        """Load agent configuration from admin panel"""
+        try:
+            import os
+            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'agent_config.json')
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+            return config_data.get('agents', {}).get('movierulz', {})
+        except Exception as e:
+            logger.warning(f"Could not load agent config: {e}")
+            return {}
+
     def setup_session(self):
         """Setup session with proper headers and configurations"""
         headers = {
@@ -220,12 +217,12 @@ class MovieRulzAgent:
         """Get current working MovieRulz URL"""
         if not self.current_working_url:
             # First try the original URL you specified
-            if self._test_url_accessibility("https://www.5movierulz.sarl"):
-                self.current_working_url = "https://www.5movierulz.sarl"
-                logger.info("Using original specified URL: https://www.5movierulz.sarl")
+            if self._test_url_accessibility(self.base_url):
+                self.current_working_url = self.base_url
+                logger.info(f"Using admin configured URL: {self.base_url}")
             else:
                 self.current_working_url = self.find_working_movierulz_url()
-        return self.current_working_url or "https://www.5movierulz.sarl"
+        return self.current_working_url or self.base_url
 
     def search_movies(self, movie_name: str, page: int = 1, per_page: int = 10) -> Dict[str, Any]:
         """
