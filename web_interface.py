@@ -3128,6 +3128,43 @@ if __name__ == '__main__':
     # Initialize agents on startup
     initialize_agents()
     # Add chat history API route
+    @app.route('/api/new-session', methods=['POST'])
+    def start_new_session():
+        """Start a new session by deleting current session and creating a new one"""
+        try:
+            # Get current session ID
+            current_session_id = session.get('session_id')
+            
+            # Delete current session if it exists
+            if current_session_id and current_session_id in session_manager.sessions:
+                del session_manager.sessions[current_session_id]
+                logger.info(f"Deleted session: {current_session_id}")
+            
+            # Create new session
+            new_session_id = session_manager.create_session()
+            session['session_id'] = new_session_id
+            logger.info(f"Created new session: {new_session_id}")
+            
+            # Get new session stats
+            session_stats = session_manager.get_session_stats(new_session_id)
+            
+            return jsonify({
+                'success': True,
+                'message': 'New session started successfully',
+                'session_info': {
+                    'session_id': new_session_id,
+                    'conversation_count': 0,
+                    'time_remaining_minutes': 15
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error starting new session: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to start new session'
+            }), 500
+
     @app.route('/api/chat-history', methods=['GET'])
     def get_chat_history():
         """Get chat history for current session"""

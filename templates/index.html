@@ -95,6 +95,215 @@
             text-decoration: none;
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .new-session-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+        }
+
+        .new-session-btn:hover {
+            background: linear-gradient(45deg, #ff5252, #ffb74d);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .new-session-btn:active {
+            transform: translateY(0);
+        }
+
+        .new-session-btn i {
+            font-size: 16px;
+        }
+
+        .api-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .api-link:hover {
+            background: linear-gradient(45deg, #5a67d8, #6b46c1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            text-decoration: none;
+            color: white;
+        }
+
+        .api-link:active {
+            transform: translateY(0);
+        }
+
+        .api-link i {
+            font-size: 16px;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border: 1px solid #2a2a3e;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .modal-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        .modal-message {
+            color: #9ca3af;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn-cancel {
+            background: #374151;
+            color: #9ca3af;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #4b5563;
+            color: #ffffff;
+        }
+
+        .modal-btn-confirm {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+        }
+
+        .modal-btn-confirm:hover {
+            background: linear-gradient(45deg, #ff5252, #ffb74d);
+            transform: translateY(-1px);
+        }
+
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10001;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: rgba(34, 197, 94, 0.9);
+            color: white;
+        }
+
+        .notification.error {
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+        }
+
+        .notification.info {
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+        }
+
         .chat-stats {
             display: flex;
             align-items: center;
@@ -109,26 +318,6 @@
             gap: 4px;
         }
 
-        .admin-link {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .admin-link:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
 
         .main-content {
             flex: 1;
@@ -1763,7 +1952,43 @@
                         <span id="movieCount">0</span>
                     </div>
                 </div>
-                <a href="/api" class="admin-link">Access API</a>
+                <div class="header-actions">
+                    <button class="new-session-btn" onclick="startNewSession()" title="Start a new conversation session">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>New Session</span>
+                    </button>
+                    <a href="/api" class="api-link" title="Access API Documentation">
+                        <i class="fas fa-code"></i>
+                        <span>Access API</span>
+                    </a>
+                    <a href="/admin" class="admin-link">
+                        <i class="fas fa-cog"></i>
+                        Admin
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div class="modal-overlay" id="confirmationModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-icon">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+                    <h3 class="modal-title" id="modalTitle">Confirm Action</h3>
+                </div>
+                <div class="modal-message" id="modalMessage">
+                    Are you sure you want to proceed?
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-cancel" onclick="hideConfirmationModal()">
+                        Cancel
+                    </button>
+                    <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn">
+                        Confirm
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -2371,7 +2596,7 @@
             const qualityFilter = document.getElementById('qualityFilter').value;
             
             if (!movieName) {
-                alert('Please enter a movie name');
+                showNotification('Please enter a movie name', 'error');
                 return;
             }
 
@@ -2402,12 +2627,12 @@
                     displayMovies(allMovies, page);
                     updatePaginationControls();
                 } else {
-                    alert('Search failed: ' + data.error);
+                    showNotification('Search failed: ' + data.error, 'error');
                 }
             })
             .catch(error => {
                 console.error('Search error:', error);
-                alert('Search failed. Please try again.');
+                showNotification('Search failed. Please try again.', 'error');
             })
             .finally(() => {
                 searchBtn.disabled = false;
@@ -2506,7 +2731,7 @@
 
         function extractLinks(index) {
             if (index >= allMovies.length) {
-                alert('Invalid movie selection');
+                showNotification('Invalid movie selection', 'error');
                 return;
             }
 
@@ -3106,6 +3331,151 @@
             }
         });
 
+        // Start new session function
+        function startNewSession() {
+            try {
+                // Show confirmation modal
+                showConfirmationModal(
+                    'Start New Session?',
+                    'Are you sure you want to start a new session? This will clear your current conversation history.',
+                    function() {
+                        // User confirmed, proceed with new session
+                        performNewSession();
+                    }
+                );
+            } catch (error) {
+                console.error('Error starting new session:', error);
+                showNotification('Error starting new session. Please try again.', 'error');
+            }
+        }
+
+        // Perform the actual new session creation
+        function performNewSession() {
+            try {
+                // Call backend API to properly expire server-side session
+                console.log('Starting fetch request to /api/new-session');
+                fetch('/api/new-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data && data.success) {
+                        // Clear current chat messages
+                        const messagesContainer = document.getElementById('chatMessages');
+                        messagesContainer.innerHTML = '';
+                        
+                        // Show welcome section again
+                        const welcomeSection = document.getElementById('welcomeSection');
+                        if (welcomeSection) {
+                            welcomeSection.style.display = 'block';
+                            welcomeSection.style.opacity = '1';
+                            welcomeSection.style.transform = 'translateY(0)';
+                        }
+                        
+                        // Reset message count
+                        messageCount = 0;
+                        updateStats();
+                        
+                        // Clear session storage
+                        sessionStorage.clear();
+                        localStorage.clear();
+                        
+                        // Show success message
+                        console.log('New session started successfully');
+                        showNotification('New session started successfully!', 'success');
+                    } else {
+                        console.error('Backend error:', data);
+                        showNotification('Error starting new session: ' + (data && data.error ? data.error : 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting new session:', error);
+                    showNotification('Error starting new session: ' + error.message, 'error');
+                });
+                
+            } catch (error) {
+                console.error('Error starting new session:', error);
+                showNotification('Error starting new session. Please try again.', 'error');
+            }
+        }
+
+        // Modal functions
+        function showConfirmationModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirmationModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+            
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            
+            // Remove any existing event listeners
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            // Add new event listener
+            newConfirmBtn.addEventListener('click', function() {
+                hideConfirmationModal();
+                if (onConfirm) onConfirm();
+            });
+            
+            modal.classList.add('show');
+            
+            // Close modal on overlay click
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    hideConfirmationModal();
+                }
+            });
+        }
+
+        function hideConfirmationModal() {
+            const modal = document.getElementById('confirmationModal');
+            modal.classList.remove('show');
+        }
+
+        // Notification function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Trigger animation
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                hideConfirmationModal();
+            }
+        });
+
         // Initialize chat input focus and auto-resize
         document.addEventListener('DOMContentLoaded', function() {
             const chatInput = document.getElementById('chatInput');
@@ -3113,6 +3483,9 @@
                 chatInput.focus();
                 chatInput.addEventListener('input', autoResize);
             }
+            
+            // Load chat history on page load
+            loadChatHistory();
         });
     </script>
 </body>
