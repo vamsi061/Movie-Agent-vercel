@@ -12,6 +12,7 @@ import difflib
 from typing import Dict, List, Optional, Any
 from together import Together
 import requests
+from session_manager import session_manager
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configure logging
@@ -71,7 +72,7 @@ class EnhancedLLMChatAgent:
             "traits": ["friendly", "knowledgeable", "efficient", "enthusiastic about movies"]
         }
         
-    def analyze_user_intent(self, user_message: str) -> Dict[str, Any]:
+    def analyze_user_intent(self, user_message: str, conversation_context: str = "") -> Dict[str, Any]:
         """Analyze user intent to determine response type"""
         # If no API key, use fallback analysis
         if not self.has_api_key:
@@ -553,16 +554,22 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         
         return sorted(movies, key=relevance_score, reverse=True)
     
-    def process_movie_request(self, user_message: str) -> Dict[str, Any]:
+    def process_movie_request(self, user_message: str, session_id: str = None) -> Dict[str, Any]:
         """Process a movie request and return response with search results"""
-        # Analyze user intent
-        intent = self.analyze_user_intent(user_message)
+        # Get session context for better responses
+        conversation_context = ""
+        if session_id:
+            conversation_context = session_manager.get_conversation_context(session_id)
+        
+        # Analyze user intent with session context
+        intent = self.analyze_user_intent(user_message, conversation_context)
         
         response_data = {
             "intent": intent,
             "response_text": "",
             "movies": [],
-            "search_performed": False
+            "search_performed": False,
+            "session_id": session_id
         }
         
         # Check if it's a movie request that requires search

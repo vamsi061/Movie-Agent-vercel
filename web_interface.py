@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, Response, stream_template
+from flask import Flask, render_template, request, jsonify, Response, stream_template, session
 from flask_cors import CORS
 import json
 import time
@@ -23,12 +23,15 @@ from agents.movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
 from llm_chat_agent import EnhancedLLMChatAgent
 from admin_routes import register_admin_routes
+from session_manager import session_manager
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.secret_key = str(uuid.uuid4())  # For session management
 CORS(app)  # Enable CORS for all routes
 
 # Register admin routes for API key management
@@ -2857,8 +2860,23 @@ def chat_with_ai():
                 'conversation_history': conversation_history
             })
         
-        # Use enhanced movie request processing
-        result = llm_chat_agent.process_movie_request(user_message)
+        # Get or create session ID
+        user_session_id = session.get('session_id')
+        if not user_session_id:
+            user_session_id = session_manager.create_session()
+            session['session_id'] = user_session_id
+            logger.info(f"Created new session for user: {user_session_id}")
+        
+        # Use enhanced movie request processing with session context
+        result = llm_chat_agent.process_movie_request(user_message, session_id=user_session_id)
+        
+        # Add conversation to session memory
+        session_manager.add_conversation(
+            user_session_id, 
+            user_message, 
+            result.get('response_text', ''),
+            result.get('movies', [])
+        )
         
         # Extract data from result
         intent = result.get('intent', {})
@@ -2870,13 +2888,21 @@ def chat_with_ai():
         if search_performed:
             logger.info(f"Chat: Found {len(movies)} movies for user request")
         
-        # Return enhanced response with movies
+        # Get session stats
+        session_stats = session_manager.get_session_stats(user_session_id)
+        
+        # Return enhanced response with movies and session info
         return jsonify({
             'success': True,
             'response': response_text,
             'movie_results': movies,
             'search_performed': search_performed,
             'intent_type': intent.get('intent_type', 'unknown'),
+            'session_info': {
+                'session_id': user_session_id,
+                'conversation_count': session_stats.get('conversation_count', 0),
+                'time_remaining_minutes': session_stats.get('time_remaining_minutes', 15)
+            },
             'conversation_history': conversation_history + [
                 {'role': 'user', 'content': user_message},
                 {'role': 'assistant', 'content': response_text}

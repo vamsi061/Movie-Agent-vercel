@@ -514,78 +514,78 @@
             display: block;
         }
 
-        /* Professional Mobile-First Tabbed Interface */
+        /* Perplexity.ai-Style Tabbed Interface */
         .response-container {
-            margin: 16px 0;
-            background: rgba(15, 15, 25, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            overflow: visible;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-            width: 100%;
-            max-width: 100%;
-            min-height: auto;
-            height: auto;
+            margin-top: 20px;
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(42, 42, 62, 0.95) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
         .tab-header {
             display: flex;
-            background: rgba(20, 20, 30, 0.9);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(90deg, rgba(42, 42, 62, 0.8) 0%, rgba(58, 58, 78, 0.8) 100%);
+            border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+            backdrop-filter: blur(10px);
         }
 
         .tab-button {
             flex: 1;
-            padding: 14px 12px;
+            padding: 16px 20px;
             background: none;
             border: none;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-            min-height: 48px;
+            gap: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .tab-button:hover {
             color: #ffffff;
-            background: rgba(255, 255, 255, 0.05);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            transform: translateY(-1px);
         }
 
         .tab-button.active {
             color: #ffffff;
-            background: rgba(102, 126, 234, 0.1);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+            box-shadow: inset 0 2px 4px rgba(102, 126, 234, 0.2);
         }
 
         .tab-button.active::after {
             content: '';
             position: absolute;
             bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #667eea;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px 2px 0 0;
         }
 
         .tab-content {
             display: none;
-            padding: 16px;
-            max-height: none;
-            min-height: auto;
-            height: auto;
-            overflow: visible;
-            -webkit-overflow-scrolling: touch;
-            box-sizing: border-box;
-            width: 100%;
+            padding: 24px;
+            max-height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(102, 126, 234, 0.5) transparent;
         }
 
         .tab-content::-webkit-scrollbar {
-            width: 4px;
+            width: 6px;
         }
 
         .tab-content::-webkit-scrollbar-track {
@@ -593,33 +593,35 @@
         }
 
         .tab-content::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 2px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
         }
 
         .tab-content.active {
             display: block;
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .answer-content {
             color: #ffffff;
-            line-height: 1.6;
-            font-size: 15px;
+            line-height: 1.8;
+            font-size: 16px;
             font-weight: 400;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            max-height: none;
-            min-height: auto;
-            height: auto;
-            overflow: visible;
-            white-space: pre-wrap;
-            width: 100%;
-            box-sizing: border-box;
-            display: block;
         }
 
         .answer-content p {
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
 
         .answer-content strong {
@@ -628,256 +630,173 @@
         }
 
         .sources-content {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 70vh;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            display: grid;
+            gap: 16px;
         }
 
-        .sources-content::-webkit-scrollbar {
-            width: 4px;
+        .source-item {
+            background: linear-gradient(135deg, rgba(42, 42, 62, 0.6) 0%, rgba(58, 58, 78, 0.6) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
 
-        .sources-content::-webkit-scrollbar-track {
-            background: transparent;
+        .source-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(102, 126, 234, 0.5) 50%, transparent 100%);
         }
 
-        .sources-content::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 2px;
+        .source-item:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-color: rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
         }
 
-        .movie-card {
-            background: rgba(25, 25, 35, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 16px;
-            transition: all 0.2s ease;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .movie-card:hover {
-            background: rgba(30, 30, 40, 0.9);
-            border-color: rgba(102, 126, 234, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .movie-header {
+        .source-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 12px;
-            gap: 12px;
-            flex-wrap: wrap;
+            margin-bottom: 16px;
+            gap: 16px;
         }
 
-        .movie-title {
+        .source-item .source-title {
             color: #ffffff;
-            font-weight: 600;
-            font-size: 16px;
-            line-height: 1.3;
-            margin: 0;
+            font-weight: 700;
+            font-size: 17px;
+            line-height: 1.4;
             flex: 1;
-            min-width: 0;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+            margin: 0;
         }
 
         .source-badge {
-            background: #667eea;
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
-            flex-shrink: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
-        .movie-meta {
+        .source-details {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
-        .meta-item {
-            background: rgba(40, 40, 50, 0.8);
+        .source-detail {
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.8) 0%, rgba(75, 85, 99, 0.8) 100%);
             color: #e5e7eb;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 6px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            transition: all 0.2s ease;
         }
 
-        .meta-item svg {
-            opacity: 0.7;
-            flex-shrink: 0;
+        .source-detail:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+            border-color: rgba(102, 126, 234, 0.3);
         }
 
-        .meta-item span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .source-detail svg {
+            opacity: 0.8;
         }
 
-        .movie-actions {
+        .source-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 12px;
+            margin-top: 16px;
         }
 
-        .download-btn {
-            background: #667eea;
+        .source-actions .extract-btn {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 6px;
+            padding: 12px 20px;
+            border-radius: 10px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
-            gap: 6px;
-            flex: 1;
-            justify-content: center;
-            min-height: 40px;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
-        .download-btn:hover {
-            background: #5a67d8;
-            transform: translateY(-1px);
+        .source-actions .extract-btn:hover {
+            background: linear-gradient(45deg, #5a67d8 0%, #6b46c1 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
         }
 
-        .download-btn:active {
+        .source-actions .extract-btn:active {
             transform: translateY(0);
         }
 
         .tab-counter {
-            background: rgba(102, 126, 234, 0.8);
+            background: linear-gradient(45deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
             color: #ffffff;
-            padding: 2px 6px;
-            border-radius: 8px;
-            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
             font-weight: 700;
-            min-width: 16px;
+            min-width: 20px;
             text-align: center;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
 
-        /* Mobile Optimizations */
+        /* Enhanced SVG icons */
+        .tab-button svg,
+        .source-detail svg,
+        .source-actions svg {
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+        }
+
+        /* Responsive design */
         @media (max-width: 768px) {
             .response-container {
-                margin: 12px 0;
-                border-radius: 8px;
-                overflow: visible;
-                height: auto;
-                min-height: auto;
+                margin-top: 16px;
+                border-radius: 12px;
             }
             
             .tab-button {
-                padding: 12px 8px;
-                font-size: 13px;
-                gap: 4px;
-            }
-            
-            .tab-content {
-                padding: 12px;
-                max-height: none;
-                min-height: auto;
-                height: auto;
-                overflow: visible;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            
-            .answer-content {
-                width: 100%;
-                height: auto;
-                min-height: auto;
-                overflow: visible;
-                box-sizing: border-box;
-            }
-            
-            .movie-card {
-                padding: 12px;
-            }
-            
-            .movie-title {
-                font-size: 15px;
-            }
-            
-            .movie-header {
-                gap: 8px;
-            }
-            
-            .meta-item {
-                padding: 4px 8px;
-                font-size: 11px;
-            }
-            
-            .download-btn {
-                padding: 8px 12px;
-                font-size: 12px;
-                min-height: 36px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .response-container {
-                overflow: visible;
-                height: auto;
-                min-height: auto;
-            }
-            
-            .tab-button {
-                padding: 10px 6px;
-                font-size: 12px;
-            }
-            
-            .tab-content {
-                padding: 10px;
-                max-height: none;
-                min-height: auto;
-                height: auto;
-                overflow: visible;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            
-            .answer-content {
-                width: 100%;
-                height: auto;
-                min-height: auto;
-                overflow: visible;
-                box-sizing: border-box;
+                padding: 12px 16px;
                 font-size: 14px;
             }
             
-            .movie-card {
-                padding: 10px;
+            .tab-content {
+                padding: 20px;
+                max-height: 400px;
             }
             
-            .movie-title {
-                font-size: 14px;
+            .source-item {
+                padding: 16px;
             }
             
-            .meta-item {
-                font-size: 10px;
-                padding: 3px 6px;
-            }
-            
-            .download-btn {
-                font-size: 11px;
-                padding: 6px 10px;
-                min-height: 32px;
+            .source-item .source-title {
+                font-size: 16px;
             }
         }
             margin-top: 4px;
@@ -2012,72 +1931,50 @@
             let html = '';
             
             sources.forEach((movie, index) => {
-                const quality = Array.isArray(movie.quality) ? movie.quality.join(', ') : (movie.quality || 'HD');
-                
-                // Fix source name display - handle all agents properly
-                let sourceName = movie.source || 'Unknown';
-                if (sourceName.toLowerCase().includes('downloadhub') || sourceName === 'downloadhub') {
-                    sourceName = 'DownloadHub';
-                } else if (sourceName.toLowerCase().includes('movierulz') || sourceName === 'movierulz') {
-                    sourceName = 'MovieRulz';
-                } else if (sourceName.toLowerCase().includes('moviezwap') || sourceName === 'moviezwap') {
-                    sourceName = 'MoviezWap';
-                } else if (sourceName === 'Unknown' || !sourceName) {
-                    // Fallback: try to detect from URL or other fields
-                    const url = movie.url || movie.detail_url || '';
-                    if (url.includes('downloadhub') || url.includes('hdhub4u')) {
-                        sourceName = 'DownloadHub';
-                    } else if (url.includes('movierulz')) {
-                        sourceName = 'MovieRulz';
-                    } else if (url.includes('moviezwap')) {
-                        sourceName = 'MoviezWap';
-                    } else {
-                        sourceName = 'Movie Source';
-                    }
-                }
+                const quality = Array.isArray(movie.quality) ? movie.quality.join(', ') : (movie.quality || 'Unknown');
                 
                 html += `
-                    <div class="movie-card">
-                        <div class="movie-header">
-                            <h3 class="movie-title">${movie.title}</h3>
-                            <span class="source-badge">${sourceName}</span>
+                    <div class="source-item">
+                        <div class="source-header">
+                            <div class="source-title">${movie.title}</div>
+                            <div class="source-badge">${movie.source || 'Unknown'}</div>
                         </div>
-                        <div class="movie-meta">
-                            <div class="meta-item">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <div class="source-details">
+                            <span class="source-detail">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
                                 </svg>
-                                <span>${movie.year || '2023'}</span>
-                            </div>
-                            <div class="meta-item">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                ${movie.year || 'Unknown Year'}
+                            </span>
+                            <span class="source-detail">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
                                 </svg>
-                                <span>${quality}</span>
-                            </div>
+                                ${quality}
+                            </span>
                             ${movie.size ? `
-                                <div class="meta-item">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <span class="source-detail">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M6 2c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V8l-6-6H6zm7 7V3.5L18.5 9H13z"/>
                                     </svg>
-                                    <span>${movie.size}</span>
-                                </div>
+                                    ${movie.size}
+                                </span>
                             ` : ''}
                             ${movie.language ? `
-                                <div class="meta-item">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <span class="source-detail">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/>
                                     </svg>
-                                    <span>${movie.language}</span>
-                                </div>
+                                    ${movie.language}
+                                </span>
                             ` : ''}
                         </div>
-                        <div class="movie-actions">
-                            <button class="download-btn" onclick="openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${sourceName}')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <div class="source-actions">
+                            <button class="extract-btn" onclick="openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${movie.source}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
                                 </svg>
-                                Download
+                                Extract Links
                             </button>
                         </div>
                     </div>
