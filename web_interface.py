@@ -2643,10 +2643,6 @@ def chat_interface():
     """Render the chat interface"""
     return render_template('chat.html')
 
-@app.route('/enhanced-chat')
-def enhanced_chat_interface():
-    """Render the enhanced chat interface"""
-    return render_template('enhanced_chat.html')
 
 @app.route('/extract', methods=['POST'])
 def extract_from_chat():
