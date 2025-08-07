@@ -520,10 +520,12 @@
             background: rgba(15, 15, 25, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            overflow: hidden;
+            overflow: visible;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             width: 100%;
             max-width: 100%;
+            min-height: auto;
+            height: auto;
         }
 
         .tab-header {
@@ -573,9 +575,13 @@
         .tab-content {
             display: none;
             padding: 16px;
-            max-height: 70vh;
-            overflow-y: auto;
+            max-height: none;
+            min-height: auto;
+            height: auto;
+            overflow: visible;
             -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            width: 100%;
         }
 
         .tab-content::-webkit-scrollbar {
@@ -602,6 +608,14 @@
             font-weight: 400;
             word-wrap: break-word;
             overflow-wrap: break-word;
+            max-height: none;
+            min-height: auto;
+            height: auto;
+            overflow: visible;
+            white-space: pre-wrap;
+            width: 100%;
+            box-sizing: border-box;
+            display: block;
         }
 
         .answer-content p {
@@ -617,6 +631,22 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            max-height: 70vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .sources-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sources-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sources-content::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 2px;
         }
 
         .movie-card {
@@ -747,6 +777,9 @@
             .response-container {
                 margin: 12px 0;
                 border-radius: 8px;
+                overflow: visible;
+                height: auto;
+                min-height: auto;
             }
             
             .tab-button {
@@ -757,7 +790,20 @@
             
             .tab-content {
                 padding: 12px;
-                max-height: 60vh;
+                max-height: none;
+                min-height: auto;
+                height: auto;
+                overflow: visible;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .answer-content {
+                width: 100%;
+                height: auto;
+                min-height: auto;
+                overflow: visible;
+                box-sizing: border-box;
             }
             
             .movie-card {
@@ -785,6 +831,12 @@
         }
 
         @media (max-width: 480px) {
+            .response-container {
+                overflow: visible;
+                height: auto;
+                min-height: auto;
+            }
+            
             .tab-button {
                 padding: 10px 6px;
                 font-size: 12px;
@@ -792,6 +844,21 @@
             
             .tab-content {
                 padding: 10px;
+                max-height: none;
+                min-height: auto;
+                height: auto;
+                overflow: visible;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .answer-content {
+                width: 100%;
+                height: auto;
+                min-height: auto;
+                overflow: visible;
+                box-sizing: border-box;
+                font-size: 14px;
             }
             
             .movie-card {
@@ -1947,14 +2014,26 @@
             sources.forEach((movie, index) => {
                 const quality = Array.isArray(movie.quality) ? movie.quality.join(', ') : (movie.quality || 'HD');
                 
-                // Fix source name display - handle DownloadHub properly
+                // Fix source name display - handle all agents properly
                 let sourceName = movie.source || 'Unknown';
                 if (sourceName.toLowerCase().includes('downloadhub') || sourceName === 'downloadhub') {
                     sourceName = 'DownloadHub';
-                } else if (sourceName.toLowerCase().includes('movierulz')) {
+                } else if (sourceName.toLowerCase().includes('movierulz') || sourceName === 'movierulz') {
                     sourceName = 'MovieRulz';
-                } else if (sourceName.toLowerCase().includes('moviezwap')) {
+                } else if (sourceName.toLowerCase().includes('moviezwap') || sourceName === 'moviezwap') {
                     sourceName = 'MoviezWap';
+                } else if (sourceName === 'Unknown' || !sourceName) {
+                    // Fallback: try to detect from URL or other fields
+                    const url = movie.url || movie.detail_url || '';
+                    if (url.includes('downloadhub') || url.includes('hdhub4u')) {
+                        sourceName = 'DownloadHub';
+                    } else if (url.includes('movierulz')) {
+                        sourceName = 'MovieRulz';
+                    } else if (url.includes('moviezwap')) {
+                        sourceName = 'MoviezWap';
+                    } else {
+                        sourceName = 'Movie Source';
+                    }
                 }
                 
                 html += `

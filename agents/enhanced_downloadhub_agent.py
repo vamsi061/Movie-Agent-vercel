@@ -176,7 +176,8 @@ class EnhancedDownloadHubAgent:
                         'year': self.extract_year(text),
                         'language': self.extract_language(text),
                         'quality': self.extract_quality(text),
-                        'image': None
+                        'image': None,
+                        'source': 'downloadhub'
                     }
                     all_movies.append(movie_data)
             
@@ -287,7 +288,8 @@ class EnhancedDownloadHubAgent:
                 'language': language,
                 'quality': quality,
                 'detail_url': link,
-                'image': image
+                'image': image,
+                'source': 'downloadhub'
             }
             
         except Exception as e:
