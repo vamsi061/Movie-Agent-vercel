@@ -515,7 +515,19 @@ def load_site_urls(file_path="movie_sites.txt"):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Get or create session ID for chat history persistence
+    user_session_id = session.get('session_id')
+    if not user_session_id:
+        user_session_id = session_manager.create_session()
+        session['session_id'] = user_session_id
+        logger.info(f"Created new session for index page: {user_session_id}")
+    
+    # Get session stats
+    session_stats = session_manager.get_session_stats(user_session_id)
+    
+    return render_template('index.html', 
+                         session_id=user_session_id,
+                         session_stats=session_stats)
 
 @app.route('/api')
 def api():
@@ -3115,4 +3127,54 @@ def extract_movie_titles_from_response(ai_response):
 if __name__ == '__main__':
     # Initialize agents on startup
     initialize_agents()
+    # Add chat history API route
+    @app.route('/api/chat-history', methods=['GET'])
+    def get_chat_history():
+        """Get chat history for current session"""
+        try:
+            user_session_id = session.get('session_id')
+            if not user_session_id:
+                return jsonify({
+                    'success': True,
+                    'chat_history': [],
+                    'session_info': None
+                })
+            
+            session_data = session_manager.get_session(user_session_id)
+            if not session_data:
+                return jsonify({
+                    'success': True,
+                    'chat_history': [],
+                    'session_info': None
+                })
+            
+            # Format chat history for UI
+            chat_history = []
+            for conv in session_data['conversation_history']:
+                chat_history.append({
+                    'user_message': conv['user_message'],
+                    'ai_response': conv['ai_response'],
+                    'movie_results': conv['movie_results'],
+                    'timestamp': conv['timestamp']
+                })
+            
+            session_stats = session_manager.get_session_stats(user_session_id)
+            
+            return jsonify({
+                'success': True,
+                'chat_history': chat_history,
+                'session_info': {
+                    'session_id': user_session_id,
+                    'conversation_count': session_stats.get('conversation_count', 0),
+                    'time_remaining_minutes': session_stats.get('time_remaining_minutes', 15)
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting chat history: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to load chat history'
+            }), 500
+    
     app.run(host='0.0.0.0', port=8080, debug=True)

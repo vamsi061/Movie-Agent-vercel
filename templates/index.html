@@ -1888,6 +1888,43 @@
             return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         }
 
+        // Load chat history from server on page load
+        async function loadChatHistory() {
+            try {
+                const response = await fetch('/api/chat-history');
+                const data = await response.json();
+                
+                if (data.success && data.chat_history.length > 0) {
+                    console.log('Loading chat history:', data.chat_history.length, 'conversations');
+                    
+                    // Hide welcome section if we have chat history
+                    hideWelcomeSection();
+                    
+                    // Restore each conversation
+                    data.chat_history.forEach(conv => {
+                        // Add user message
+                        addMessage(conv.user_message, true);
+                        
+                        // Add AI response with movies
+                        addMessage(conv.ai_response, false, false, conv.movie_results);
+                    });
+                    
+                    // Update session info if available
+                    if (data.session_info) {
+                        console.log('Session info:', data.session_info);
+                        console.log('Time remaining:', data.session_info.time_remaining_minutes, 'minutes');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+
+        // Load chat history when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadChatHistory();
+        });
+
         // Create tabbed response interface (Perplexity.ai style)
         function createTabbedResponse(aiResponse, sources) {
             const responseId = 'response_' + Date.now();
