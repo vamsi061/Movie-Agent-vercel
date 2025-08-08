@@ -2678,8 +2678,11 @@
             messageCount++;
             updateStats();
             
-            // Scroll to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Auto-scroll to latest message with smooth animation
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, 100);
         }
 
         // Show typing indicator
