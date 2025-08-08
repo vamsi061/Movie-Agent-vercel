@@ -401,6 +401,36 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         
         return None
     
+    def _looks_like_movie_title(self, text: str) -> bool:
+        """Heuristic to decide if a short user input likely refers to a movie title.
+        Examples: 'rrr', 'constable kanakam', 'pushpa', 'john wick 4'
+        """
+        if not text:
+            return False
+        t = text.strip()
+        # Must contain letters
+        if not re.search(r"[A-Za-z]", t):
+            return False
+        # Too long sentences are unlikely to be titles
+        if len(t) > 60:
+            return False
+        # Token-based checks
+        tokens = re.split(r"\s+", t)
+        if len(tokens) > 6:
+            return False
+        # Avoid typical greeting/personal starters
+        lowered = t.lower()
+        bad_starts = ("hello", "hi ", "hey ", "how are", "what is", "who are", "i want", "i need", "suggest")
+        if any(lowered.startswith(bs) for bs in bad_starts):
+            return False
+        # Avoid sentences ending with question mark (likely not just a title)
+        if lowered.endswith('?'):
+            return False
+        # Avoid containing URL-like patterns
+        if 'http://' in lowered or 'https://' in lowered:
+            return False
+        return True
+    
     def _init_movie_agents(self):
         """Initialize movie search agents safely"""
         try:
@@ -576,6 +606,36 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         
         # Analyze user intent with session context
         intent = self.analyze_user_intent(user_message, conversation_context)
+
+        # SMART MOVIE DETECTION: Force movie_request for any movie-related input
+        # Users come here to download movies, so be aggressive about detecting movie intent
+        normalized_input = user_message.lower().strip()
+        
+        # Enhanced movie detection patterns
+        movie_indicators = [
+            'download', 'watch', 'movie', 'film', 'latest', 'new', 'release', 'quality',
+            'hindi', 'english', 'tamil', 'telugu', 'bollywood', 'hollywood', '2023', '2024',
+            'mp4', 'mkv', 'hd', '720p', '1080p', '4k'
+        ]
+        
+        contains_movie_indicator = any(indicator in normalized_input for indicator in movie_indicators)
+        looks_like_title = self._looks_like_movie_title(user_message)
+        
+        # If not already a movie request but has movie indicators or looks like title, make it one
+        if (intent.get('intent_type') not in ('movie_request', 'greeting', 'personal') and 
+            (contains_movie_indicator or looks_like_title)):
+            
+            intent['intent_type'] = 'movie_request'
+            intent.setdefault('movie_details', {})
+            intent['movie_details']['search_query'] = user_message.strip()
+            intent['movie_details'].setdefault('search_variations', [user_message.strip()])
+            
+            # Add context that this is a download-focused request
+            intent['user_intent_analysis'] = {
+                'what_they_want': 'download links for movie',
+                'is_specific_movie': looks_like_title,
+                'download_focused': True
+            }
         
         response_data = {
             "intent": intent,
@@ -591,37 +651,57 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         is_affirmation = normalized in {"yes","y","yeah","yep","correct","exactly","right","sure","ok","okay"}
 
         
-        # Check if it's a movie request that requires search
-        if (intent.get("intent_type") == "movie_request" and 
-            intent.get("movie_details", {}).get("search_query")):
+        # MOVIE SEARCH LOGIC: Always try to get download links for users
+        if intent.get("intent_type") == "movie_request":
             
             movie_details = intent.get("movie_details", {})
             search_query = movie_details.get("search_query", user_message.strip())
             search_variations = movie_details.get("search_variations", [search_query])
             
-            logger.info(f"Performing movie search for: {search_query}")
+            # If no specific search query, use the user message directly
+            if not search_query.strip():
+                search_query = user_message.strip()
+                search_variations = [search_query]
             
-            # Search for movies
+            logger.info(f"LEVEL 1 SEARCH: Performing movie search for: {search_query}")
+            
+            # LEVEL 1: Search in our movie APIs first
             search_results = self.search_movies_with_sources(search_query, search_variations)
-            response_data["movies"] = search_results.get("movies", [])
-            response_data["search_summary"] = search_results.get("search_summary", {})
-            response_data["search_performed"] = True
-
-            # If we found a strong specific match, set movie context in the session
-            if session_id and response_data["movies"]:
-                top = response_data["movies"][0]
-                try:
-                    session_manager.set_movie_context(session_id, {
-                        'title': top.get('title'),
-                        'year': top.get('year'),
-                        'source': top.get('source'),
-                        'url': top.get('url') or top.get('detail_url')
-                    })
-                except Exception:
-                    pass
+            found_movies = search_results.get("movies", [])
             
-            # Generate contextual response
-            response_data["response_text"] = self._generate_movie_response(user_message, intent, search_results)
+            if found_movies:
+                # SUCCESS: Found movies in our APIs
+                response_data["movies"] = found_movies
+                response_data["search_summary"] = search_results.get("search_summary", {})
+                response_data["search_performed"] = True
+                response_data["search_level"] = "API_SUCCESS"
+                
+                # Set movie context for follow-ups
+                if session_id and found_movies:
+                    top = found_movies[0]
+                    try:
+                        session_manager.set_movie_context(session_id, {
+                            'title': top.get('title'),
+                            'year': top.get('year'),
+                            'source': top.get('source'),
+                            'url': top.get('url') or top.get('detail_url')
+                        })
+                    except Exception:
+                        pass
+                
+                # Generate download-focused response
+                response_data["response_text"] = self._generate_download_focused_response(user_message, intent, search_results)
+            
+            else:
+                # LEVEL 2: No movies found in APIs - provide movie info and alternative suggestions
+                logger.info(f"LEVEL 2: No movies found in APIs, generating informative response for: {search_query}")
+                
+                response_data["movies"] = []
+                response_data["search_performed"] = True
+                response_data["search_level"] = "NO_RESULTS_FOUND"
+                
+                # Try to provide helpful movie information and alternatives
+                response_data["response_text"] = self._generate_no_results_response(user_message, intent, search_query)
         else:
             # If user simply confirms (e.g. "yes") and we have a previous movie context, reuse it to search
             if is_affirmation and session_id:
@@ -635,7 +715,16 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                     response_data["search_performed"] = True
                     response_data["response_text"] = self._generate_movie_response(user_message, intent, search_results)
                 else:
+                    # If affirmation but no context, fall back to contextual response
                     response_data["response_text"] = self.generate_contextual_response(user_message, intent)
+            elif self._looks_like_movie_title(user_message):
+                # If the user typed a likely movie title but LLM intent didn't trigger, force a movie search
+                title = user_message.strip()
+                search_results = self.search_movies_with_sources(title, [title])
+                response_data["movies"] = search_results.get("movies", [])
+                response_data["search_summary"] = search_results.get("search_summary", {})
+                response_data["search_performed"] = True
+                response_data["response_text"] = self._generate_movie_response(user_message, intent, search_results)
             else:
                 # Generate non-movie response
                 response_data["response_text"] = self.generate_contextual_response(user_message, intent)
@@ -874,6 +963,115 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
                 return f"I found {len(search_results)} movies for you! Check out the results below - they include different qualities and sources. Click 'Extract Links' on any movie to get download options."
             else:
                 return "I'd love to help you find some great movies! Could you tell me more about what you're looking for? Maybe a specific genre, actor, or type of mood you're in?"
+    
+    def _generate_download_focused_response(self, user_message: str, intent: Dict[str, Any], search_results: Dict[str, Any]) -> str:
+        """Generate download-focused response when movies are found"""
+        try:
+            movies_list = search_results.get('movies', [])
+            total_found = len(movies_list)
+            
+            if total_found == 0:
+                return "I couldn't find any movies matching your request in our download sources. Let me try some alternative search terms for you."
+            
+            # Build context about found movies
+            movie_context = f"Found {total_found} movie(s) with download links:\n"
+            for i, movie in enumerate(movies_list[:5]):  # Show top 5
+                quality = movie.get('quality', 'Unknown')
+                if isinstance(quality, list):
+                    quality = ', '.join(str(q) for q in quality)
+                movie_context += f"- {movie.get('title', 'Unknown')} ({movie.get('year', 'Unknown')}) - {quality} from {movie.get('source', 'Unknown')}\n"
+            
+            # Check if this is a specific movie request
+            user_analysis = intent.get("user_intent_analysis", {})
+            is_specific = user_analysis.get("is_specific_movie", False)
+            movie_research = intent.get("movie_details", {}).get("movie_research", {})
+            
+            system_prompt = f"""You are a movie download assistant. Users come here specifically to download movies.
+            
+IMPORTANT: DO NOT list individual movies in your response. The UI displays movies in cards below your response.
+
+USER REQUEST: "{user_message}"
+IS SPECIFIC MOVIE: {is_specific}
+
+SEARCH RESULTS CONTEXT:
+{movie_context}
+
+{'MOVIE RESEARCH:' if movie_research else ''}
+{f"- Title: {movie_research.get('full_title', '')}" if movie_research.get('full_title') else ''}
+{f"- Year: {movie_research.get('release_year', '')}" if movie_research.get('release_year') else ''}
+{f"- Details: {movie_research.get('key_details', '')}" if movie_research.get('key_details') else ''}
+
+RESPOND WITH:
+1. Confirm you found the movie(s) they wanted
+2. Highlight the available sources and qualities
+3. Guide them to click "Extract Links" to get download links
+4. Be enthusiastic about helping them download movies
+
+If specific movie: Confirm if this matches what they wanted
+If general request: Mention the variety of options found
+
+Keep response focused on DOWNLOADING, not streaming platforms."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                max_tokens=200,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error generating download-focused response: {str(e)}")
+            return f"Great! I found {len(search_results.get('movies', []))} movies for you with download links. Click 'Extract Links' on any movie below to get the download options!"
+    
+    def _generate_no_results_response(self, user_message: str, intent: Dict[str, Any], search_query: str) -> str:
+        """Generate helpful response when no movies are found in APIs"""
+        try:
+            movie_details = intent.get("movie_details", {})
+            movie_research = movie_details.get("movie_research", {})
+            
+            system_prompt = f"""You are a movie download assistant. The user searched for a movie but we couldn't find it in our download sources.
+
+USER SEARCHED FOR: "{user_message}"
+SEARCH QUERY USED: "{search_query}"
+
+{'MOVIE RESEARCH:' if movie_research else ''}
+{f"- Title: {movie_research.get('full_title', '')}" if movie_research.get('full_title') else ''}
+{f"- Year: {movie_research.get('release_year', '')}" if movie_research.get('release_year') else ''}
+{f"- Details: {movie_research.get('key_details', '')}" if movie_research.get('key_details') else ''}
+
+PROVIDE A HELPFUL RESPONSE:
+1. Acknowledge the specific movie they wanted (if you have research info)
+2. Explain that it's not currently available in our download sources
+3. Suggest possible reasons (too new, different spelling, not yet released)
+4. Offer to try alternative search terms
+5. Suggest similar movies if possible
+
+Be helpful and encouraging, not dismissive. Focus on finding download solutions."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                max_tokens=250,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error generating no-results response: {str(e)}")
+            # Fallback response
+            if movie_research.get('full_title'):
+                return f"I understand you're looking for '{movie_research['full_title']}' ({movie_research.get('release_year', 'Unknown year')}). Unfortunately, it's not currently available in our download sources. This could be because it's very new, not yet released, or might be listed under a different name. Try searching with alternative spellings or let me know if you'd like suggestions for similar movies!"
+            else:
+                return f"I couldn't find '{search_query}' in our current download sources. This might be because it's very new, not yet released, or listed differently. Try alternative spellings or let me know if you'd like suggestions for similar movies!"
     
     def _generate_general_response(self, user_message: str, intent: Dict[str, Any]) -> str:
         """Generate general conversational response"""
