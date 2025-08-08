@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Movie Bot - Movies Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .bot-info {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .bot-info h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .bot-link {
+            display: inline-flex;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            padding: 15px 25px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        .bot-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .search-section h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .input-group input {
+            padding: 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid #28a745;
+        }
+
+        .result-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .deep-link {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .deep-link-url {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        .stats-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .how-to-use {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .how-to-use h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .steps {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+
+        .steps li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        .steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .search-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Telegram Movie Bot</h1>
+            <p>Search and download movies instantly via Telegram</p>
+        </div>
+
+        <div class="bot-info">
+            <h2>🚀 Start Using the Bot</h2>
+            <p>Click the button below to open our Telegram bot and start searching for movies:</p>
+            <br>
+            <a href="https://t.me/MoviesAgent123bot" class="bot-link" target="_blank">
+                📱 Open @MoviesAgent123bot
+            </a>
+        </div>
+
+        <div class="how-to-use">
+            <h3>📋 How to Use</h3>
+            <ol class="steps">
+                <li>Click the "Open @MoviesAgent123bot" button above</li>
+                <li>Start a conversation with the bot by clicking "START"</li>
+                <li>Send any movie title to search (e.g., "Avengers Endgame")</li>
+                <li>The bot will instantly forward the movie file to you</li>
+                <li>Download and enjoy your movie!</li>
+            </ol>
+        </div>
+
+        <div class="search-section">
+            <h3>🔍 Generate Deep Link</h3>
+            <p>Create a direct link to search for a specific movie:</p>
+            <br>
+            <div class="search-form">
+                <div class="input-group">
+                    <label for="movie-title">Movie Title:</label>
+                    <input type="text" id="movie-title" placeholder="Enter movie title (e.g., Avengers Endgame)" />
+                </div>
+                
+                <div class="search-buttons">
+                    <button class="btn btn-primary" onclick="generateDeepLink()">
+                        🔗 Generate Deep Link
+                    </button>
+                    <button class="btn btn-secondary" onclick="searchViaAPI()">
+                        🔍 Search via API
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <h3>📤 Direct Forward to Chat</h3>
+            <p>Forward a movie directly to a Telegram chat:</p>
+            <br>
+            <div class="search-form">
+                <div class="input-group">
+                    <label for="forward-movie-title">Movie Title:</label>
+                    <input type="text" id="forward-movie-title" placeholder="Enter movie title" />
+                </div>
+                
+                <div class="input-group">
+                    <label for="chat-id">Telegram Chat ID:</label>
+                    <input type="text" id="chat-id" placeholder="Enter your Telegram chat ID" />
+                    <small style="color: #666;">Get your chat ID by messaging @userinfobot</small>
+                </div>
+                
+                <div class="search-buttons">
+                    <button class="btn btn-primary" onclick="forwardMovie()">
+                        📤 Forward Movie
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <div id="result-content"></div>
+        </div>
+
+        <div class="stats-section">
+            <h3 style="color: #667eea; margin-bottom: 20px;">📊 Bot Statistics</h3>
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-movies">-</div>
+                    <div class="stat-label">Total Movies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="recent-searches">-</div>
+                    <div class="stat-label">Searches (24h)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="successful-forwards">-</div>
+                    <div class="stat-label">Successful Forwards</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="success-rate">-</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+        });
+
+        function generateDeepLink() {
+            const movieTitle = document.getElementById('movie-title').value.trim();
+            
+            if (!movieTitle) {
+                showResult('Please enter a movie title', 'error');
+                return;
+            }
+
+            // Create deep link
+            const encodedTitle = movieTitle.replace(/\s+/g, '_');
+            const deepLink = `https://t.me/MoviesAgent123bot?start=${encodedTitle}`;
+            
+            const resultHtml = `
+                <div class="result-success">
+                    <h4>✅ Deep Link Generated!</h4>
+                    <p>Share this link with anyone to let them instantly search for "<strong>${movieTitle}</strong>":</p>
+                    
+                    <div class="deep-link">
+                        <strong>Deep Link:</strong>
+                        <div class="deep-link-url">${deepLink}</div>
+                        <button class="btn btn-secondary" onclick="copyToClipboard('${deepLink}')">
+                            📋 Copy Link
+                        </button>
+                        <a href="${deepLink}" class="btn btn-primary" target="_blank">
+                            🚀 Test Link
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            showResult(resultHtml, 'success');
+        }
+
+        async function searchViaAPI() {
+            const movieTitle = document.getElementById('movie-title').value.trim();
+            
+            if (!movieTitle) {
+                showResult('Please enter a movie title', 'error');
+                return;
+            }
+
+            showResult('<div class="loading"></div> Searching for movie...', 'info');
+
+            try {
+                const response = await fetch('/telegram/search-movie', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        movie_title: movieTitle,
+                        chat_id: 'preview' // Special chat_id for preview
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const resultHtml = `
+                        <div class="result-success">
+                            <h4>✅ Movie Found!</h4>
+                            <p><strong>${result.movie_info.title}</strong></p>
+                            <p>Year: ${result.movie_info.year || 'Unknown'}</p>
+                            <p>Quality: ${result.movie_info.quality || 'Unknown'}</p>
+                            <p>Language: ${result.movie_info.language || 'Unknown'}</p>
+                            <br>
+                            <p>Use the Telegram bot to get this movie: <a href="https://t.me/MoviesAgent123bot?start=${movieTitle.replace(/\s+/g, '_')}" target="_blank">Open Bot</a></p>
+                        </div>
+                    `;
+                    showResult(resultHtml, 'success');
+                } else {
+                    showResult(`❌ ${result.message || result.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function forwardMovie() {
+            const movieTitle = document.getElementById('forward-movie-title').value.trim();
+            const chatId = document.getElementById('chat-id').value.trim();
+            
+            if (!movieTitle || !chatId) {
+                showResult('Please enter both movie title and chat ID', 'error');
+                return;
+            }
+
+            showResult('<div class="loading"></div> Forwarding movie...', 'info');
+
+            try {
+                const response = await fetch('/telegram/search-movie', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        movie_title: movieTitle,
+                        chat_id: parseInt(chatId)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult(`✅ ${result.message}`, 'success');
+                } else {
+                    showResult(`❌ ${result.message || result.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/telegram/stats');
+                const result = await response.json();
+
+                if (result.success) {
+                    const stats = result.stats;
+                    document.getElementById('total-movies').textContent = stats.total_movies || 0;
+                    document.getElementById('recent-searches').textContent = stats.recent_searches_24h || 0;
+                    document.getElementById('successful-forwards').textContent = stats.successful_forwards_24h || 0;
+                    document.getElementById('success-rate').textContent = `${Math.round(stats.success_rate || 0)}%`;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function showResult(content, type) {
+            const resultSection = document.getElementById('result-section');
+            const resultContent = document.getElementById('result-content');
+            
+            if (type === 'success') {
+                resultContent.innerHTML = content;
+            } else if (type === 'error') {
+                resultContent.innerHTML = `<div class="result-error">${content}</div>`;
+            } else {
+                resultContent.innerHTML = content;
+            }
+            
+            resultSection.classList.add('show');
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                showResult('✅ Link copied to clipboard!', 'success');
+            }, function(err) {
+                showResult('❌ Failed to copy link', 'error');
+            });
+        }
+    </script>
+</body>
+</html>
