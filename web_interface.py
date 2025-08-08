@@ -24,7 +24,6 @@ from agent_manager import AgentManager
 from llm_chat_agent import EnhancedLLMChatAgent
 from admin_routes import register_admin_routes
 from session_manager import session_manager
-from telegram_backend import register_telegram_routes
 import uuid
 
 # Configure logging
@@ -37,9 +36,6 @@ CORS(app)  # Enable CORS for all routes
 
 # Register admin routes for API key management
 register_admin_routes(app)
-
-# Register Telegram routes for movie forwarding
-register_telegram_routes(app)
 
 # Global variables for our enhanced backend
 search_results = {}
