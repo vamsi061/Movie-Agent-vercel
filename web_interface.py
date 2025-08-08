@@ -18,7 +18,7 @@ from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
 from agents.moviezwap_agent import MoviezWapAgent
 from agents.skysetx_agent import SkySetXAgent
 from agents.movierulz_agent import MovieRulzAgent
-from agents.telegram_agent import TelegramMovieAgent
+from agents.telegram_agent import telegram_agent
 from agents.movies4u_agent import Movies4UAgent
 from agent_manager import AgentManager
 from llm_chat_agent import EnhancedLLMChatAgent
@@ -48,7 +48,7 @@ downloadhub_agent = None
 moviezwap_agent = None
 movierulz_agent = None
 skysetx_agent = None
-telegram_agent = None
+telegram_agent_instance = None
 movies4u_agent = None
 
 # Initialize Agent Manager
@@ -69,7 +69,7 @@ except Exception as e:
     llm_chat_agent = None
 
 def initialize_agents():
-    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent
+    global downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent_instance, movies4u_agent
     
     # Initialize agents through agent manager
     agent_manager.initialize_agents()
@@ -80,10 +80,10 @@ def initialize_agents():
     moviezwap_agent = enabled_agents.get("moviezwap")
     movierulz_agent = enabled_agents.get("movierulz")
     skysetx_agent = enabled_agents.get("skysetx")
-    telegram_agent = enabled_agents.get("telegram")
+    telegram_agent_instance = enabled_agents.get("telegram")
     movies4u_agent = enabled_agents.get("movies4u")
     
-    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent
+    return downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent_instance, movies4u_agent
 
 def clean_text(text):
     """Clean and normalize text for better matching"""
