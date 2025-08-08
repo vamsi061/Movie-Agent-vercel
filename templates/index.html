@@ -990,11 +990,6 @@
                 font-size: 16px;
             }
         }
-            margin-top: 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
 
         .source-url:hover {
             color: #667eea;
@@ -2002,6 +1997,12 @@
             font-weight: 500;
         }
         
+        .meta-tag.source-tag {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
         .movie-actions {
             display: flex;
             gap: 10px;
@@ -2471,6 +2472,7 @@
                                     <div class="movie-meta">
                                         ${movie.year ? `<span class="meta-tag">Year: ${movie.year}</span>` : ''}
                                         ${movie.quality ? `<span class="meta-tag">Quality: ${Array.isArray(movie.quality) ? movie.quality.join(', ') : movie.quality}</span>` : ''}
+                                        ${movie.source ? `<span class="meta-tag source-tag">Source: ${movie.source}</span>` : ''}
                                     </div>
                                     <div class="movie-actions">
                                         <button class="download-btn" onclick="event.stopPropagation(); openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${movie.source}')">
