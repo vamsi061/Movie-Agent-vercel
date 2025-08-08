@@ -1931,6 +1931,102 @@
             }
         }
         
+        /* Clean movie response styling - Desktop First */
+        .clean-response-container {
+            width: 100%;
+        }
+        
+        .ai-answer {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .movies-section {
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .movies-header h3 {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+        
+        .movie-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+        
+        .movie-card:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .movie-title {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        
+        .movie-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .meta-tag {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .movie-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
         /* Mobile Responsive Fixes */
         @media (max-width: 768px) {
             /* Header mobile fixes */
@@ -1988,6 +2084,30 @@
                 max-width: 100%;
                 overflow-x: hidden;
             }
+            
+            /* Mobile-friendly placeholder */
+            .chat-input::placeholder {
+                font-size: 14px;
+            }
+            
+            /* Tablet optimizations */
+            .movies-grid {
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 14px;
+            }
+            
+            .movie-card {
+                padding: 14px;
+            }
+            
+            .movie-title {
+                font-size: 15px;
+            }
+            
+            .download-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
         }
         
         /* Extra small mobile screens */
@@ -2031,6 +2151,40 @@
                 height: 18px;
                 font-size: 9px;
             }
+            
+            /* Even shorter placeholder for very small screens */
+            .chat-input::placeholder {
+                font-size: 13px;
+            }
+            
+            .chat-input {
+                font-size: 14px;
+            }
+            
+            /* Mobile movie grid overrides */
+            .movies-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+            
+            .movie-card {
+                padding: 12px !important;
+            }
+            
+            .movie-title {
+                font-size: 14px !important;
+            }
+            
+            .movies-header h3 {
+                font-size: 16px !important;
+                padding: 12px 0 !important;
+            }
+            
+            .download-btn {
+                padding: 6px 12px !important;
+                font-size: 12px !important;
+            }
+            
         }
         
     </style>
@@ -2131,7 +2285,7 @@
                         <textarea 
                             id="chatInput" 
                             class="chat-input"
-                            placeholder="Ask me about movies... (e.g., 'I want to watch Spider-Man', 'Suggest horror movies')"
+                            placeholder="Ask about movies..."
                             rows="1"
                             onkeydown="handleChatKeyDown(event)"
                         ></textarea>
@@ -2252,41 +2406,47 @@
         });
 
         // Create tabbed response interface (Perplexity.ai style)
-        function createTabbedResponse(aiResponse, sources) {
-            const responseId = 'response_' + Date.now();
+        function createCleanMovieResponse(aiResponse, sources) {
+            let responseHTML = `
+                <div class="clean-response-container">
+                    <div class="ai-answer">
+                        ${parseMarkdown(aiResponse)}
+                    </div>
+            `;
             
-            return `
-                <div class="response-container">
-                    <div class="tab-header">
-                        <button class="tab-button active" onclick="switchTab('${responseId}', 'answer')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                            </svg>
-                            Answer
-                        </button>
-                        <button class="tab-button" onclick="switchTab('${responseId}', 'sources')">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
-                            </svg>
-                            Movies Found
-                            <span class="tab-counter">${sources.length}</span>
-                        </button>
-                    </div>
-                    
-                    <div class="tab-content active" id="${responseId}_answer">
-                        <div class="answer-content">
-                            ${parseMarkdown(aiResponse)}
+            // Add movie results if available
+            if (sources && sources.length > 0) {
+                responseHTML += `
+                    <div class="movies-section">
+                        <div class="movies-header">
+                            <h3>🎬 Found ${sources.length} Movies</h3>
                         </div>
-                        <span class="message-timestamp">${getCurrentTimestamp()}</span>
-                    </div>
-                    
-                    <div class="tab-content" id="${responseId}_sources">
-                        <div class="sources-content">
-                            ${createSourcesHTML(sources)}
+                        <div class="movies-grid">
+                            ${sources.map(movie => `
+                                <div class="movie-card" onclick="openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${movie.source}')">
+                                    <div class="movie-title">${movie.title}</div>
+                                    <div class="movie-meta">
+                                        ${movie.year ? `<span class="meta-tag">Year: ${movie.year}</span>` : ''}
+                                        ${movie.quality ? `<span class="meta-tag">Quality: ${Array.isArray(movie.quality) ? movie.quality.join(', ') : movie.quality}</span>` : ''}
+                                    </div>
+                                    <div class="movie-actions">
+                                        <button class="download-btn" onclick="event.stopPropagation(); openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${movie.source}')">
+                                            <i class="fas fa-download"></i> Get Links
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
+                `;
+            }
+            
+            responseHTML += `
+                    <span class="message-timestamp">${getCurrentTimestamp()}</span>
                 </div>
             `;
+            
+            return responseHTML;
         }
 
         // Create sources HTML for the sources tab
@@ -2445,9 +2605,9 @@
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
             
-            // If we have sources, create tabbed interface (Perplexity.ai style)
+            // If we have sources, create clean interface (Perplexity.ai style)
             if (!isUser && sources && sources.length > 0) {
-                messageContent.innerHTML = createTabbedResponse(content, sources);
+                messageContent.innerHTML = createCleanMovieResponse(content, sources);
             } else {
                 if (isHtml) {
                     messageContent.innerHTML = content;
