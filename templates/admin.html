@@ -435,6 +435,87 @@
                 </div>
             </div>
 
+            <!-- Telegram Agent Configuration -->
+            <div style="margin-bottom: 30px;">
+                <div style="background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #0088cc 0%, #00aced 100%); color: white; padding: 20px;">
+                        <h3 style="margin: 0; font-size: 1.5rem;">🤖 Telegram Agent Configuration</h3>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Configure Telegram bot for instant movie file forwarding</p>
+                    </div>
+                    <div style="padding: 25px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Bot Token:</label>
+                            <div style="display: flex; align-items: center;">
+                                <input type="password" id="telegram-bot-token" placeholder="Enter Telegram Bot Token" style="flex: 1; margin-right: 10px; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                                <button type="button" onclick="toggleTelegramTokenVisibility()" style="background: #f8f9fa; border: 2px solid #e0e6ed; border-radius: 8px; padding: 12px; cursor: pointer;">Show</button>
+                            </div>
+                            <small style="color: #7f8c8d; margin-top: 5px; display: block;">Get your bot token from <a href="https://t.me/BotFather" target="_blank">@BotFather</a></small>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Channel ID:</label>
+                                <input type="text" id="telegram-channel-id" placeholder="-1001234567890" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                                <small style="color: #7f8c8d;">Private channel ID where movies are stored</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Bot Username:</label>
+                                <input type="text" id="telegram-bot-username" placeholder="MoviesAgent123bot" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                                <small style="color: #7f8c8d;">Bot username without @</small>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Webhook URL (Optional):</label>
+                                <input type="url" id="telegram-webhook-url" placeholder="https://yourdomain.com/telegram/webhook" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                                <small style="color: #7f8c8d;">For production deployment</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Search Timeout (seconds):</label>
+                                <input type="number" id="telegram-search-timeout" min="5" max="60" value="30" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="telegram-auto-add-movies" checked /> Auto-add movies from channel
+                            </label>
+                            <br>
+                            <label style="font-weight: 600; color: #2c3e50; margin-top: 10px;">
+                                <input type="checkbox" id="telegram-enabled" /> Enable Telegram Agent
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 25px;">
+                            <button onclick="testTelegramConnection()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #0088cc 0%, #00aced 100%); color: white;">Test Connection</button>
+                            <button onclick="saveTelegramConfig()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">Save Config</button>
+                            <button onclick="openTelegramInterface()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Open Interface</button>
+                        </div>
+                        <div id="telegram-test-result" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 600; display: none;"></div>
+                        
+                        <!-- Telegram Stats -->
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e6ed;">
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">📊 Telegram Agent Statistics</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #0088cc;" id="telegram-total-movies">-</div>
+                                    <div style="font-size: 0.9rem; color: #6c757d;">Total Movies</div>
+                                </div>
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #28a745;" id="telegram-recent-searches">-</div>
+                                    <div style="font-size: 0.9rem; color: #6c757d;">Searches (24h)</div>
+                                </div>
+                                <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: #17a2b8;" id="telegram-success-rate">-</div>
+                                    <div style="font-size: 0.9rem; color: #6c757d;">Success Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Intelligent Search Configuration -->
             <div style="margin-bottom: 30px;">
                 <div style="background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); overflow: hidden;">
@@ -871,6 +952,7 @@
         loadAgentConfiguration();
         loadApiConfig();
         loadOmdbConfig();
+        loadTelegramConfig();
     });
 
     // OMDB API Functions
@@ -1046,6 +1128,142 @@
             resultDiv.style.background = '#f8d7da';
             resultDiv.style.color = '#721c24';
             resultDiv.style.border = '1px solid #f5c6cb';
+        }
+        
+        if (type === 'success') {
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    // Telegram Agent Functions
+    async function loadTelegramConfig() {
+        try {
+            const response = await fetch('/admin/api/telegram/config');
+            const data = await response.json();
+            
+            if (data.success) {
+                const config = data.config;
+                const stats = data.stats;
+                
+                // Load configuration
+                document.getElementById('telegram-bot-token').value = config.bot_token || '';
+                document.getElementById('telegram-channel-id').value = config.channel_id || '';
+                document.getElementById('telegram-bot-username').value = config.bot_username || 'MoviesAgent123bot';
+                document.getElementById('telegram-webhook-url').value = config.webhook_url || '';
+                document.getElementById('telegram-search-timeout').value = config.search_timeout || 30;
+                document.getElementById('telegram-auto-add-movies').checked = config.auto_add_movies !== false;
+                document.getElementById('telegram-enabled').checked = config.enabled || false;
+                
+                // Load statistics
+                document.getElementById('telegram-total-movies').textContent = stats.total_movies || 0;
+                document.getElementById('telegram-recent-searches').textContent = stats.recent_searches_24h || 0;
+                document.getElementById('telegram-success-rate').textContent = `${Math.round(stats.success_rate || 0)}%`;
+            }
+        } catch (error) {
+            console.error('Error loading Telegram config:', error);
+        }
+    }
+
+    function toggleTelegramTokenVisibility() {
+        const input = document.getElementById('telegram-bot-token');
+        const button = event.target;
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            button.textContent = 'Hide';
+        } else {
+            input.type = 'password';
+            button.textContent = 'Show';
+        }
+    }
+
+    async function testTelegramConnection() {
+        try {
+            showTelegramResult('Testing Telegram bot connection...', 'info');
+            
+            const response = await fetch('/admin/api/telegram/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const botInfo = result.bot_info;
+                const channelAccess = result.channel_access;
+                
+                let message = `✅ Bot connection successful!\\n`;
+                message += `Bot: ${botInfo.name} (@${botInfo.username})\\n`;
+                message += `Channel Access: ${channelAccess ? '✅ Connected' : '❌ No access'}`;
+                
+                showTelegramResult(message, 'success');
+            } else {
+                showTelegramResult(`❌ Connection failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            showTelegramResult(`❌ Test failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function saveTelegramConfig() {
+        try {
+            const config = {
+                bot_token: document.getElementById('telegram-bot-token').value.trim(),
+                channel_id: document.getElementById('telegram-channel-id').value.trim(),
+                bot_username: document.getElementById('telegram-bot-username').value.trim(),
+                enabled: document.getElementById('telegram-enabled').checked,
+                webhook_url: document.getElementById('telegram-webhook-url').value.trim(),
+                auto_add_movies: document.getElementById('telegram-auto-add-movies').checked,
+                search_timeout: parseInt(document.getElementById('telegram-search-timeout').value)
+            };
+            
+            const response = await fetch('/admin/api/telegram/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showTelegramResult('✅ Telegram configuration saved successfully!', 'success');
+                // Reload stats
+                loadTelegramConfig();
+            } else {
+                showTelegramResult('❌ Error: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showTelegramResult('❌ Error saving configuration: ' + error.message, 'error');
+        }
+    }
+
+    function openTelegramInterface() {
+        window.open('/telegram', '_blank');
+    }
+
+    function showTelegramResult(message, type) {
+        const resultDiv = document.getElementById('telegram-test-result');
+        resultDiv.style.display = 'block';
+        resultDiv.textContent = message;
+        
+        if (type === 'success') {
+            resultDiv.style.background = '#d4edda';
+            resultDiv.style.color = '#155724';
+            resultDiv.style.border = '1px solid #c3e6cb';
+        } else if (type === 'error') {
+            resultDiv.style.background = '#f8d7da';
+            resultDiv.style.color = '#721c24';
+            resultDiv.style.border = '1px solid #f5c6cb';
+        } else {
+            resultDiv.style.background = '#d1ecf1';
+            resultDiv.style.color = '#0c5460';
+            resultDiv.style.border = '1px solid #bee5eb';
         }
         
         if (type === 'success') {

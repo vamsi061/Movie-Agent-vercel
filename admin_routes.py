@@ -6,6 +6,7 @@ Admin Routes - API endpoints for admin panel configuration
 from flask import Blueprint, request, jsonify, render_template
 import logging
 from config_manager import config_manager
+from agents.telegram_agent import telegram_agent
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +276,170 @@ def test_omdb_api():
         
     except Exception as e:
         logger.error(f"Error testing OMDB API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/telegram/config', methods=['GET'])
+def get_telegram_config():
+    """Get current Telegram agent configuration"""
+    try:
+        stats = telegram_agent.get_stats()
+        
+        return jsonify({
+            'success': True,
+            'config': {
+                'bot_token': telegram_agent.bot_token,
+                'channel_id': telegram_agent.channel_id,
+                'bot_username': telegram_agent.bot_username,
+                'enabled': telegram_agent.enabled,
+                'webhook_url': telegram_agent.webhook_url,
+                'auto_add_movies': telegram_agent.auto_add_movies,
+                'search_timeout': telegram_agent.search_timeout
+            },
+            'stats': stats
+        })
+    except Exception as e:
+        logger.error(f"Error getting Telegram config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/telegram/config', methods=['POST'])
+def update_telegram_config():
+    """Update Telegram agent configuration"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Prepare configuration updates
+        config_updates = {}
+        
+        if 'bot_token' in data:
+            config_updates['bot_token'] = data['bot_token'].strip()
+        
+        if 'channel_id' in data:
+            config_updates['channel_id'] = data['channel_id'].strip()
+        
+        if 'bot_username' in data:
+            config_updates['bot_username'] = data['bot_username'].strip()
+        
+        if 'enabled' in data:
+            config_updates['enabled'] = bool(data['enabled'])
+        
+        if 'webhook_url' in data:
+            config_updates['webhook_url'] = data['webhook_url'].strip()
+        
+        if 'auto_add_movies' in data:
+            config_updates['auto_add_movies'] = bool(data['auto_add_movies'])
+        
+        if 'search_timeout' in data:
+            try:
+                config_updates['search_timeout'] = int(data['search_timeout'])
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid search_timeout value'
+                }), 400
+        
+        # Save configuration
+        success = telegram_agent.save_config(config_updates)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Telegram configuration updated successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save configuration'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error updating Telegram config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/telegram/test', methods=['POST'])
+def test_telegram_connection():
+    """Test Telegram bot connection"""
+    try:
+        result = telegram_agent.test_connection()
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error testing Telegram connection: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/telegram/add-movie', methods=['POST'])
+def add_telegram_movie():
+    """Add movie to Telegram database"""
+    try:
+        data = request.get_json()
+        
+        title = data.get('title', '').strip()
+        message_id = data.get('message_id')
+        file_info = data.get('file_info', {})
+        
+        if not title:
+            return jsonify({
+                'success': False,
+                'error': 'Movie title is required'
+            }), 400
+        
+        if not message_id:
+            return jsonify({
+                'success': False,
+                'error': 'Message ID is required'
+            }), 400
+        
+        try:
+            message_id = int(message_id)
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid message ID'
+            }), 400
+        
+        success = telegram_agent.add_movie(title, message_id, file_info)
+        
+        return jsonify({
+            'success': success,
+            'message': 'Movie added successfully' if success else 'Failed to add movie'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error adding Telegram movie: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/telegram/stats', methods=['GET'])
+def get_telegram_stats():
+    """Get Telegram agent statistics"""
+    try:
+        stats = telegram_agent.get_stats()
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting Telegram stats: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
