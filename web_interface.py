@@ -2886,6 +2886,23 @@ def chat_with_ai():
             result.get('response_text', ''),
             result.get('movies', [])
         )
+
+        # If a specific movie was identified, set movie context for follow-ups like "yes"
+        try:
+            intent = result.get('intent', {})
+            details = intent.get('movie_details', {})
+            research = details.get('movie_research', {})
+            specific = intent.get('user_intent_analysis', {}).get('is_specific_movie', False)
+            top_movie = (result.get('movies') or [{}])[0]
+            if specific and (research.get('full_title') or top_movie.get('title')):
+                session_manager.set_movie_context(user_session_id, {
+                    'title': research.get('full_title') or top_movie.get('title'),
+                    'year': research.get('release_year') or top_movie.get('year'),
+                    'source': top_movie.get('source'),
+                    'url': top_movie.get('url') or top_movie.get('detail_url')
+                })
+        except Exception:
+            pass
         
         # Extract data from result
         intent = result.get('intent', {})

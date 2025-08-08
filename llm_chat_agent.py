@@ -130,6 +130,10 @@ MOVIE RESEARCH EXAMPLES:
 
 BE THOROUGH in movie research and provide multiple search variations!"""
 
+            # Attach recent session context to help handle follow-ups like "yes"/"no"
+            if conversation_context:
+                system_prompt += f"\n\nConversation context (for reference):\n{conversation_context[:1500]}"
+
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -580,6 +584,12 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             "search_performed": False,
             "session_id": session_id
         }
+
+        # Heuristic: detect short confirmation responses like "yes", "yeah", "correct",
+        # and, if the previous turn was a specific movie confirmation, reuse last movie context
+        normalized = user_message.strip().lower()
+        is_affirmation = normalized in {"yes","y","yeah","yep","correct","exactly","right","sure","ok","okay"}
+
         
         # Check if it's a movie request that requires search
         if (intent.get("intent_type") == "movie_request" and 
@@ -596,12 +606,39 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             response_data["movies"] = search_results.get("movies", [])
             response_data["search_summary"] = search_results.get("search_summary", {})
             response_data["search_performed"] = True
+
+            # If we found a strong specific match, set movie context in the session
+            if session_id and response_data["movies"]:
+                top = response_data["movies"][0]
+                try:
+                    session_manager.set_movie_context(session_id, {
+                        'title': top.get('title'),
+                        'year': top.get('year'),
+                        'source': top.get('source'),
+                        'url': top.get('url') or top.get('detail_url')
+                    })
+                except Exception:
+                    pass
             
             # Generate contextual response
             response_data["response_text"] = self._generate_movie_response(user_message, intent, search_results)
         else:
-            # Generate non-movie response
-            response_data["response_text"] = self.generate_contextual_response(user_message, intent)
+            # If user simply confirms (e.g. "yes") and we have a previous movie context, reuse it to search
+            if is_affirmation and session_id:
+                ctx = session_manager.get_session(session_id)
+                prev = (ctx or {}).get('movie_context') or {}
+                if prev.get('title'):
+                    logger.info(f"Affirmation detected; reusing movie context: {prev['title']}")
+                    search_results = self.search_movies_with_sources(prev['title'], [prev['title']])
+                    response_data["movies"] = search_results.get("movies", [])
+                    response_data["search_summary"] = search_results.get("search_summary", {})
+                    response_data["search_performed"] = True
+                    response_data["response_text"] = self._generate_movie_response(user_message, intent, search_results)
+                else:
+                    response_data["response_text"] = self.generate_contextual_response(user_message, intent)
+            else:
+                # Generate non-movie response
+                response_data["response_text"] = self.generate_contextual_response(user_message, intent)
         
         return response_data
     
