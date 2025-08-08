@@ -114,6 +114,109 @@ class ConfigManager:
                 "message": f"API test failed: {str(e)}"
             }
     
+    def get_omdb_api_key(self) -> Optional[str]:
+        """Get OMDB API key from config or environment"""
+        # First check config file
+        config = self.load_llm_config()
+        api_key = config.get('omdb_api', {}).get('api_key', '')
+        
+        if api_key and api_key.strip():
+            return api_key.strip()
+        
+        # Fallback to environment variable
+        env_key = os.getenv('OMDB_API_KEY')
+        if env_key and env_key.strip():
+            return env_key.strip()
+        
+        return None
+    
+    def is_omdb_api_enabled(self) -> bool:
+        """Check if OMDB API is enabled"""
+        config = self.load_llm_config()
+        return config.get('omdb_api', {}).get('enabled', False)
+    
+    def get_omdb_config(self) -> Dict[str, Any]:
+        """Get complete OMDB API configuration"""
+        config = self.load_llm_config()
+        omdb_config = config.get('omdb_api', {})
+        
+        # Add API key from environment if not in config
+        if not omdb_config.get('api_key'):
+            env_key = os.getenv('OMDB_API_KEY')
+            if env_key:
+                omdb_config['api_key'] = env_key
+        
+        return omdb_config
+    
+    def update_omdb_config(self, updates: Dict[str, Any]) -> bool:
+        """Update OMDB API configuration"""
+        try:
+            config = self.load_llm_config()
+            
+            # Update omdb_api section
+            if 'omdb_api' not in config:
+                config['omdb_api'] = {}
+            
+            config['omdb_api'].update(updates)
+            config['omdb_api']['last_updated'] = self._get_current_timestamp()
+            
+            return self.save_llm_config(config)
+        except Exception as e:
+            logger.error(f"Error updating OMDB config: {e}")
+            return False
+    
+    def test_omdb_api(self, api_key: str) -> Dict[str, Any]:
+        """Test OMDB API connection"""
+        try:
+            import requests
+            
+            # Test with a simple search
+            test_url = f"https://www.omdbapi.com/?s=Avengers&apikey={api_key}"
+            
+            response = requests.get(test_url, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if data.get('Response') == 'True':
+                return {
+                    "success": True,
+                    "message": "OMDB API connection successful",
+                    "results_found": len(data.get('Search', []))
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"OMDB API error: {data.get('Error', 'Unknown error')}"
+                }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"OMDB API test failed: {str(e)}"
+            }
+    
+    def get_search_levels_config(self) -> Dict[str, Any]:
+        """Get search levels configuration"""
+        config = self.load_llm_config()
+        return config.get('search_levels', {})
+    
+    def update_search_levels_config(self, updates: Dict[str, Any]) -> bool:
+        """Update search levels configuration"""
+        try:
+            config = self.load_llm_config()
+            
+            # Update search_levels section
+            if 'search_levels' not in config:
+                config['search_levels'] = {}
+            
+            config['search_levels'].update(updates)
+            
+            return self.save_llm_config(config)
+        except Exception as e:
+            logger.error(f"Error updating search levels config: {e}")
+            return False
+    
     def _get_default_llm_config(self) -> Dict[str, Any]:
         """Get default LLM configuration"""
         return {
@@ -125,6 +228,23 @@ class ConfigManager:
                 "temperature": 0.7,
                 "description": "Together API configuration for LLM chat features",
                 "last_updated": self._get_current_timestamp()
+            },
+            "omdb_api": {
+                "enabled": False,
+                "api_key": "",
+                "base_url": "https://www.omdbapi.com/",
+                "search_limit": 10,
+                "include_plot": True,
+                "plot_type": "full",
+                "description": "OMDB API configuration for Level 1 movie search with detailed data and images",
+                "last_updated": self._get_current_timestamp()
+            },
+            "search_levels": {
+                "level_1_enabled": False,
+                "level_2_enabled": True,
+                "level_1_priority": True,
+                "fallback_to_level_2": True,
+                "description": "Level 1: OMDB API (detailed data + images), Level 2: Agent scraping"
             },
             "fallback_responses": {
                 "no_api_key": "I'm sorry, but the AI chat feature is currently unavailable. You can still search for movies using the main search page!",
@@ -154,6 +274,18 @@ def get_together_api_key() -> Optional[str]:
 def is_together_api_enabled() -> bool:
     """Convenience function to check if Together API is enabled"""
     return config_manager.is_together_api_enabled()
+
+def get_omdb_api_key() -> Optional[str]:
+    """Convenience function to get OMDB API key"""
+    return config_manager.get_omdb_api_key()
+
+def is_omdb_api_enabled() -> bool:
+    """Convenience function to check if OMDB API is enabled"""
+    return config_manager.is_omdb_api_enabled()
+
+def get_search_levels_config() -> Dict[str, Any]:
+    """Convenience function to get search levels configuration"""
+    return config_manager.get_search_levels_config()
 
 if __name__ == "__main__":
     # Test the config manager

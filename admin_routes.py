@@ -147,12 +147,142 @@ def get_chat_config():
             'success': True,
             'together_enabled': config.get('together_api', {}).get('enabled', False),
             'has_api_key': bool(config_manager.get_together_api_key()),
+            'omdb_enabled': config.get('omdb_api', {}).get('enabled', False),
+            'has_omdb_key': bool(config_manager.get_omdb_api_key()),
+            'search_levels': config.get('search_levels', {}),
             'fallback_responses': config.get('fallback_responses', {}),
             'chat_settings': config.get('chat_settings', {})
         })
         
     except Exception as e:
         logger.error(f"Error getting chat config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/omdb/config', methods=['GET'])
+def get_omdb_config():
+    """Get current OMDB API configuration"""
+    try:
+        omdb_config = config_manager.get_omdb_config()
+        search_levels = config_manager.get_search_levels_config()
+        
+        return jsonify({
+            'success': True,
+            'omdb_config': omdb_config,
+            'search_levels': search_levels
+        })
+    except Exception as e:
+        logger.error(f"Error getting OMDB config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/omdb/config', methods=['POST'])
+def update_omdb_config():
+    """Update OMDB API configuration"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Prepare OMDB updates
+        omdb_updates = {}
+        
+        if 'api_key' in data:
+            api_key = data['api_key'].strip()
+            if api_key:
+                omdb_updates['api_key'] = api_key
+        
+        if 'enabled' in data:
+            omdb_updates['enabled'] = bool(data['enabled'])
+        
+        if 'search_limit' in data:
+            try:
+                omdb_updates['search_limit'] = int(data['search_limit'])
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid search_limit value'
+                }), 400
+        
+        if 'include_plot' in data:
+            omdb_updates['include_plot'] = bool(data['include_plot'])
+        
+        if 'plot_type' in data:
+            plot_type = data['plot_type']
+            if plot_type in ['short', 'full']:
+                omdb_updates['plot_type'] = plot_type
+        
+        # Prepare search levels updates
+        search_levels_updates = {}
+        
+        if 'level_1_enabled' in data:
+            search_levels_updates['level_1_enabled'] = bool(data['level_1_enabled'])
+        
+        if 'level_2_enabled' in data:
+            search_levels_updates['level_2_enabled'] = bool(data['level_2_enabled'])
+        
+        if 'level_1_priority' in data:
+            search_levels_updates['level_1_priority'] = bool(data['level_1_priority'])
+        
+        if 'fallback_to_level_2' in data:
+            search_levels_updates['fallback_to_level_2'] = bool(data['fallback_to_level_2'])
+        
+        # Update configurations
+        omdb_success = True
+        search_success = True
+        
+        if omdb_updates:
+            omdb_success = config_manager.update_omdb_config(omdb_updates)
+        
+        if search_levels_updates:
+            search_success = config_manager.update_search_levels_config(search_levels_updates)
+        
+        if omdb_success and search_success:
+            return jsonify({
+                'success': True,
+                'message': 'OMDB configuration updated successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save configuration'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error updating OMDB config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@admin_bp.route('/api/omdb/test', methods=['POST'])
+def test_omdb_api():
+    """Test OMDB API connection"""
+    try:
+        data = request.get_json()
+        api_key = data.get('api_key', '').strip()
+        
+        if not api_key:
+            return jsonify({
+                'success': False,
+                'error': 'API key is required for testing'
+            }), 400
+        
+        # Test the OMDB API
+        result = config_manager.test_omdb_api(api_key)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error testing OMDB API: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

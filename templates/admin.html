@@ -389,6 +389,101 @@
                 </div>
             </div>
 
+            <!-- OMDB API Configuration -->
+            <div style="margin-bottom: 30px;">
+                <div style="background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #ff7b7b 0%, #667eea 100%); color: white; padding: 20px;">
+                        <h3 style="margin: 0; font-size: 1.5rem;">🎬 OMDB API Configuration</h3>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Level 1 Search - Detailed movie data with images from OMDB</p>
+                    </div>
+                    <div style="padding: 25px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">OMDB API Key:</label>
+                            <div style="display: flex; align-items: center;">
+                                <input type="password" id="omdb-api-key" placeholder="Enter OMDB API Key" style="flex: 1; margin-right: 10px; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                                <button type="button" onclick="toggleOmdbApiKeyVisibility()" style="background: #f8f9fa; border: 2px solid #e0e6ed; border-radius: 8px; padding: 12px; cursor: pointer;">Show</button>
+                            </div>
+                            <small style="color: #7f8c8d; margin-top: 5px; display: block;">Get your free API key from <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">omdbapi.com</a></small>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Search Limit:</label>
+                                <input type="number" id="omdb-search-limit" min="1" max="50" value="10" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Plot Type:</label>
+                                <select id="omdb-plot-type" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;">
+                                    <option value="short">Short Plot</option>
+                                    <option value="full">Full Plot</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="omdb-include-plot" checked /> Include Plot in Results
+                            </label>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="omdb-enabled" /> Enable OMDB API (Level 1 Search)
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 25px;">
+                            <button onclick="testOmdbAPI()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #ff7b7b 0%, #667eea 100%); color: white;">Test OMDB API</button>
+                            <button onclick="saveOmdbConfig()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">Save OMDB Config</button>
+                        </div>
+                        <div id="omdb-test-result" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 600; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Levels Configuration -->
+            <div style="margin-bottom: 30px;">
+                <div style="background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px;">
+                        <h3 style="margin: 0; font-size: 1.5rem;">⚙️ Search Levels Configuration</h3>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Configure Level 1 (OMDB) and Level 2 (Agent Scraping) search behavior</p>
+                    </div>
+                    <div style="padding: 25px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div>
+                                <h4 style="color: #2c3e50; margin-bottom: 15px;">🎯 Level 1 - OMDB API</h4>
+                                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
+                                    <input type="checkbox" id="level-1-enabled" /> Enable Level 1 Search
+                                </label>
+                                <p style="color: #7f8c8d; font-size: 0.9rem;">High-quality movie data with posters, ratings, and detailed information</p>
+                            </div>
+                            <div>
+                                <h4 style="color: #2c3e50; margin-bottom: 15px;">🕷️ Level 2 - Agent Scraping</h4>
+                                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
+                                    <input type="checkbox" id="level-2-enabled" checked /> Enable Level 2 Search
+                                </label>
+                                <p style="color: #7f8c8d; font-size: 0.9rem;">Web scraping from multiple movie sites for download links</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">🔄 Search Behavior</h4>
+                            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="level-1-priority" checked /> Prioritize Level 1 (OMDB) over Level 2
+                            </label>
+                            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="fallback-to-level-2" checked /> Fallback to Level 2 if Level 1 fails
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 25px;">
+                            <button onclick="saveSearchLevelsConfig()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Save Search Levels</button>
+                        </div>
+                        <div id="search-levels-result" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 600; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="agent-grid" id="agent-grid">
                 <!-- Agent cards will be populated here -->
             </div>
@@ -770,7 +865,187 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadAgentConfiguration();
         loadApiConfig();
+        loadOmdbConfig();
     });
+
+    // OMDB API Functions
+    async function loadOmdbConfig() {
+        try {
+            const response = await fetch('/admin/api/omdb/config');
+            const data = await response.json();
+            
+            if (data.success) {
+                const omdbConfig = data.omdb_config;
+                const searchLevels = data.search_levels;
+                
+                // Load OMDB config
+                document.getElementById('omdb-api-key').value = omdbConfig.api_key || '';
+                document.getElementById('omdb-search-limit').value = omdbConfig.search_limit || 10;
+                document.getElementById('omdb-plot-type').value = omdbConfig.plot_type || 'full';
+                document.getElementById('omdb-include-plot').checked = omdbConfig.include_plot !== false;
+                document.getElementById('omdb-enabled').checked = omdbConfig.enabled || false;
+                
+                // Load search levels config
+                document.getElementById('level-1-enabled').checked = searchLevels.level_1_enabled || false;
+                document.getElementById('level-2-enabled').checked = searchLevels.level_2_enabled !== false;
+                document.getElementById('level-1-priority').checked = searchLevels.level_1_priority !== false;
+                document.getElementById('fallback-to-level-2').checked = searchLevels.fallback_to_level_2 !== false;
+            }
+        } catch (error) {
+            console.error('Error loading OMDB config:', error);
+        }
+    }
+
+    function toggleOmdbApiKeyVisibility() {
+        const input = document.getElementById('omdb-api-key');
+        const button = event.target;
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            button.textContent = 'Hide';
+        } else {
+            input.type = 'password';
+            button.textContent = 'Show';
+        }
+    }
+
+    async function testOmdbAPI() {
+        const apiKey = document.getElementById('omdb-api-key').value.trim();
+        
+        if (!apiKey) {
+            showOmdbResult('Please enter an OMDB API key first', 'error');
+            return;
+        }
+        
+        try {
+            showOmdbResult('Testing OMDB API connection...', 'info');
+            
+            const response = await fetch('/admin/api/omdb/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ api_key: apiKey })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showOmdbResult(`✅ OMDB API test successful! Found ${result.results_found} results for test query.`, 'success');
+            } else {
+                showOmdbResult(`❌ OMDB API test failed: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            showOmdbResult(`❌ Test failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function saveOmdbConfig() {
+        try {
+            const config = {
+                api_key: document.getElementById('omdb-api-key').value.trim(),
+                enabled: document.getElementById('omdb-enabled').checked,
+                search_limit: parseInt(document.getElementById('omdb-search-limit').value),
+                plot_type: document.getElementById('omdb-plot-type').value,
+                include_plot: document.getElementById('omdb-include-plot').checked
+            };
+            
+            const response = await fetch('/admin/api/omdb/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showOmdbResult('✅ OMDB configuration saved successfully!', 'success');
+            } else {
+                showOmdbResult('❌ Error: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showOmdbResult('❌ Error saving configuration: ' + error.message, 'error');
+        }
+    }
+
+    async function saveSearchLevelsConfig() {
+        try {
+            const config = {
+                level_1_enabled: document.getElementById('level-1-enabled').checked,
+                level_2_enabled: document.getElementById('level-2-enabled').checked,
+                level_1_priority: document.getElementById('level-1-priority').checked,
+                fallback_to_level_2: document.getElementById('fallback-to-level-2').checked
+            };
+            
+            const response = await fetch('/admin/api/omdb/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showSearchLevelsResult('✅ Search levels configuration saved successfully!', 'success');
+            } else {
+                showSearchLevelsResult('❌ Error: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showSearchLevelsResult('❌ Error saving configuration: ' + error.message, 'error');
+        }
+    }
+
+    function showOmdbResult(message, type) {
+        const resultDiv = document.getElementById('omdb-test-result');
+        resultDiv.style.display = 'block';
+        resultDiv.textContent = message;
+        
+        if (type === 'success') {
+            resultDiv.style.background = '#d4edda';
+            resultDiv.style.color = '#155724';
+            resultDiv.style.border = '1px solid #c3e6cb';
+        } else if (type === 'error') {
+            resultDiv.style.background = '#f8d7da';
+            resultDiv.style.color = '#721c24';
+            resultDiv.style.border = '1px solid #f5c6cb';
+        } else {
+            resultDiv.style.background = '#d1ecf1';
+            resultDiv.style.color = '#0c5460';
+            resultDiv.style.border = '1px solid #bee5eb';
+        }
+        
+        if (type === 'success') {
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    function showSearchLevelsResult(message, type) {
+        const resultDiv = document.getElementById('search-levels-result');
+        resultDiv.style.display = 'block';
+        resultDiv.textContent = message;
+        
+        if (type === 'success') {
+            resultDiv.style.background = '#d4edda';
+            resultDiv.style.color = '#155724';
+            resultDiv.style.border = '1px solid #c3e6cb';
+        } else if (type === 'error') {
+            resultDiv.style.background = '#f8d7da';
+            resultDiv.style.color = '#721c24';
+            resultDiv.style.border = '1px solid #f5c6cb';
+        }
+        
+        if (type === 'success') {
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
     </script>
 </body>
 </html>
