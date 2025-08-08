@@ -621,9 +621,15 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         contains_movie_indicator = any(indicator in normalized_input for indicator in movie_indicators)
         looks_like_title = self._looks_like_movie_title(user_message)
         
+        # Don't override clear greetings or personal messages
+        is_clear_greeting = normalized_input in ['hello', 'hi', 'hey', 'hlo', 'helo', 'hallo']
+        is_clear_personal = any(p in normalized_input for p in ['how are you', 'who are you', 'what are you'])
+        
         # If not already a movie request but has movie indicators or looks like title, make it one
+        # BUT respect clear greetings and personal questions
         if (intent.get('intent_type') not in ('movie_request', 'greeting', 'personal') and 
-            (contains_movie_indicator or looks_like_title)):
+            (contains_movie_indicator or looks_like_title) and 
+            not is_clear_greeting and not is_clear_personal):
             
             intent['intent_type'] = 'movie_request'
             intent.setdefault('movie_details', {})
@@ -717,8 +723,9 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                 else:
                     # If affirmation but no context, fall back to contextual response
                     response_data["response_text"] = self.generate_contextual_response(user_message, intent)
-            elif self._looks_like_movie_title(user_message):
+            elif self._looks_like_movie_title(user_message) and not is_clear_greeting and not is_clear_personal:
                 # If the user typed a likely movie title but LLM intent didn't trigger, force a movie search
+                # BUT don't search if it's clearly a greeting like "hlo"
                 title = user_message.strip()
                 search_results = self.search_movies_with_sources(title, [title])
                 response_data["movies"] = search_results.get("movies", [])

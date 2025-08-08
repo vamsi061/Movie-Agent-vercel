@@ -2876,6 +2876,14 @@ def chat_with_ai():
             session['session_id'] = user_session_id
             logger.info(f"Created new session for user: {user_session_id}")
         
+        # Validate session is still active
+        session_data = session_manager.get_session(user_session_id)
+        if not session_data:
+            # Session expired, create new one
+            user_session_id = session_manager.create_session()
+            session['session_id'] = user_session_id
+            logger.info(f"Session expired, created new session: {user_session_id}")
+        
         # Use enhanced movie request processing with session context
         result = llm_chat_agent.process_movie_request(user_message, session_id=user_session_id)
         
