@@ -135,10 +135,19 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                 {"role": "user", "content": user_message}
             ]
             
+            # Validate parameters before API call
+            if not self.model or not isinstance(self.model, str):
+                logger.error(f"Invalid model for intent analysis: {self.model}")
+                return self._fallback_intent_analysis(user_message)
+            
+            if not messages or len(messages) == 0:
+                logger.error("No messages for intent analysis")
+                return self._fallback_intent_analysis(user_message)
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=400,
+                max_tokens=min(400, 4000),
                 temperature=0.3
             )
             
@@ -626,10 +635,15 @@ Be natural, friendly, and show enthusiasm for helping with movies."""
                 {"role": "user", "content": user_message}
             ]
             
+            # Validate parameters
+            if not self.model or not messages:
+                logger.error("Invalid parameters for greeting response")
+                return "Hello! I'm your AI movie assistant. I'm here to help you discover amazing movies. What kind of movies are you in the mood for today?"
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=150,
+                max_tokens=min(150, 4000),
                 temperature=0.8
             )
             
@@ -676,12 +690,19 @@ Be genuine, caring, and helpful."""
                     return "I found some movies but encountered an issue generating the response."
             
             try:
+                # Validate model name and parameters
+                if not self.model or not isinstance(self.model, str):
+                    logger.error(f"Invalid model: {self.model}")
+                    return "I found some movies but couldn't generate a proper response. Please try again."
+                
+                # Ensure max_tokens is within valid range
+                max_tokens = min(500, 4000)  # Together API limit
+                
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    max_tokens=500,  # Increased from 200 to allow proper responses
-                    temperature=0.7,
-                    stream=False  # Explicitly disable streaming
+                    max_tokens=max_tokens,
+                    temperature=0.7
                 )
             except Exception as api_error:
                 logger.error(f"Together API call failed: {api_error}")
@@ -791,10 +812,15 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
                 
                 messages.extend(valid_history)
             
+            # Validate parameters before API call
+            if not self.model or not messages:
+                logger.error("Invalid parameters for movie response")
+                return "I found some movies but couldn't generate a proper response. Please try again."
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=350,
+                max_tokens=min(350, 4000),
                 temperature=0.7
             )
             
@@ -829,10 +855,15 @@ Keep responses concise but engaging."""
                 {"role": "user", "content": user_message}
             ]
             
+            # Validate parameters
+            if not self.model or not messages:
+                logger.error("Invalid parameters for general response")
+                return "I'm here to help you discover amazing movies! Is there anything specific you'd like to watch, or would you like me to suggest something based on your mood?"
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=150,
+                max_tokens=min(150, 4000),
                 temperature=0.7
             )
             
@@ -950,10 +981,15 @@ Examples:
                 {"role": "user", "content": user_message}
             ]
             
+            # Validate parameters
+            if not self.model or not messages:
+                logger.error("Invalid parameters for search suggestions")
+                return ["Avengers Endgame", "The Dark Knight", "Inception", "Interstellar", "John Wick"]
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=200,
+                max_tokens=min(200, 4000),
                 temperature=0.8
             )
             
