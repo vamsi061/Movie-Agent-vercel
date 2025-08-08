@@ -1097,7 +1097,7 @@
                 <div class="movie-response">
                     <div class="movie-response-header">
                         <span class="icon">🎬</span>
-                        <span>Found ${movies.length} Movies</span>
+                        <span>Found ${movies.length} Movie${movies.length !== 1 ? 's' : ''}</span>
                     </div>
                     <div class="movie-grid-modern">
                         ${movies.slice(0, 6).map(movie => `
@@ -1258,7 +1258,7 @@
                 <div class="movie-response">
                     <div class="movie-response-header">
                         <span class="icon">🎬</span>
-                        <span>Found ${movies.length} Movies for "${searchQuery}"</span>
+                        <span>Found ${movies.length} Movie${movies.length !== 1 ? 's' : ''} for "${searchQuery}"</span>
                     </div>
                     <div class="movie-grid-modern">
                         ${movies.map(movie => `
