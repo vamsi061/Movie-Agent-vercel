@@ -2979,12 +2979,42 @@
                         ${movie.quality ? `<span class="meta-tag">Quality: ${movie.quality}</span>` : ''}
                         ${movie.source ? `<span class="meta-tag">Source: ${movie.source}</span>` : ''}
                     </div>
-                    <button class="extract-btn" onclick="event.stopPropagation(); extractLinks(${actualIndex})">
-                        Extract Download Links
-                    </button>
+                    <div class="movie-actions" style="display:flex; gap:10px;">
+                        <button class="extract-btn" onclick="event.stopPropagation(); extractLinks(${actualIndex})">
+                            Extract Download Links
+                        </button>
+                        <a class="extract-btn" style="display:none; background:#0088cc;" target="_blank" id="tg-btn-${actualIndex}">
+                            <i class='fab fa-telegram-plane'></i> Open in Telegram
+                        </a>
+                    </div>
                 `;
                 
                 movieGrid.appendChild(movieCard);
+
+                // Try to fetch Telegram link for each movie asynchronously
+                try {
+                    const payload = { query: movie.title };
+                    if (movie.year) payload.year = String(movie.year);
+                    if (movie.language) payload.language = String(movie.language);
+                    fetch('/api/telegram/link', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res && res.success && res.available && res.link) {
+                            const btn = document.getElementById(`tg-btn-${actualIndex}`);
+                            if (btn) {
+                                btn.href = res.link;
+                                btn.style.display = 'inline-flex';
+                                btn.title = `Open ${movie.title} in Telegram`;
+                            }
+                        }
+                    })
+                    .catch(() => {});
+                } catch (e) { /* ignore */ }
+
             });
 
             resultsSection.style.display = 'block';

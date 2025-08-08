@@ -62,6 +62,7 @@ Edit `config.json` to customize:
 - `GET /status/<id>` - Check extraction status
 - `GET /proxy_video` - Stream videos via proxy
 - `GET /health` - Health check
+- `POST /api/telegram/link` - Get a Telegram deep link for a movie (if available) by title/year/language
 
 ## Usage
 

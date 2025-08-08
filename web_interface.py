@@ -616,27 +616,23 @@ def search_movie():
         if 'telegram' in sources and telegram_agent:
             try:
                 logger.info(f"Searching Telegram for: {movie_name}")
-                import asyncio
-                
-                # Run async Telegram search
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    telegram_movies = loop.run_until_complete(telegram_agent.search_movies(movie_name))
-                    
-                    for movie in telegram_movies:
-                        movie['source'] = 'Telegram'
-                        # Add Telegram-specific URL if available
-                        if movie.get('message_url'):
-                            movie['url'] = movie['message_url']
-                        elif movie.get('bot_username'):
-                            movie['url'] = f"https://t.me/{movie['bot_username'].replace('@', '')}"
-                    
-                    all_results.extend(telegram_movies)
-                    logger.info(f"Telegram returned {len(telegram_movies)} movies")
-                finally:
-                    loop.close()
-                    
+                # Telegram agent search is synchronous
+                telegram_movies = telegram_agent.search_movies(movie_name)
+
+                for movie in telegram_movies:
+                    movie['source'] = 'Telegram'
+                    movie['source_color'] = '#0088cc'  # Telegram brand color
+                    # Prefer deep link to bot which can handle forwarding
+                    if movie.get('detail_url'):
+                        movie['url'] = movie['detail_url']
+                    elif movie.get('bot_username'):
+                        movie['url'] = f"https://t.me/{movie['bot_username'].replace('@', '')}"
+                    # Fallback: construct from message id if nothing else
+                    elif movie.get('telegram_message_id'):
+                        movie['url'] = f"telegram://message/{movie['telegram_message_id']}"
+
+                all_results.extend(telegram_movies)
+                logger.info(f"Telegram returned {len(telegram_movies)} movies")
             except Exception as e:
                 logger.error(f"Telegram search failed: {str(e)}")
         elif 'telegram' in sources and not telegram_agent:
@@ -3124,6 +3120,84 @@ def extract_movie_titles_from_response(ai_response):
     
     logger.info(f"Extracted movie titles from AI response: {filtered_titles}")
     return filtered_titles[:3]  # Return top 3 titles
+
+# New endpoint: Return Telegram deep link for a movie if available
+@app.route('/api/telegram/link', methods=['POST'])
+def get_telegram_movie_link():
+    """Return a Telegram deep link for a searched movie if available in the bot's chat"""
+    try:
+        data = request.get_json(silent=True) or {}
+        query = (data.get('query') or data.get('title') or '').strip()
+        year = str(data.get('year') or '').strip()
+        language = (data.get('language') or '').strip().lower()
+
+        if not query:
+            return jsonify({'error': 'query or title is required'}), 400
+
+        # Initialize agents and get Telegram agent
+        _, _, _, _, telegram_agent, _ = initialize_agents()
+        if not telegram_agent:
+            return jsonify({'success': False, 'available': False, 'error': 'Telegram agent not configured or disabled'}), 503
+
+        # Search in Telegram DB
+        results = telegram_agent.search_movies(query)
+
+        if not results:
+            return jsonify({'success': True, 'available': False, 'matches': 0})
+
+        # Score and select best match
+        def score(movie):
+            s = 0
+            # Title similarity
+            if is_fuzzy_match(query, movie.get('title', ''), threshold=40):
+                s += 2
+            # Year preference
+            if year and str(movie.get('year') or '') == year:
+                s += 2
+            # Language preference
+            if language and language in str(movie.get('language') or '').lower():
+                s += 1
+            # Access count as tie-breaker if present
+            try:
+                s += int(movie.get('access_count') or 0) / 1000.0
+            except Exception:
+                pass
+            return s
+
+        results_sorted = sorted(results, key=score, reverse=True)
+        best = results_sorted[0]
+
+        # Build best deep link
+        deep_link = best.get('detail_url')
+        if not deep_link:
+            bot_username = getattr(telegram_agent, 'bot_username', '')
+            title_for_start = (best.get('title') or '').replace(' ', '_')
+            if bot_username and title_for_start:
+                deep_link = f"https://t.me/{bot_username}?start={title_for_start}"
+        if not deep_link and best.get('telegram_message_id'):
+            deep_link = f"telegram://message/{best['telegram_message_id']}"
+
+        response_payload = {
+            'success': True,
+            'available': True,
+            'link': deep_link,
+            'result': {
+                'title': best.get('title'),
+                'year': best.get('year'),
+                'quality': best.get('quality'),
+                'language': best.get('language'),
+                'telegram_message_id': best.get('telegram_message_id'),
+                'telegram_file_id': best.get('telegram_file_id'),
+                'bot_username': getattr(telegram_agent, 'bot_username', ''),
+                'deep_link': deep_link,
+                'source': 'Telegram'
+            },
+            'matches': len(results_sorted)
+        }
+        return jsonify(response_payload)
+    except Exception as e:
+        logger.error(f"Error in /api/telegram/link: {e}")
+        return jsonify({'error': f'Failed to get Telegram link: {str(e)}'}), 500
 
 if __name__ == '__main__':
     # Initialize agents on startup

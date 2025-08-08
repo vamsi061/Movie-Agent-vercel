@@ -1275,6 +1275,9 @@
                                     <button class="action-btn secondary" onclick="event.stopPropagation(); extractLinks('${movie.title.replace(/'/g, "\\'")}')">
                                         📥 Get Links
                                     </button>
+                                    <a class="action-btn secondary" style="display:none; background:#0088cc; border-color:#0088cc;" target="_blank" id="tg-btn-chat-${movie.title.replace(/[^a-z0-9]/gi, '_')}">
+                                        <i class='fab fa-telegram-plane'></i> Open in Telegram
+                                    </a>
                                 </div>
                             </div>
                         `).join('')}
@@ -1283,6 +1286,33 @@
             `;
             
             resultsContainer.innerHTML = resultsHTML;
+
+            // After rendering, fetch Telegram links for each movie
+            try {
+                movies.forEach(movie => {
+                    const payload = { query: movie.title };
+                    if (movie.year) payload.year = String(movie.year);
+                    if (movie.language) payload.language = String(movie.language);
+                    fetch('/api/telegram/link', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res && res.success && res.available && res.link) {
+                            const id = `tg-btn-chat-${movie.title.replace(/[^a-z0-9]/gi, '_')}`;
+                            const btn = document.getElementById(id);
+                            if (btn) {
+                                btn.href = res.link;
+                                btn.style.display = 'inline-flex';
+                                btn.title = `Open ${movie.title} in Telegram`;
+                            }
+                        }
+                    })
+                    .catch(() => {});
+                });
+            } catch(e) { /* ignore */ }
         }
     </script>
 </body>
