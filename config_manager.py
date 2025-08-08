@@ -233,18 +233,24 @@ class ConfigManager:
                 "enabled": False,
                 "api_key": "",
                 "base_url": "https://www.omdbapi.com/",
-                "search_limit": 10,
                 "include_plot": True,
                 "plot_type": "full",
+                "include_images": True,
                 "description": "OMDB API configuration for Level 1 movie search with detailed data and images",
                 "last_updated": self._get_current_timestamp()
             },
             "search_levels": {
-                "level_1_enabled": False,
+                "level_1_auto_trigger": True,
                 "level_2_enabled": True,
-                "level_1_priority": True,
+                "level_1_triggers": [
+                    "specific_movie_details",
+                    "latest_movies", 
+                    "recent_releases",
+                    "movie_information",
+                    "current_year_movies"
+                ],
                 "fallback_to_level_2": True,
-                "description": "Level 1: OMDB API (detailed data + images), Level 2: Agent scraping"
+                "description": "Level 1: Auto-triggered for detailed queries, Level 2: General scraping"
             },
             "fallback_responses": {
                 "no_api_key": "I'm sorry, but the AI chat feature is currently unavailable. You can still search for movies using the main search page!",

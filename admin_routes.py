@@ -203,14 +203,6 @@ def update_omdb_config():
         if 'enabled' in data:
             omdb_updates['enabled'] = bool(data['enabled'])
         
-        if 'search_limit' in data:
-            try:
-                omdb_updates['search_limit'] = int(data['search_limit'])
-            except ValueError:
-                return jsonify({
-                    'success': False,
-                    'error': 'Invalid search_limit value'
-                }), 400
         
         if 'include_plot' in data:
             omdb_updates['include_plot'] = bool(data['include_plot'])
@@ -223,17 +215,17 @@ def update_omdb_config():
         # Prepare search levels updates
         search_levels_updates = {}
         
-        if 'level_1_enabled' in data:
-            search_levels_updates['level_1_enabled'] = bool(data['level_1_enabled'])
+        if 'level_1_auto_trigger' in data:
+            search_levels_updates['level_1_auto_trigger'] = bool(data['level_1_auto_trigger'])
         
         if 'level_2_enabled' in data:
             search_levels_updates['level_2_enabled'] = bool(data['level_2_enabled'])
         
-        if 'level_1_priority' in data:
-            search_levels_updates['level_1_priority'] = bool(data['level_1_priority'])
-        
         if 'fallback_to_level_2' in data:
             search_levels_updates['fallback_to_level_2'] = bool(data['fallback_to_level_2'])
+        
+        if 'level_1_triggers' in data:
+            search_levels_updates['level_1_triggers'] = data['level_1_triggers']
         
         # Update configurations
         omdb_success = True

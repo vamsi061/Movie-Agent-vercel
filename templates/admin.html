@@ -406,18 +406,12 @@
                             <small style="color: #7f8c8d; margin-top: 5px; display: block;">Get your free API key from <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">omdbapi.com</a></small>
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                            <div>
-                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Search Limit:</label>
-                                <input type="number" id="omdb-search-limit" min="1" max="50" value="10" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;" />
-                            </div>
-                            <div>
-                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Plot Type:</label>
-                                <select id="omdb-plot-type" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;">
-                                    <option value="short">Short Plot</option>
-                                    <option value="full">Full Plot</option>
-                                </select>
-                            </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Plot Type:</label>
+                            <select id="omdb-plot-type" style="width: 100%; padding: 12px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 1rem;">
+                                <option value="short">Short Plot</option>
+                                <option value="full">Full Plot</option>
+                            </select>
                         </div>
                         
                         <div style="margin-bottom: 20px;">
@@ -441,43 +435,54 @@
                 </div>
             </div>
 
-            <!-- Search Levels Configuration -->
+            <!-- Intelligent Search Configuration -->
             <div style="margin-bottom: 30px;">
                 <div style="background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); overflow: hidden;">
                     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px;">
-                        <h3 style="margin: 0; font-size: 1.5rem;">⚙️ Search Levels Configuration</h3>
-                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Configure Level 1 (OMDB) and Level 2 (Agent Scraping) search behavior</p>
+                        <h3 style="margin: 0; font-size: 1.5rem;">🧠 Intelligent Search Configuration</h3>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Configure when Level 1 (OMDB) search auto-triggers for detailed movie data</p>
                     </div>
                     <div style="padding: 25px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                            <div>
-                                <h4 style="color: #2c3e50; margin-bottom: 15px;">🎯 Level 1 - OMDB API</h4>
-                                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
-                                    <input type="checkbox" id="level-1-enabled" /> Enable Level 1 Search
-                                </label>
-                                <p style="color: #7f8c8d; font-size: 0.9rem;">High-quality movie data with posters, ratings, and detailed information</p>
-                            </div>
-                            <div>
-                                <h4 style="color: #2c3e50; margin-bottom: 15px;">🕷️ Level 2 - Agent Scraping</h4>
-                                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
-                                    <input type="checkbox" id="level-2-enabled" checked /> Enable Level 2 Search
-                                </label>
-                                <p style="color: #7f8c8d; font-size: 0.9rem;">Web scraping from multiple movie sites for download links</p>
-                            </div>
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">🎯 Level 1 Auto-Trigger (OMDB API)</h4>
+                            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
+                                <input type="checkbox" id="level-1-auto-trigger" checked /> Enable Intelligent Level 1 Auto-Trigger
+                            </label>
+                            <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 15px;">Automatically triggers Level 1 search for:</p>
+                            <ul style="color: #7f8c8d; font-size: 0.9rem; margin-left: 20px; line-height: 1.6;">
+                                <li>🎬 <strong>Specific movie details</strong> - When user wants more info about a particular movie</li>
+                                <li>📅 <strong>Latest/Recent movies</strong> - Since AI doesn't have web access for current data</li>
+                                <li>🆕 <strong>Recent releases</strong> - For up-to-date movie information</li>
+                                <li>ℹ️ <strong>Movie information requests</strong> - When user asks for detailed movie data</li>
+                                <li>📊 <strong>Current year movies</strong> - For movies from 2023-2024</li>
+                            </ul>
                         </div>
                         
                         <div style="margin-bottom: 20px;">
-                            <h4 style="color: #2c3e50; margin-bottom: 15px;">🔄 Search Behavior</h4>
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">🕷️ Level 2 - Agent Scraping</h4>
                             <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
-                                <input type="checkbox" id="level-1-priority" checked /> Prioritize Level 1 (OMDB) over Level 2
+                                <input type="checkbox" id="level-2-enabled" checked /> Enable Level 2 Search
                             </label>
+                            <p style="color: #7f8c8d; font-size: 0.9rem;">Web scraping from multiple movie sites for download links</p>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #2c3e50; margin-bottom: 15px;">🔄 Fallback Behavior</h4>
                             <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50;">
-                                <input type="checkbox" id="fallback-to-level-2" checked /> Fallback to Level 2 if Level 1 fails
+                                <input type="checkbox" id="fallback-to-level-2" checked /> Fallback to Level 2 if Level 1 fails or has no results
                             </label>
+                            <p style="color: #7f8c8d; font-size: 0.9rem;">Ensures users always get results even if OMDB API fails</p>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h5 style="color: #2c3e50; margin-bottom: 10px;">💡 How It Works:</h5>
+                            <p style="color: #6c757d; font-size: 0.9rem; margin: 0; line-height: 1.5;">
+                                The AI automatically detects when users need detailed movie information and triggers Level 1 search to get high-quality data with images from OMDB. For general searches, it uses Level 2 scraping for download links.
+                            </p>
                         </div>
                         
                         <div style="display: flex; gap: 15px; margin-top: 25px;">
-                            <button onclick="saveSearchLevelsConfig()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Save Search Levels</button>
+                            <button onclick="saveSearchLevelsConfig()" style="padding: 12px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Save Intelligent Search Config</button>
                         </div>
                         <div id="search-levels-result" style="margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 600; display: none;"></div>
                     </div>
@@ -880,15 +885,13 @@
                 
                 // Load OMDB config
                 document.getElementById('omdb-api-key').value = omdbConfig.api_key || '';
-                document.getElementById('omdb-search-limit').value = omdbConfig.search_limit || 10;
                 document.getElementById('omdb-plot-type').value = omdbConfig.plot_type || 'full';
                 document.getElementById('omdb-include-plot').checked = omdbConfig.include_plot !== false;
                 document.getElementById('omdb-enabled').checked = omdbConfig.enabled || false;
                 
                 // Load search levels config
-                document.getElementById('level-1-enabled').checked = searchLevels.level_1_enabled || false;
+                document.getElementById('level-1-auto-trigger').checked = searchLevels.level_1_auto_trigger !== false;
                 document.getElementById('level-2-enabled').checked = searchLevels.level_2_enabled !== false;
-                document.getElementById('level-1-priority').checked = searchLevels.level_1_priority !== false;
                 document.getElementById('fallback-to-level-2').checked = searchLevels.fallback_to_level_2 !== false;
             }
         } catch (error) {
@@ -945,7 +948,6 @@
             const config = {
                 api_key: document.getElementById('omdb-api-key').value.trim(),
                 enabled: document.getElementById('omdb-enabled').checked,
-                search_limit: parseInt(document.getElementById('omdb-search-limit').value),
                 plot_type: document.getElementById('omdb-plot-type').value,
                 include_plot: document.getElementById('omdb-include-plot').checked
             };
@@ -973,10 +975,16 @@
     async function saveSearchLevelsConfig() {
         try {
             const config = {
-                level_1_enabled: document.getElementById('level-1-enabled').checked,
+                level_1_auto_trigger: document.getElementById('level-1-auto-trigger').checked,
                 level_2_enabled: document.getElementById('level-2-enabled').checked,
-                level_1_priority: document.getElementById('level-1-priority').checked,
-                fallback_to_level_2: document.getElementById('fallback-to-level-2').checked
+                fallback_to_level_2: document.getElementById('fallback-to-level-2').checked,
+                level_1_triggers: [
+                    "specific_movie_details",
+                    "latest_movies", 
+                    "recent_releases",
+                    "movie_information",
+                    "current_year_movies"
+                ]
             };
             
             const response = await fetch('/admin/api/omdb/config', {
