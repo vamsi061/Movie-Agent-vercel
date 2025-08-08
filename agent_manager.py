@@ -11,7 +11,7 @@ from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
 from agents.moviezwap_agent import MoviezWapAgent
 from agents.skysetx_agent import SkySetXAgent
 from agents.movierulz_agent import MovieRulzAgent
-from agents.telegram_agent import TelegramMovieAgent
+from agents.telegram_agent import telegram_agent
 from agents.movies4u_agent import Movies4UAgent
 
 logger = logging.getLogger(__name__)
@@ -182,15 +182,12 @@ class AgentManager:
             # Initialize Telegram Agent
             if self.is_agent_enabled("telegram"):
                 try:
-                    # Load Telegram config
-                    with open('telegram_config.json', 'r') as f:
-                        config = json.load(f)
-                        telegram_config = config.get('telegram_settings', {})
-                        if telegram_config.get('enabled', False):
-                            self.agents["telegram"] = TelegramMovieAgent(telegram_config)
-                            logger.info("Telegram agent initialized")
-                        else:
-                            logger.warning("Telegram agent enabled in agent config but disabled in telegram_config.json")
+                    # Use the imported telegram_agent instance
+                    if telegram_agent.enabled:
+                        self.agents["telegram"] = telegram_agent
+                        logger.info("Telegram agent initialized")
+                    else:
+                        logger.warning("Telegram agent enabled in agent config but disabled in telegram agent configuration")
                 except Exception as e:
                     logger.warning(f"Failed to initialize Telegram agent: {str(e)}")
             
