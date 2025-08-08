@@ -664,12 +664,28 @@ Be genuine, caring, and helpful."""
                 {"role": "user", "content": user_message}
             ]
             
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=200,
-                temperature=0.7
-            )
+            # Validate parameters before API call
+            if not messages or len(messages) == 0:
+                logger.error("No messages to send to Together API")
+                return "I found some movies but couldn't generate a proper response. Please try again."
+            
+            # Ensure all messages have valid structure
+            for msg in messages:
+                if not isinstance(msg.get("content"), str) or not msg.get("content").strip():
+                    logger.error(f"Invalid message content: {msg}")
+                    return "I found some movies but encountered an issue generating the response."
+            
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=500,  # Increased from 200 to allow proper responses
+                    temperature=0.7,
+                    stream=False  # Explicitly disable streaming
+                )
+            except Exception as api_error:
+                logger.error(f"Together API call failed: {api_error}")
+                return "I found some movies but couldn't generate a detailed response. Please try again."
             
             return response.choices[0].message.content
             
@@ -759,10 +775,21 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
             # Add to conversation history
             self.conversation_history.append({"role": "user", "content": user_message})
             
-            messages = [
-                {"role": "system", "content": system_prompt},
-                *self.conversation_history[-6:]  # Keep last 6 messages for context
-            ]
+            # Build messages with proper validation
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add conversation history with validation
+            if self.conversation_history:
+                # Only add valid messages and limit to prevent token overflow
+                valid_history = []
+                for msg in self.conversation_history[-4:]:  # Reduced from 6 to 4
+                    if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                        # Ensure content is string and not too long
+                        content = str(msg["content"])[:1000]  # Limit content length
+                        if content.strip():  # Only add non-empty content
+                            valid_history.append({"role": msg["role"], "content": content})
+                
+                messages.extend(valid_history)
             
             response = self.client.chat.completions.create(
                 model=self.model,
