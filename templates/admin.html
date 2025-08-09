@@ -313,6 +313,45 @@
             transform: translateY(-1px);
             box-shadow: 0 3px 10px rgba(243, 156, 18, 0.3);
         }
+        /* Responsive adjustments */
+        @media (max-width: 992px) {
+            .admin-content { padding: 30px; }
+            .header { padding: 24px; }
+            .header h1 { font-size: 2rem; }
+            .agent-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .container { border-radius: 14px; }
+            .header { padding: 20px; }
+            .header h1 { font-size: 1.8rem; }
+            .header p { font-size: 1rem; }
+            .admin-content { padding: 20px; }
+            .agent-grid { grid-template-columns: 1fr; gap: 18px; }
+            .agent-card { padding: 18px; min-height: unset; }
+            .agent-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+            .controls { padding: 16px; }
+            .btn { width: 100%; text-align: center; }
+            /* Stack any inline grid forms to single column on mobile */
+            .admin-content div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+            /* Allow flex button rows (with gap set inline) to wrap */
+            .admin-content div[style*="display: flex"][style*="gap"] { flex-wrap: wrap !important; }
+            /* Make input+button rows vertical for better fit */
+            .admin-content div[style*="align-items: center"] { flex-direction: column !important; align-items: stretch !important; gap: 10px; }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 { font-size: 1.6rem; }
+            .agent-name { font-size: 1.1rem; }
+            .stat-number { font-size: 1.6rem; }
+            .btn { padding: 10px 16px; font-size: 0.95rem; }
+            .toggle-switch { width: 52px; height: 26px; }
+            .slider:before { width: 18px; height: 18px; }
+            input:checked + .slider:before { transform: translateX(26px); }
+            .agent-grid { gap: 14px; }
+        }
     </style>
 </head>
 <body>

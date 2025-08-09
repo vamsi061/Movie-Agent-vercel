@@ -89,7 +89,7 @@
 
         .form-row {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 15px;
             align-items: end;
         }
@@ -662,19 +662,26 @@
             margin: 20px 0;
         }
 
+        @media (max-width: 992px) {
+            .header h1 { font-size: 2.2rem; }
+            .header p { font-size: 1.05rem; }
+            .movie-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+            .search-section { padding: 24px; }
+        }
+        
         @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .movie-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .pagination-controls {
-                flex-direction: column;
-                gap: 10px;
-            }
+            .container { padding: 16px; }
+            .search-section { padding: 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            .search-btn { width: 100%; }
+            .movie-grid { grid-template-columns: 1fr; }
+            .movie-card { padding: 16px; }
+            .pagination-controls { flex-direction: column; gap: 10px; }
+            .download-actions { flex-wrap: wrap; }
+            .filter-controls { flex-direction: column; align-items: stretch; gap: 12px; }
+            .filter-dropdown { min-width: 0; width: 100%; }
+            .results-section { padding: 16px; }
+            .extraction-section { padding: 16px; }
         }
 
         .unlocked-link {
@@ -825,35 +832,6 @@
                         <label for="movieName">Movie Name</label>
                         <input type="text" id="movieName" placeholder="Enter movie name..." />
                     </div>
-                    <div class="form-group">
-                        <label for="languageFilter">Language</label>
-                        <select id="languageFilter">
-                            <option value="all">All Languages</option>
-                            <option value="hindi">Hindi</option>
-                            <option value="english">English</option>
-                            <option value="tamil">Tamil</option>
-                            <option value="telugu">Telugu</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="yearFilter">Year</label>
-                        <select id="yearFilter">
-                            <option value="all">All Years</option>
-                            <option value="2024">2024</option>
-                            <option value="2023">2023</option>
-                            <option value="2022">2022</option>
-                            <option value="2021">2021</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="qualityFilter">Quality</label>
-                        <select id="qualityFilter">
-                            <option value="all">All Quality</option>
-                            <option value="1080p">1080p</option>
-                            <option value="720p">720p</option>
-                            <option value="480p">480p</option>
-                        </select>
-                    </div>
                 </div>
                 <button class="search-btn" onclick="searchMovies()">Search Movies</button>
             </div>
@@ -910,17 +888,9 @@
         let currentPage = 1;
         let totalPages = 1;
         let currentMovieName = '';
-        let currentFilters = {
-            language: 'all',
-            year: 'all', 
-            quality: 'all'
-        };
 
         function searchMovies(page = 1) {
             const movieName = document.getElementById('movieName').value.trim();
-            const languageFilter = document.getElementById('languageFilter').value;
-            const yearFilter = document.getElementById('yearFilter').value;
-            const qualityFilter = document.getElementById('qualityFilter').value;
             
             if (!movieName) {
                 alert('Please enter a movie name');
@@ -929,11 +899,6 @@
             
             // Store current search parameters
             currentMovieName = movieName;
-            currentFilters = {
-                language: languageFilter,
-                year: yearFilter,
-                quality: qualityFilter
-            };
             
             showLoading();
             
@@ -944,10 +909,7 @@
                 },
                 body: JSON.stringify({
                     movie_name: movieName,
-                    page: page,
-                    language_filter: languageFilter,
-                    year_filter: yearFilter,
-                    quality_filter: qualityFilter
+                    page: page
                 })
             })
             .then(response => response.json())
@@ -991,9 +953,6 @@
             if (newPage !== currentPage) {
                 // Update the movie name field to current search
                 document.getElementById('movieName').value = currentMovieName;
-                document.getElementById('languageFilter').value = currentFilters.language;
-                document.getElementById('yearFilter').value = currentFilters.year;
-                document.getElementById('qualityFilter').value = currentFilters.quality;
                 
                 searchMovies(newPage);
             }
@@ -1081,6 +1040,21 @@
             });
         }
 
+        function scrollToExtractionSection() {
+            const extractionSection = document.getElementById('extractionSection');
+            if (extractionSection) {
+                // Prepare a ready state if not started yet
+                extractionSection.style.display = 'block';
+                const statusEl = document.getElementById('extractionStatus');
+                const progressEl = document.getElementById('progressFill');
+                const linksEl = document.getElementById('downloadLinks');
+                if (statusEl) statusEl.textContent = 'Ready to extract download links. Click "Extract Download Links" on a result to start.';
+                if (progressEl) progressEl.style.width = '0%';
+                if (linksEl) linksEl.innerHTML = '';
+                extractionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
         function selectMovie(index) {
             selectedMovieIndex = index;
             
@@ -1092,6 +1066,9 @@
                     card.classList.remove('selected');
                 }
             });
+
+            // Auto-scroll to extraction section for user convenience
+            scrollToExtractionSection();
         }
 
         function extractDownloadLinks(index) {
@@ -1109,6 +1086,8 @@
             document.getElementById('progressFill').style.width = '0%';
             document.getElementById('extractionStatus').textContent = 'Starting extraction...';
             document.getElementById('downloadLinks').innerHTML = '';
+            // Auto-scroll to the extraction section when starting
+            extractionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
             fetch('/extract', {
                 method: 'POST',
