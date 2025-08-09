@@ -26,6 +26,8 @@ class MoviezWapAgent:
         self.session = requests.Session()
         self.ua = UserAgent()
         self.setup_session()
+        # Do not auto-resolve during extraction by default (stabilizes extraction)
+        self.auto_resolve_during_extraction = bool(self.config.get('auto_resolve_during_extraction', False))
         
     def _load_agent_config(self):
         """Load agent configuration from admin panel"""
@@ -591,11 +593,12 @@ class MoviezWapAgent:
                 download_url = href.replace('/dwload.php', '/download.php')
                 logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
                 
-                # Automatically resolve the final download URL by clicking "Fast Download Server"
-                final_url = self.resolve_fast_download_server(download_url)
-                if final_url:
-                    download_url = final_url
-                    logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
+                # Optionally resolve the final download URL by clicking "Fast Download Server"
+                if self.auto_resolve_during_extraction:
+                    final_url = self.resolve_fast_download_server(download_url)
+                    if final_url:
+                        download_url = final_url
+                        logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
             
             # Determine host type based on URL
             if '/dwload.php' in href or 'moviezzwaphd.xyz' in download_url:
@@ -652,12 +655,13 @@ class MoviezWapAgent:
                 download_url = href.replace('/dwload.php', '/download.php')
                 logger.info(f"MoviezWap: Converted dwload.php to download.php: {download_url}")
                 
-                # Automatically resolve the final download URL by clicking "Fast Download Server"
-                final_url = self.resolve_fast_download_server(download_url)
-                if final_url:
-                    download_url = final_url
-                    host = 'MoviezWap Direct Download'
-                    logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
+                # Optionally resolve the final download URL by clicking "Fast Download Server"
+                if self.auto_resolve_during_extraction:
+                    final_url = self.resolve_fast_download_server(download_url)
+                    if final_url:
+                        download_url = final_url
+                        host = 'MoviezWap Direct Download'
+                        logger.info(f"MoviezWap: Resolved final download URL: {download_url}")
             
             return {
                 'text': link_text,
@@ -754,7 +758,31 @@ class MoviezWapAgent:
             driver = None
             try:
                 logger.info("MoviezWap: Starting Chrome driver for Fast Download Server resolution")
-                driver = uc.Chrome(options=options)
+                try:
+                    # First attempt: let UC auto-manage
+                    driver = uc.Chrome(options=options)
+                except Exception as e:
+                    # If Chrome/Driver version mismatch, parse current browser version and retry with version_main
+                    msg = str(e)
+                    logger.error(f"MoviezWap: Initial Chrome start failed: {msg}")
+                    import re as _re
+                    m = _re.search(r"Current browser version is\s*(\d+)", msg)
+                    if m:
+                        ver = int(m.group(1))
+                        logger.info(f"MoviezWap: Retrying Chrome with version_main={ver} using fresh options")
+                        # Create a fresh ChromeOptions instance; UC may forbid reusing the same object
+                        options_retry = uc.ChromeOptions()
+                        options_retry.headless = True
+                        options_retry.add_argument("--no-sandbox")
+                        options_retry.add_argument("--disable-dev-shm-usage")
+                        options_retry.add_argument("--disable-blink-features=AutomationControlled")
+                        options_retry.add_argument("--disable-extensions")
+                        options_retry.add_argument("--disable-plugins")
+                        options_retry.add_argument("--disable-images")
+                        options_retry.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        driver = uc.Chrome(options=options_retry, version_main=ver)
+                    else:
+                        raise
                 driver.set_page_load_timeout(30)
                 driver.implicitly_wait(10)
                 

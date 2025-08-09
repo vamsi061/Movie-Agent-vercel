@@ -1347,7 +1347,7 @@
             indicator.className = 'health-indicator checking';
             tooltip.textContent = 'Checking...';
             
-            fetch('/check_link_health', {
+            fetch('/api/check_link_health', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1380,7 +1380,7 @@
                 }
             });
             
-            fetch('/check_multiple_links_health', {
+            fetch('/api/check_multiple_links_health', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1609,7 +1609,7 @@
             }
             
             // Call backend to unlock
-            fetch('/unlock_shortlink', {
+            fetch('/api/unlock_shortlink', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1738,7 +1738,7 @@
                 buttonElement.style.pointerEvents = 'none';
                 
                 // Call the resolve_download endpoint
-                fetch('/resolve_download', {
+                fetch('/api/resolve_download', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1754,10 +1754,17 @@
                         buttonElement.innerHTML = '<i class="fas fa-download"></i> Download Ready';
                         buttonElement.style.background = '#28a745';
                         
-                        // Open the final download URL
-                        // window.location.href = data.final_download_url; // Removed - download already started
+                        // Start the download via proxy to ensure proper headers
+                        const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
+                        const link = document.createElement('a');
+                        link.href = proxyUrl;
+                        link.download = '';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
                         
-                        // Show download started notification
+                        // Show download started UI
+                        showDownloadStatus();
                         showDownloadStartedNotification(data.final_download_url);
                         
                         // Show success message
@@ -1823,7 +1830,7 @@
                 buttonElement.style.background = '#ffc107';
                 
                 // Use the resolve_download endpoint to handle the protected link
-                fetch('/resolve_download', {
+                fetch('/api/resolve_download', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

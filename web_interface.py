@@ -884,6 +884,7 @@ def health_check():
     })
 
 @app.route('/check_link_health', methods=['POST'])
+@app.route('/api/check_link_health', methods=['POST'])
 def check_link_health():
     """Check the health of a download link"""
     try:
@@ -901,6 +902,7 @@ def check_link_health():
         return jsonify({'error': f'Health check failed: {str(e)}'}), 500
 
 @app.route('/check_multiple_links_health', methods=['POST'])
+@app.route('/api/check_multiple_links_health', methods=['POST'])
 def check_multiple_links_health():
     """Check health of multiple download links"""
     try:
@@ -923,6 +925,7 @@ def check_multiple_links_health():
         return jsonify({'error': f'Health check failed: {str(e)}'}), 500
 
 @app.route('/unlock_shortlink', methods=['POST'])
+@app.route('/api/unlock_shortlink', methods=['POST'])
 def unlock_shortlink():
     """Unlock a shortlink and extract actual download links"""
     try:
@@ -992,6 +995,7 @@ def check_links_health():
         return jsonify({'error': f'Health check failed: {str(e)}'}), 500
 
 @app.route('/resolve_download', methods=['POST'])
+@app.route('/api/resolve_download', methods=['POST'])
 def resolve_download():
     """Automatically resolve MoviezWap download.php URLs to final download links"""
     try:
@@ -1008,7 +1012,7 @@ def resolve_download():
             print(f"DEBUG: MoviezWap URL detected (download.php, extlinks_, or getlinks_) - using automation to resolve")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
             
             # Use the MoviezWap agent's resolve_fast_download_server method
             final_url = moviezwap_agent.resolve_fast_download_server(download_url)
@@ -1037,7 +1041,7 @@ def resolve_download():
             print(f"DEBUG: Protected moviezzwaphd.xyz URL detected - using Selenium to handle")
             
             # Initialize MoviezWap agent
-            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent = initialize_agents()
+            downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
             
             # Use Selenium to handle the protected link with proper headers and referrer
             try:
@@ -1055,7 +1059,25 @@ def resolve_download():
                 driver = None
                 try:
                     print(f"DEBUG: Starting Chrome to handle protected link: {download_url}")
-                    driver = uc.Chrome(options=options)
+                    try:
+                        driver = uc.Chrome(options=options)
+                    except Exception as e:
+                        msg = str(e)
+                        print(f"DEBUG: Initial Chrome start failed for protected link: {msg}")
+                        import re as _re
+                        m = _re.search(r"Current browser version is\s*(\d+)", msg)
+                        if m:
+                            ver = int(m.group(1))
+                            print(f"DEBUG: Retrying Chrome for protected link with version_main={ver} using fresh options")
+                            options_retry = uc.ChromeOptions()
+                            options_retry.headless = True
+                            options_retry.add_argument("--no-sandbox")
+                            options_retry.add_argument("--disable-dev-shm-usage")
+                            options_retry.add_argument("--disable-blink-features=AutomationControlled")
+                            options_retry.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                            driver = uc.Chrome(options=options_retry, version_main=ver)
+                        else:
+                            raise
                     driver.set_page_load_timeout(30)
                     
                     # Set proper referrer to MoviezWap
@@ -2348,63 +2370,81 @@ def resolve_moviezwap_download(download_url):
 
 @app.route('/download_file')
 def download_file():
-    """Proxy download endpoint to handle protected links with proper headers"""
+    """Proxy download endpoint to handle protected links with proper headers and Range support"""
     try:
         file_url = request.args.get('url')
         if not file_url:
             return jsonify({'error': 'No URL provided'}), 400
-        
+
         print(f"DEBUG: Proxying download for URL: {file_url}")
-        
-        # Set proper headers for the request
+
+        parsed = urlparse(file_url)
+        referer_host = f"{parsed.scheme}://{parsed.netloc}/" if parsed.netloc else 'https://www.moviezwap.pink/'
+        # Prefer file host as referer for hosts like moviezzwaphd; fallback to MoviezWap
+        default_referer = 'https://www.moviezwap.pink/'
+        referer = referer_host if 'moviezzwaphd' in (parsed.netloc or '') else default_referer
+
+        # Pass through Range header if present for resumable/partial downloads
+        client_range = request.headers.get('Range')
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.moviezwap.pink/',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'identity',  # avoid gzip for easier streaming of ranges
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Referer': referer,
+            'Origin': default_referer.rstrip('/'),
         }
-        
+        if client_range:
+            headers['Range'] = client_range
+
         # Make request to the protected URL
-        response = requests.get(file_url, headers=headers, stream=True, timeout=30)
-        
-        if response.status_code == 200:
-            # Extract filename from URL or Content-Disposition header
-            filename = None
-            if 'Content-Disposition' in response.headers:
-                content_disposition = response.headers['Content-Disposition']
-                if 'filename=' in content_disposition:
-                    filename = content_disposition.split('filename=')[1].strip('"')
-            
-            if not filename:
-                # Extract from URL
-                filename = file_url.split('/')[-1].split('?')[0]
-                if not filename or '.' not in filename:
-                    filename = 'movie_download.mp4'
-            
-            print(f"DEBUG: Serving file as: {filename}")
-            
-            # Create response with proper download headers
-            def generate():
-                for chunk in response.iter_content(chunk_size=8192):
+        upstream = requests.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+
+        # Determine filename
+        filename = None
+        cd = upstream.headers.get('Content-Disposition', '')
+        if 'filename=' in cd:
+            filename = cd.split('filename=')[1].strip('"')
+        if not filename:
+            filename = parsed.path.split('/')[-1] or 'movie_download.mp4'
+
+        print(f"DEBUG: Upstream responded {upstream.status_code}, filename={filename}")
+
+        # Stream response back to client
+        def generate():
+            try:
+                for chunk in upstream.iter_content(chunk_size=1024 * 256):  # 256KB chunks
                     if chunk:
                         yield chunk
-            
-            return Response(
-                generate(),
-                headers={
-                    'Content-Type': response.headers.get('Content-Type', 'video/mp4'),
-                    'Content-Disposition': f'attachment; filename="{filename}"',
-                    'Content-Length': response.headers.get('Content-Length', ''),
-                    'Cache-Control': 'no-cache'
-                }
-            )
-        else:
-            print(f"DEBUG: Failed to fetch file, status: {response.status_code}")
-            return jsonify({'error': f'Failed to fetch file: {response.status_code}'}), response.status_code
-            
+            except Exception as stream_err:
+                print(f"DEBUG: Upstream stream error: {stream_err}")
+                raise
+
+        status = upstream.status_code if upstream.status_code in (200, 206) else 200
+        resp_headers = {
+            'Content-Type': upstream.headers.get('Content-Type', 'application/octet-stream'),
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Cache-Control': 'no-cache',
+        }
+        # Propagate size and range headers when available
+        if upstream.headers.get('Content-Length'):
+            resp_headers['Content-Length'] = upstream.headers['Content-Length']
+        if upstream.headers.get('Accept-Ranges'):
+            resp_headers['Accept-Ranges'] = upstream.headers['Accept-Ranges']
+        if upstream.status_code == 206 and upstream.headers.get('Content-Range'):
+            resp_headers['Content-Range'] = upstream.headers['Content-Range']
+
+        return Response(generate(), status=status, headers=resp_headers)
+
+    except requests.exceptions.RequestException as e:
+        # As a last resort, try redirecting the client to the file URL
+        print(f"DEBUG: Error in download proxy (requests): {e}")
+        try:
+            return redirect(file_url, code=302)
+        except Exception:
+            return jsonify({'error': 'Download failed: upstream connection error'}), 502
     except Exception as e:
         print(f"DEBUG: Error in download proxy: {str(e)}")
         return jsonify({'error': f'Download failed: {str(e)}'}), 500
