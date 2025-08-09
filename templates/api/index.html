@@ -146,6 +146,7 @@
             backdrop-filter: blur(15px);
             border-radius: 20px;
             padding: 25px;
+            margin-top: 20px; /* ensure visual gap from search section */
             margin-bottom: 25px;
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -830,10 +831,35 @@
         input#movieName { min-height: 44px; }
 
         @media (min-width: 992px) {
-            .search-section { max-width: 760px; margin: 0 auto; padding: 20px; }
-            .search-form { grid-template-columns: 1fr auto; align-items: end; }
-            .search-form .form-row { grid-column: 1; }
-            .search-form .search-btn { grid-column: 2; align-self: end; height: 44px; padding: 10px 20px; }
+            .search-section { 
+                max-width: 760px; 
+                margin: 0 auto; 
+                padding: 24px 24px 28px; /* extra bottom padding to avoid border overlap */
+            }
+            .search-form { 
+                grid-template-columns: 1fr auto; 
+                align-items: end; 
+                column-gap: 16px; /* ensure spacing between input and button */
+            }
+            .search-form .form-row { 
+                grid-column: 1; 
+                margin: 0; 
+            }
+            input#movieName { 
+                height: 44px; /* match button height */
+                line-height: 44px; 
+            }
+            .search-form .search-btn { 
+                grid-column: 2; 
+                align-self: end; 
+                height: 44px; 
+                padding: 10px 20px; 
+                margin-left: 8px;   /* add clear separation from input border */
+                margin-bottom: 2px; /* pull button slightly up from section border */
+            }
+            /* Ensure clear separation between sections on desktop */
+            .search-section { margin-bottom: 40px; }
+            #filterSection.filter-section { margin-top: 12px; }
             .quick-links { grid-column: 1 / -1; }
         }
     </style>
@@ -861,17 +887,25 @@
             </div>
         </div>
 
-        <!-- Filter by Source Section -->
+        <!-- Filter Section -->
         <div id="filterSection" class="filter-section" style="display: none;">
-            <h3>Filter by Source:</h3>
+            <h3>Filter Results:</h3>
             <div class="filter-controls">
-                <select id="sourceFilter" class="filter-dropdown" onchange="filterBySource()">
+                <!-- Source Filter -->
+                <select id="sourceFilter" class="filter-dropdown" onchange="applyFilters()">
                     <option value="all">All Sources</option>
-                    <option value="MoviezWap">MoviezWap</option>
-                    <option value="MovieRulz">MovieRulz</option>
-                    <option value="SkySetX">SkySetX</option>
-                    <option value="DownloadHub">DownloadHub</option>
-                    <option value="Movies4U">Movies4U</option>
+                </select>
+                <!-- Year Filter -->
+                <select id="yearFilter" class="filter-dropdown" onchange="applyFilters()">
+                    <option value="all">All Years</option>
+                </select>
+                <!-- Language Filter -->
+                <select id="languageFilter" class="filter-dropdown" onchange="applyFilters()">
+                    <option value="all">All Languages</option>
+                </select>
+                <!-- Quality Filter -->
+                <select id="qualityFilter" class="filter-dropdown" onchange="applyFilters()">
+                    <option value="all">All Qualities</option>
                 </select>
                 <div id="filterStats" class="filter-stats">
                     Showing all results
@@ -1045,6 +1079,28 @@
                 const source = movie.source || 'Unknown';
                 const sourceColor = getSourceColor(source);
                 const sourceIcon = getSourceIcon(source);
+                
+                // Attach dataset attributes for client-side filtering
+                try {
+                    movieCard.dataset.source = String(source || '').trim();
+                    movieCard.dataset.year = String(movie.year || '').trim();
+                    const langRaw = movie.language;
+                    const langArr = Array.isArray(langRaw)
+                        ? langRaw
+                        : String(langRaw || '')
+                            .split(/[\/,|]+|\s+\/\s+|\s*,\s+|\s*\|\s+/)
+                            .map(s => s.trim())
+                            .filter(Boolean);
+                    movieCard.dataset.language = langArr.join(',');
+                    const qualityRaw = movie.quality;
+                    const qualArr = Array.isArray(qualityRaw)
+                        ? qualityRaw
+                        : String(qualityRaw || '')
+                            .split(/[\/,|]+|\s+\/\s+|\s*,\s+|\s*\|\s+/)
+                            .map(s => s.trim())
+                            .filter(Boolean);
+                    movieCard.dataset.quality = qualArr.join(',');
+                } catch (e) { console.warn('Failed to set dataset on movie card', e); }
                 
                 movieCard.innerHTML = 
                     '<div class="movie-source-tag" style="background: ' + sourceColor + '; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 10px; display: inline-block;">' +
@@ -2271,19 +2327,29 @@
         };
 
         
-        // Filter by Source functionality - Frontend only
-        function filterBySource() {
-            const sourceFilter = document.getElementById('sourceFilter').value;
+        // Multi-filter functionality - Frontend only
+        function applyFilters() {
+            const sourceVal = (document.getElementById('sourceFilter')?.value || 'all').toLowerCase();
+            const yearVal = (document.getElementById('yearFilter')?.value || 'all').toLowerCase();
+            const langVal = (document.getElementById('languageFilter')?.value || 'all').toLowerCase();
+            const qualityVal = (document.getElementById('qualityFilter')?.value || 'all').toLowerCase();
+
             const movieCards = document.querySelectorAll('.movie-card');
             let visibleCount = 0;
-            let totalCount = movieCards.length;
-            
+            const totalCount = movieCards.length;
+
             movieCards.forEach(card => {
-                // Look for the correct source tag class
-                const sourceTag = card.querySelector('.movie-source-tag');
-                const movieSource = sourceTag ? sourceTag.textContent.trim() : '';
-                
-                if (sourceFilter === 'all' || movieSource === sourceFilter) {
+                const src = (card.dataset.source || '').toLowerCase();
+                const year = (card.dataset.year || '').toLowerCase();
+                const lang = (card.dataset.language || '').toLowerCase();
+                const qual = (card.dataset.quality || '').toLowerCase();
+
+                const sourceMatch = sourceVal === 'all' || src === sourceVal;
+                const yearMatch = yearVal === 'all' || year === yearVal;
+                const langMatch = langVal === 'all' || (lang && (`,` + lang + `,`).includes(`,${langVal},`));
+                const qualityMatch = qualityVal === 'all' || (qual && (`,` + qual + `,`).includes(`,${qualityVal},`));
+
+                if (sourceMatch && yearMatch && langMatch && qualityMatch) {
                     card.style.display = 'block';
                     card.style.animation = 'fadeIn 0.3s ease';
                     visibleCount++;
@@ -2291,17 +2357,27 @@
                     card.style.display = 'none';
                 }
             });
-            
-            updateFilterStats(visibleCount, totalCount, sourceFilter);
+
+            updateFilterStats(visibleCount, totalCount);
         }
 
-        function updateFilterStats(visible, total, source) {
+        function updateFilterStats(visible, total) {
             const stats = document.getElementById('filterStats');
-            
-            if (source === 'all') {
+            const src = document.getElementById('sourceFilter')?.value;
+            const yr = document.getElementById('yearFilter')?.value;
+            const lang = document.getElementById('languageFilter')?.value;
+            const qual = document.getElementById('qualityFilter')?.value;
+
+            const parts = [];
+            if (src && src !== 'all') parts.push(`Source: ${src}`);
+            if (yr && yr !== 'all') parts.push(`Year: ${yr}`);
+            if (lang && lang !== 'all') parts.push(`Lang: ${lang}`);
+            if (qual && qual !== 'all') parts.push(`Quality: ${qual}`);
+
+            if (parts.length === 0) {
                 stats.textContent = `Showing all ${total} results`;
             } else {
-                stats.textContent = `Showing ${visible} of ${total} results (${source})`;
+                stats.textContent = `Showing ${visible} of ${total} results (${parts.join(', ')})`;
             }
         }
 
@@ -2309,53 +2385,13 @@
             const sourceFilter = document.getElementById('sourceFilter');
             const movieCards = document.querySelectorAll('.movie-card');
             const sources = new Set();
-            
-            // Extract unique sources from movie cards - try multiple selectors
+
             movieCards.forEach(card => {
-                // Try different possible selectors for source information
-                let sourceText = '';
-                
-                // Method 1: Look for .movie-source-tag class (correct class name)
-                const sourceTag = card.querySelector('.movie-source-tag');
-                if (sourceTag) {
-                    sourceText = sourceTag.textContent.trim();
-                }
-                
-                // Method 2: Look for any element containing source info
-                if (!sourceText) {
-                    const allTags = card.querySelectorAll('.movie-tag, .tag, .badge, .source, .agent');
-                    allTags.forEach(tag => {
-                        const text = tag.textContent.trim();
-                        // Check if this looks like a source name
-                        if (text.includes('Wap') || text.includes('Rulz') || text.includes('Sky') || 
-                            text.includes('Hub') || text.includes('Movies4U') || text.includes('Download')) {
-                            sourceText = text;
-                        }
-                    });
-                }
-                
-                // Method 3: Look in movie card HTML for source patterns
-                if (!sourceText) {
-                    const cardHTML = card.innerHTML;
-                    const sourcePatterns = ['MoviezWap', 'MovieRulz', 'SkySetX', 'DownloadHub', 'Movies4U'];
-                    sourcePatterns.forEach(pattern => {
-                        if (cardHTML.includes(pattern)) {
-                            sourceText = pattern;
-                        }
-                    });
-                }
-                
-                if (sourceText) {
-                    sources.add(sourceText);
-                }
+                const src = (card.dataset.source || '').trim();
+                if (src) sources.add(src);
             });
-            
-            console.log('Found sources:', Array.from(sources)); // Debug log
-            
-            // Clear existing options except "All Sources"
+
             sourceFilter.innerHTML = '<option value="all">All Sources</option>';
-            
-            // Add found sources to dropdown
             Array.from(sources).sort().forEach(source => {
                 const option = document.createElement('option');
                 option.value = source;
@@ -2364,18 +2400,88 @@
             });
         }
 
+        function populateYearFilter() {
+            const yearFilter = document.getElementById('yearFilter');
+            const movieCards = document.querySelectorAll('.movie-card');
+            const years = new Set();
+
+            movieCards.forEach(card => {
+                const year = (card.dataset.year || '').trim();
+                if (year) years.add(year);
+            });
+
+            yearFilter.innerHTML = '<option value="all">All Years</option>';
+            Array.from(years).sort((a, b) => b.localeCompare(a, undefined, { numeric: true })).forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearFilter.appendChild(option);
+            });
+        }
+
+        function populateLanguageFilter() {
+            const languageFilter = document.getElementById('languageFilter');
+            const movieCards = document.querySelectorAll('.movie-card');
+            const languages = new Set();
+
+            movieCards.forEach(card => {
+                const langRaw = (card.dataset.language || '').trim();
+                if (langRaw) {
+                    langRaw.split(/[\/,|]+|\s+,\s+/).map(s => s.trim()).filter(Boolean).forEach(l => languages.add(capitalize(l)));
+                }
+            });
+
+            languageFilter.innerHTML = '<option value="all">All Languages</option>';
+            Array.from(languages).sort().forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang;
+                languageFilter.appendChild(option);
+            });
+        }
+
+        function populateQualityFilter() {
+            const qualityFilter = document.getElementById('qualityFilter');
+            const movieCards = document.querySelectorAll('.movie-card');
+            const qualities = new Set();
+
+            movieCards.forEach(card => {
+                const qualRaw = (card.dataset.quality || '').trim();
+                if (qualRaw) {
+                    qualRaw.split(/[\/,|]+|\s+,\s+/).map(s => s.trim()).filter(Boolean).forEach(q => qualities.add(q.toUpperCase()))
+                }
+            });
+
+            qualityFilter.innerHTML = '<option value="all">All Qualities</option>';
+            Array.from(qualities).sort((a,b) => a.localeCompare(b, undefined, { numeric: true })).forEach(q => {
+                const option = document.createElement('option');
+                option.value = q;
+                option.textContent = q;
+                qualityFilter.appendChild(option);
+            });
+        }
+
+        function populateAllFilters() {
+            populateSourceFilter();
+            populateYearFilter();
+            populateLanguageFilter();
+            populateQualityFilter();
+        }
+
+        function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
         // Override the existing displayResults function
         const originalDisplayResults = displayResults;
         displayResults = function(results) {
             // Call original function first
             originalDisplayResults(results);
             
-            // Show filter section and populate sources if we have results
+            // Show filter section and populate filters if we have results
             if (results.length > 0) {
                 setTimeout(() => {
                     document.getElementById('filterSection').style.display = 'block';
-                    populateSourceFilter();
-                    updateFilterStats(results.length, results.length, 'all');
+                    populateAllFilters();
+                    updateFilterStats(results.length, results.length);
                 }, 100);
             }
         };
