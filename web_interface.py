@@ -542,7 +542,7 @@ def search_movie():
         language_filter = data.get('language_filter', 'all')
         year_filter = data.get('year_filter', 'all')
         quality_filter = data.get('quality_filter', 'all')
-        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram', 'movies4u'])  # Default to all six sources
+        sources = data.get('sources', ['downloadhub', 'moviezwap', 'movierulz', 'skysetx', 'telegram', 'movies4u', 'moviebox'])  # Default to all six sources
         
         if not movie_name:
             return jsonify({'error': 'Movie name is required'}), 400
@@ -654,6 +654,24 @@ def search_movie():
                 logger.error(f"Movies4U search failed: {str(e)}")
         elif 'movies4u' in sources and not movies4u_agent:
             logger.warning("Movies4U search requested but agent not configured")
+
+        # Search MovieBox (Source 7)
+        if 'moviebox' in sources:
+            try:
+                logger.info(f"Searching MovieBox for: {movie_name}")
+                moviebox_agent = agent_manager.get_agent('moviebox')
+                if moviebox_agent:
+                    moviebox_result = moviebox_agent.search_movies(movie_name)
+                    moviebox_movies = moviebox_result.get('movies', [])
+                    for movie in moviebox_movies:
+                        movie['source'] = 'MovieBox'
+                        movie['source_color'] = '#3CB371'  # teal/green
+                    all_results.extend(moviebox_movies)
+                    logger.info(f"MovieBox returned {len(moviebox_movies)} movies")
+                else:
+                    logger.warning("MovieBox agent not initialized")
+            except Exception as e:
+                logger.error(f"MovieBox search failed: {str(e)}")
         
         # Return all results without pagination
         total_movies = len(all_results)

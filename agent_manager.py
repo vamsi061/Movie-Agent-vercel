@@ -13,6 +13,7 @@ from agents.skysetx_agent import SkySetXAgent
 from agents.movierulz_agent import MovieRulzAgent
 from agents.telegram_agent import telegram_agent
 from agents.movies4u_agent import Movies4UAgent
+from agents.moviebox_agent import MovieBoxAgent
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,13 @@ class AgentManager:
                             "name": "Movies4U Agent",
                             "enabled": True,
                             "description": "Searches and extracts download links from Movies4U.fm"
+                        },
+                       "moviebox": {
+                            "name": "MovieBox Agent",
+                            "enabled": True,
+                            "description": "Searches and extracts links from moviebox.ph",
+                            "base_url": "https://moviebox.ph",
+                            "search_url": "https://moviebox.ph/web/searchResult?keyword={}&utm_source="
                         }
                     }
                 }
@@ -205,6 +213,21 @@ class AgentManager:
                 except Exception as e:
                     logger.error(f"Failed to initialize Movies4U agent: {str(e)}")
                     logger.info("Movies4U agent disabled due to initialization error")
+
+            # Initialize MovieBox Agent
+            if self.is_agent_enabled("moviebox"):
+                try:
+                    agent = MovieBoxAgent()
+                    config = self.config.get("agents", {}).get("moviebox", {})
+                    if config.get("base_url"):
+                        agent.base_url = config["base_url"]
+                    if config.get("search_url"):
+                        agent.search_url = config["search_url"]
+                    self.agents["moviebox"] = agent
+                    logger.info(f"MovieBox agent initialized with URL: {agent.base_url}")
+                except Exception as e:
+                    logger.error(f"Failed to initialize MovieBox agent: {str(e)}")
+                    logger.info("MovieBox agent disabled due to initialization error")
             
         except Exception as e:
             logger.error(f"Error initializing agents: {str(e)}")

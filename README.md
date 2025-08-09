@@ -63,6 +63,7 @@ Edit `config.json` to customize:
 - `GET /proxy_video` - Stream videos via proxy
 - `GET /health` - Health check
 - `POST /api/telegram/link` - Get a Telegram deep link for a movie (if available) by title/year/language
+- MovieBox Agent: Searches moviebox.ph (base_url: https://moviebox.ph, search_url: https://moviebox.ph/web/searchResult?keyword={}&utm_source=)
 
 ## Usage
 
