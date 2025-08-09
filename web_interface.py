@@ -2444,10 +2444,19 @@ def get_auto_health_results(extraction_id):
         })
 
 # Admin Panel Routes
+
+def _admin_guard():
+    try:
+        return session.get('admin_logged_in') is True
+    except Exception:
+        return False
+
 @app.route('/admin')
 def admin_panel():
-    """Render the admin panel"""
-    return render_template('admin.html')
+    """Redirect to blueprint admin panel (session-protected)"""
+    if not _admin_guard():
+        return redirect(url_for('admin.login'))
+    return redirect(url_for('admin.admin_panel'))
 
 # Removed duplicate /api route - using the one that serves api/index.html with Filter by Source
 
