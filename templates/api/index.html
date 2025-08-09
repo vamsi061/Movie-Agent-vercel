@@ -36,9 +36,9 @@
         }
 
         .header h1 {
-            font-size: 3rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: clamp(1.8rem, 4vw, 2.4rem);
+            margin-bottom: 6px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.25);
         }
 
         .header p {
@@ -815,6 +815,27 @@
             margin-right: 4px;
             font-size: 0.7rem;
         }
+
+        /* Compact desktop layout like chat.z.ai */
+        .quick-links { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .quick-link-btn { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white; text-decoration: none; font-weight: 600;
+            padding: 10px 14px; border-radius: 20px; display: inline-block;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .quick-link-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+
+        input#movieName { min-height: 44px; }
+
+        @media (min-width: 992px) {
+            .search-section { max-width: 760px; margin: 0 auto; padding: 20px; }
+            .search-form { grid-template-columns: 1fr auto; align-items: end; }
+            .search-form .form-row { grid-column: 1; }
+            .search-form .search-btn { grid-column: 2; align-self: end; height: 44px; padding: 10px 20px; }
+            .quick-links { grid-column: 1 / -1; }
+        }
     </style>
 </head>
 <body>
@@ -834,6 +855,10 @@
                     </div>
                 </div>
                 <button class="search-btn" onclick="searchMovies()">Search Movies</button>
+                <div class="quick-links">
+                    <a class="quick-link-btn" href="https://flixer.su/" target="_blank" rel="noopener">Flixer</a>
+                    <a class="quick-link-btn" href="https://net2025.cc/home" target="_blank" rel="noopener">NET2025</a>
+                </div>
             </div>
         </div>
 
