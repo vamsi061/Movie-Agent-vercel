@@ -3,7 +3,7 @@
 Admin Routes - API endpoints for admin panel configuration
 """
 
-from flask import Blueprint, request, jsonify, render_template, Response
+from flask import Blueprint, request, jsonify, render_template, Response, redirect, url_for, session
 import logging
 from config_manager import config_manager
 from agents.telegram_agent import telegram_agent
@@ -13,32 +13,30 @@ logger = logging.getLogger(__name__)
 # Create admin blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
-# Simple Basic Auth credentials
+# Simple admin credentials (basic UI form based)
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = 'vamsi061'
 
-def check_auth(auth):
-    return auth and auth.username == ADMIN_USERNAME and auth.password == ADMIN_PASSWORD
+def is_logged_in():
+    return session.get('admin_logged_in') is True
 
-def authenticate():
-    return Response(
-        'Authentication required', 401,
-        {'WWW-Authenticate': 'Basic realm="Admin Panel"'}
-    )
+def login_user():
+    session['admin_logged_in'] = True
+
+def logout_user():
+    session.pop('admin_logged_in', None)
 
 @admin_bp.route('/')
 def admin_panel():
     """Render admin panel"""
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     return render_template('admin.html')
 
 @admin_bp.route('/api/config', methods=['GET'])
 def get_api_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Get current API configuration"""
     try:
         llm_config = config_manager.load_llm_config()
@@ -59,9 +57,8 @@ def get_api_config():
 
 @admin_bp.route('/api/config', methods=['POST'])
 def update_api_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Update API configuration"""
     try:
         data = request.get_json()
@@ -128,9 +125,8 @@ def update_api_config():
 
 @admin_bp.route('/api/test', methods=['POST'])
 def test_api():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Test API connection"""
     try:
         data = request.get_json()
@@ -165,9 +161,8 @@ def test_api():
 
 @admin_bp.route('/chat/config', methods=['GET'])
 def get_chat_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Get chat configuration for the LLM agent"""
     try:
         config = config_manager.load_llm_config()
@@ -192,9 +187,8 @@ def get_chat_config():
 
 @admin_bp.route('/api/omdb/config', methods=['GET'])
 def get_omdb_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Get current OMDB API configuration"""
     try:
         omdb_config = config_manager.get_omdb_config()
@@ -214,9 +208,8 @@ def get_omdb_config():
 
 @admin_bp.route('/api/omdb/config', methods=['POST'])
 def update_omdb_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Update OMDB API configuration"""
     try:
         data = request.get_json()
@@ -292,9 +285,8 @@ def update_omdb_config():
 
 @admin_bp.route('/api/omdb/test', methods=['POST'])
 def test_omdb_api():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Test OMDB API connection"""
     try:
         data = request.get_json()
@@ -320,9 +312,8 @@ def test_omdb_api():
 
 @admin_bp.route('/api/telegram/config', methods=['GET'])
 def get_telegram_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Get current Telegram agent configuration"""
     try:
         stats = telegram_agent.get_stats()
@@ -349,9 +340,8 @@ def get_telegram_config():
 
 @admin_bp.route('/api/telegram/config', methods=['POST'])
 def update_telegram_config():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Update Telegram agent configuration"""
     try:
         data = request.get_json()
@@ -415,9 +405,8 @@ def update_telegram_config():
 
 @admin_bp.route('/api/telegram/test', methods=['POST'])
 def test_telegram_connection():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Test Telegram bot connection"""
     try:
         result = telegram_agent.test_connection()
@@ -432,9 +421,8 @@ def test_telegram_connection():
 
 @admin_bp.route('/api/telegram/add-movie', methods=['POST'])
 def add_telegram_movie():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Add movie to Telegram database"""
     try:
         data = request.get_json()
@@ -479,9 +467,8 @@ def add_telegram_movie():
 
 @admin_bp.route('/api/telegram/stats', methods=['GET'])
 def get_telegram_stats():
-    auth = request.authorization
-    if not check_auth(auth):
-        return authenticate()
+    if not is_logged_in():
+        return redirect(url_for('admin.login'))
     """Get Telegram agent statistics"""
     try:
         stats = telegram_agent.get_stats()
@@ -496,6 +483,24 @@ def get_telegram_stats():
             'success': False,
             'error': str(e)
         }), 500
+
+@admin_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '')
+        password = request.form.get('password', '')
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            login_user()
+            return redirect(url_for('admin.admin_panel'))
+        else:
+            return render_template('admin_login.html', error='Invalid username or password')
+    # GET
+    return render_template('admin_login.html')
+
+@admin_bp.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('admin.login'))
 
 def register_admin_routes(app):
     """Register admin routes with Flask app"""
