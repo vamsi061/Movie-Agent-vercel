@@ -16,9 +16,9 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0f0f23;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: #e5e7eb;
+            color: white;
             overflow-x: hidden;
         }
 
@@ -68,11 +68,12 @@
         }
 
         .search-section {
-            background: #1a1a2e;
-            border: 1px solid #2a2a3e;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .search-form {
@@ -209,10 +210,11 @@
         }
 
         .results-section {
-            background: #1a1a2e;
-            border: 1px solid #2a2a3e;
-            border-radius: 16px;
-            padding: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: none;
         }
 
@@ -229,10 +231,10 @@
         }
 
         .movie-card {
-            background: linear-gradient(135deg, rgba(26, 26, 46, 0.9) 0%, rgba(42, 42, 62, 0.9) 100%);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 15px;
             padding: 20px;
-            border: 1px solid rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
             cursor: pointer;
         }
@@ -250,8 +252,8 @@
 
         .movie-card:hover {
             transform: translateY(-5px);
-            background: linear-gradient(135deg, rgba(42, 42, 62, 0.95) 0%, rgba(58, 58, 78, 0.95) 100%);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         }
 
         .movie-card.selected {
@@ -350,10 +352,11 @@
         }
 
         .extraction-section {
-            background: #1a1a2e;
-            border: 1px solid #2a2a3e;
-            border-radius: 16px;
-            padding: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: none;
             margin-top: 20px;
         }
