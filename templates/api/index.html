@@ -1727,9 +1727,90 @@
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
             
-            // Skip MovieBox URLs - let them be handled by the main interface
-            if (downloadUrl.includes('moviebox.ph') || downloadUrl.includes('movieboxapp.org')) {
-                console.log('MovieBox URL detected, redirecting directly:', downloadUrl);
+            // Handle MovieBox detail page URLs - extract server URLs first
+            if (downloadUrl.includes('moviebox.ph') && downloadUrl.includes('/detail/')) {
+                console.log('MovieBox detail URL detected, extracting server URLs first:', downloadUrl);
+                
+                // Trigger extraction to get the actual streaming server URLs
+                fetch('/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: downloadUrl,
+                        source: 'MovieBox'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.extraction_id) {
+                        console.log('MovieBox extraction started:', data.extraction_id);
+                        
+                        // Wait a bit for extraction to complete, then check results
+                        setTimeout(() => {
+                            fetch(`/status/${data.extraction_id}`)
+                            .then(response => response.json())
+                            .then(statusData => {
+                                if (statusData.status === 'completed' && statusData.results && statusData.results.download_links) {
+                                    console.log('MovieBox extraction completed, found links:', statusData.results.download_links);
+                                    
+                                    // If we found streaming server URLs, open them
+                                    const streamingLinks = statusData.results.download_links.filter(link => 
+                                        link.url.includes('fmovies') || link.url.includes('video') || link.service_type.includes('Streaming')
+                                    );
+                                    
+                                    if (streamingLinks.length > 0) {
+                                        console.log('Opening streaming links:', streamingLinks);
+                                        // Open the first streaming link
+                                        window.open(streamingLinks[0].url, '_blank');
+                                        
+                                        // If multiple servers, show them in console or open multiple tabs
+                                        if (streamingLinks.length > 1) {
+                                            console.log('Multiple servers available:', streamingLinks.map(link => `${link.text}: ${link.url}`));
+                                            // Optionally open all servers
+                                            streamingLinks.slice(1).forEach(link => {
+                                                setTimeout(() => window.open(link.url, '_blank'), 1000);
+                                            });
+                                        }
+                                    } else {
+                                        console.log('No streaming links found, opening detail page:', downloadUrl);
+                                        window.open(downloadUrl, '_blank');
+                                    }
+                                } else {
+                                    console.log('Extraction not completed yet or failed, opening detail page:', downloadUrl);
+                                    window.open(downloadUrl, '_blank');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error checking extraction status:', error);
+                                window.open(downloadUrl, '_blank');
+                            });
+                        }, 5000); // Wait 5 seconds for extraction
+                        
+                    } else {
+                        console.log('Extraction failed, opening detail page directly:', downloadUrl);
+                        window.open(downloadUrl, '_blank');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error starting extraction:', error);
+                    window.open(downloadUrl, '_blank');
+                });
+                
+                return;
+            }
+            
+            // Handle fmoviesunblocked URLs directly - these are already streaming URLs
+            if (downloadUrl.includes('fmoviesunblocked.net')) {
+                console.log('fmoviesunblocked streaming URL detected, opening directly:', downloadUrl);
+                window.open(downloadUrl, '_blank');
+                return;
+            }
+            
+            // Handle other MovieBox URLs
+            if (downloadUrl.includes('movieboxapp.org')) {
+                console.log('MovieBox app URL detected, opening directly:', downloadUrl);
                 window.open(downloadUrl, '_blank');
                 return;
             }

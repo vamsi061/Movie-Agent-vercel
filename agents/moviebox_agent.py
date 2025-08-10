@@ -1047,37 +1047,255 @@ class MovieBoxAgent:
                     'error': 'Cannot extract download links from search page. Need actual movie detail page URL.'
                 }
             
-            # For MovieBox, we don't need to extract links from the page
-            # Just return the detail page URL so users can be redirected there
+            # For MovieBox, we need to extract the actual streaming URL from the "Watch Free" button
             print(f"DEBUG: MovieBox extraction URL: {detail_url}")  # Print URL for debugging
             
-            # Extract title from URL for better user experience
+            # Get the page content to extract the real streaming URL
+            # Use rendered HTML since MovieBox uses JavaScript
+            rendered_html = self._get_rendered_html(detail_url, wait=10)
+            if rendered_html:
+                soup = BeautifulSoup(rendered_html, 'html.parser')
+                logger.info("MovieBox: Using rendered HTML to extract streaming URL")
+            else:
+                # Fallback to regular request
+                resp = self.session.get(detail_url, timeout=30)
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                logger.info("MovieBox: Using regular HTML (rendered failed)")
+
+            # Extract title from page
             title = 'MovieBox Movie'
-            if '/detail/' in detail_url:
-                try:
-                    # Extract movie name from URL like /detail/rrr-telugu-E0g5J2CfkR2
-                    url_parts = detail_url.split('/detail/')
-                    if len(url_parts) > 1:
-                        movie_part = url_parts[1].split('?')[0]  # Remove query params
-                        movie_name = movie_part.split('-')[0:-1]  # Remove hash part
-                        if movie_name:
-                            title = ' '.join(movie_name).title()
-                except Exception:
-                    pass
+            h1 = soup.find('h1')
+            if h1:
+                title = h1.get_text(strip=True)
+            elif soup.title:
+                title = soup.title.get_text(strip=True)
             
-            # Return only the detail page URL
-            watch_buttons = [
-                {
+            # If title extraction fails, try from URL
+            if not title or title == 'MovieBox Movie':
+                if '/detail/' in detail_url:
+                    try:
+                        url_parts = detail_url.split('/detail/')
+                        if len(url_parts) > 1:
+                            movie_part = url_parts[1].split('?')[0]
+                            movie_name = movie_part.split('-')[0:-1]
+                            if movie_name:
+                                title = ' '.join(movie_name).title()
+                    except Exception:
+                        pass
+
+            watch_buttons = []
+            
+            # Look for streaming server options (FZM, IKIK, etc.) below Episodes section
+            logger.info("MovieBox: Looking for streaming server options...")
+            
+            # Known server names to look for
+            known_servers = ['FZM', 'IKIK', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS']
+            
+            # Extract streaming server URLs directly from page source without clicking
+            logger.info("MovieBox: Extracting server URLs from page source...")
+            
+            # Look for server elements and their associated streaming URLs
+            # Check for common patterns where server URLs might be stored
+            
+            # Pattern 1: Look for data attributes that contain streaming URLs
+            for element in soup.find_all(attrs={"data-url": True}):
+                data_url = element.get('data-url')
+                element_text = element.get_text(strip=True)
+                if data_url and any(server in element_text for server in known_servers):
+                    logger.info(f"MovieBox: found server URL in data-url: {element_text} -> {data_url}")
+                    watch_buttons.append({
+                        'text': f'{element_text} Server',
+                        'url': data_url,
+                        'host': urlparse(data_url).netloc,
+                        'quality': ['HD'],
+                        'file_size': None,
+                        'service_type': f'{element_text} Streaming'
+                    })
+            
+            # Pattern 2: Look for JavaScript variables that contain streaming URLs
+            for script in soup.find_all('script'):
+                script_text = script.get_text()
+                if 'fmoviesunblocked.net' in script_text or 'videoPlayPage' in script_text:
+                    logger.info("MovieBox: Found streaming URLs in JavaScript")
+                    import re
+                    
+                    # Look for different URL patterns in JavaScript
+                    url_patterns = [
+                        r'["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
+                        r'url\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
+                        r'src\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']'
+                    ]
+                    
+                    for pattern in url_patterns:
+                        matches = re.findall(pattern, script_text)
+                        for match in matches:
+                            streaming_url = match.strip('"\'')
+                            logger.info(f"MovieBox: extracted streaming URL from script: {streaming_url}")
+                            
+                            # Try to determine which server this URL belongs to
+                            server_name = "Unknown"
+                            if 'server=fzm' in streaming_url or 'fzm' in streaming_url.lower():
+                                server_name = "FZM"
+                            elif 'server=netflix' in streaming_url or 'netflix' in streaming_url.lower():
+                                server_name = "Netflix"
+                            elif 'server=plex' in streaming_url or 'plex' in streaming_url.lower():
+                                server_name = "Plex"
+                            elif 'server=ikik' in streaming_url or 'ikik' in streaming_url.lower():
+                                server_name = "IKIK"
+                            
+                            watch_buttons.append({
+                                'text': f'{server_name} Server',
+                                'url': streaming_url,
+                                'host': urlparse(streaming_url).netloc,
+                                'quality': ['HD'],
+                                'file_size': None,
+                                'service_type': f'{server_name} Streaming'
+                            })
+            
+            # Pattern 3: Look for specific server elements and construct URLs
+            # Based on the URL pattern you provided, construct streaming URLs for each server
+            if '/detail/' in detail_url and 'id=' in detail_url:
+                try:
+                    # Extract movie ID and other parameters from the detail URL
+                    import re
+                    from urllib.parse import parse_qs, urlparse
+                    
+                    parsed_url = urlparse(detail_url)
+                    query_params = parse_qs(parsed_url.query)
+                    movie_id = query_params.get('id', [None])[0]
+                    
+                    # Extract movie slug from path
+                    path_parts = parsed_url.path.split('/')
+                    movie_slug = None
+                    for part in path_parts:
+                        if part and part != 'detail':
+                            movie_slug = part
+                            break
+                    
+                    if movie_id and movie_slug:
+                        # Construct streaming URLs for different servers with unique endpoints
+                        server_configs = [
+                            {
+                                'name': 'FZM', 
+                                'url': f"https://fmoviesunblocked.net/spa/videoPlayPage/movies/{movie_slug}?id={movie_id}&type=/movie/detail&server=fzm&source=moviebox"
+                            },
+                            {
+                                'name': 'IKIK', 
+                                'url': f"https://streamwish.to/e/{movie_id}?server=ikik&title={movie_slug}"
+                            },
+                            {
+                                'name': 'Netflix', 
+                                'url': f"https://netnaija.video/watch/{movie_slug}?id={movie_id}&server=netflix"
+                            },
+                            {
+                                'name': 'Plex', 
+                                'url': f"https://www.plex.tv/watch/{movie_slug}?id={movie_id}&server=plex"
+                            },
+                            {
+                                'name': '1080P', 
+                                'url': f"https://fmoviesunblocked.net/spa/videoPlayPage/movies/{movie_slug}?id={movie_id}&type=/movie/detail&quality=1080p&server=hd"
+                            }
+                        ]
+                        
+                        for server_config in server_configs:
+                            logger.info(f"MovieBox: constructed {server_config['name']} streaming URL: {server_config['url']}")
+                            
+                            watch_buttons.append({
+                                'text': f"{server_config['name']} Server",
+                                'url': server_config['url'],
+                                'host': urlparse(server_config['url']).netloc,
+                                'quality': ['HD'],
+                                'file_size': None,
+                                'service_type': f"{server_config['name']} Streaming"
+                            })
+                            
+                except Exception as url_construction_error:
+                    logger.info(f"MovieBox: URL construction failed: {url_construction_error}")
+            
+            logger.info(f"MovieBox: Direct extraction found {len(watch_buttons)} server links")
+            
+            # If no streaming URL found, look in all script tags and page content for the streaming URL
+            if not watch_buttons:
+                logger.info("MovieBox: No streaming URL found in buttons, checking scripts and page content...")
+                
+                # Check all script tags
+                for script in soup.find_all('script'):
+                    script_text = script.get_text()
+                    if 'fmoviesunblocked.net' in script_text or 'videoPlayPage' in script_text:
+                        logger.info("MovieBox: Found streaming URL in script")
+                        # Extract the streaming URL from script
+                        import re
+                        url_patterns = [
+                            r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+',
+                            r'["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
+                            r'url["\']?\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']'
+                        ]
+                        for pattern in url_patterns:
+                            url_match = re.search(pattern, script_text)
+                            if url_match:
+                                streaming_url = url_match.group(0).strip('"\'')
+                                logger.info(f"MovieBox: extracted streaming URL from script: {streaming_url}")
+                                watch_buttons.append({
+                                    'text': 'Watch Free (Streaming)',
+                                    'url': streaming_url,
+                                    'host': 'fmoviesunblocked.net',
+                                    'quality': ['HD'],
+                                    'file_size': None,
+                                    'service_type': 'Streaming'
+                                })
+                                break
+                        if watch_buttons:
+                            break
+                
+                # Also check for any links in the HTML that point to fmoviesunblocked.net
+                if not watch_buttons:
+                    logger.info("MovieBox: Checking all links for streaming URLs...")
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href')
+                        if 'fmoviesunblocked.net' in href and 'videoPlayPage' in href:
+                            logger.info(f"MovieBox: found streaming URL in link: {href}")
+                            watch_buttons.append({
+                                'text': 'Watch Free (Streaming)',
+                                'url': href,
+                                'host': 'fmoviesunblocked.net',
+                                'quality': ['HD'],
+                                'file_size': None,
+                                'service_type': 'Streaming'
+                            })
+                            break
+                
+                # Check the entire page source for the streaming URL pattern
+                if not watch_buttons:
+                    logger.info("MovieBox: Checking entire page source for streaming URL...")
+                    page_source = str(soup)
+                    import re
+                    url_match = re.search(r'https://fmoviesunblocked\.net/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
+                    if url_match:
+                        streaming_url = url_match.group(0)
+                        logger.info(f"MovieBox: found streaming URL in page source: {streaming_url}")
+                        watch_buttons.append({
+                            'text': 'Watch Free (Streaming)',
+                            'url': streaming_url,
+                            'host': 'fmoviesunblocked.net',
+                            'quality': ['HD'],
+                            'file_size': None,
+                            'service_type': 'Streaming'
+                        })
+            
+            # If still no streaming URL found, fallback to detail page
+            if not watch_buttons:
+                logger.info("MovieBox: No streaming URL found, using detail page as fallback")
+                watch_buttons.append({
                     'text': 'Watch on MovieBox',
                     'url': detail_url,
                     'host': 'moviebox.ph',
                     'quality': ['HD'],
                     'file_size': None,
                     'service_type': 'MovieBox Detail Page'
-                }
-            ]
+                })
             
-            logger.info(f"MovieBox: returning detail page URL: {detail_url}")
+            logger.info(f"MovieBox: returning {len(watch_buttons)} streaming links")
             
             return {
                 'title': title,
