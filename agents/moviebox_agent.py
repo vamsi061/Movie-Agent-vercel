@@ -175,14 +175,8 @@ class MovieBoxAgent:
                 except Exception as e:
                     logger.warning(f"MovieBox: failed to format search_url '{self.search_url}': {e}")
                     pass
-            # Common alternatives observed across deployments
-            candidates.extend([
-                f"{base}/web/searchResult?keyword={q_enc}",
-                f"{base}/web/search?keyword={q_enc}",
-                f"{base}/searchResult?keyword={q_enc}",
-                f"{base}/search?keyword={q_enc}",
-                f"{base}/?s={q_enc}",
-            ])
+            # Only use the configured search URL from admin panel
+            # Remove fallback URLs to prevent multiple searches
 
             results: List[Dict[str, Any]] = []
             base_host = urlparse(self.base_url).netloc
@@ -317,11 +311,18 @@ class MovieBoxAgent:
                     # Extract title from patterns like "go to MovieName [Language] detail page"
                     import re
                     if 'go to' in txt.lower() and 'detail page' in txt.lower():
-                        match = re.search(r'go to\s+(.+?)\s*\[', txt, re.IGNORECASE)
-                        if match:
-                            extracted_title = match.group(1).strip()
-                            if extracted_title and not is_generic_label(extracted_title):
-                                return self._clean_title(extracted_title)
+                        # Try multiple patterns to extract movie name
+                        patterns = [
+                            r'go to\s+(.+?)\s*\[',  # "go to MovieName [Language] detail page"
+                            r'go to\s+(.+?)\s+detail page',  # "go to MovieName detail page"
+                            r'go to\s+(.+?)(?:\s+\[|\s+detail)',  # More flexible pattern
+                        ]
+                        for pattern in patterns:
+                            match = re.search(pattern, txt, re.IGNORECASE)
+                            if match:
+                                extracted_title = match.group(1).strip()
+                                if extracted_title and not is_generic_label(extracted_title):
+                                    return self._clean_title(extracted_title)
                     
                     return self._clean_title(txt)
 
@@ -353,7 +354,86 @@ class MovieBoxAgent:
                                     items.append({'title': title, 'detail_url': detail_url})
                                 break
 
-                # Strategy B: Specific containers commonly seen on MovieBox-like sites
+                # Strategy B: MovieBox specific patterns first
+                # Look for MovieBox card titles that might not have direct links
+                moviebox_titles = []
+                moviebox_title_elements = soup.select('div.pc-card-title, div.card-title')
+                logger.info(f"MovieBox: found {len(moviebox_title_elements)} card title elements")
+                
+                for title_elem in moviebox_title_elements:
+                    title_text = title_elem.get_text(strip=True)
+                    logger.info(f"MovieBox: card title element text: '{title_text}'")
+                    if title_text and not is_generic_label(title_text):
+                        logger.info(f"MovieBox: processing card title: '{title_text}'")
+                        # Look for parent container that might have click handlers or data attributes
+                        container = title_elem.parent
+                        found_url = False
+                        while container and container.name != 'body':
+                            # Check for data attributes that might contain URLs or IDs
+                            logger.info(f"MovieBox: checking container {container.name} with attrs: {list(container.attrs.keys())}")
+                            for attr in container.attrs:
+                                if 'data-' in attr and container.attrs[attr]:
+                                    # Try to construct a potential URL
+                                    attr_value = container.attrs[attr]
+                                    logger.info(f"MovieBox: found data attr {attr}='{attr_value}'")
+                                    if isinstance(attr_value, str) and (attr_value.startswith('/') or attr_value.isdigit()):
+                                        if attr_value.startswith('/'):
+                                            detail_url = urljoin(self.base_url, attr_value)
+                                        else:
+                                            # Try common MovieBox URL patterns with the ID
+                                            detail_url = f"{self.base_url}/web/detail?videoId={attr_value}"
+                                        logger.info(f"MovieBox: constructed URL for '{title_text}': {detail_url}")
+                                        moviebox_titles.append({
+                                            'title': self._clean_title(title_text),
+                                            'detail_url': detail_url
+                                        })
+                                        found_url = True
+                                        break
+                            if found_url:
+                                break
+                            container = container.parent
+                        
+                        # If no data attributes found, try to find nearby links
+                        if not found_url:
+                            logger.info(f"MovieBox: no data attributes found for '{title_text}', looking for nearby links")
+                            container = title_elem.parent
+                            for level in range(3):  # Check up to 3 parent levels
+                                if container:
+                                    logger.info(f"MovieBox: checking level {level} container {container.name}")
+                                    for a in container.find_all('a', href=True):
+                                        href = a.get('href')
+                                        logger.info(f"MovieBox: found link href='{href}'")
+                                        if is_internal_href(href):
+                                            detail_url = href if href.startswith('http') else urljoin(self.base_url, href)
+                                            logger.info(f"MovieBox: using nearby link for '{title_text}': {detail_url}")
+                                            moviebox_titles.append({
+                                                'title': self._clean_title(title_text),
+                                                'detail_url': detail_url
+                                            })
+                                            found_url = True
+                                            break
+                                    if found_url:
+                                        break
+                                    container = container.parent
+                        
+                        # If still no URL found, create a fallback URL
+                        if not found_url:
+                            logger.info(f"MovieBox: no links found for '{title_text}', creating fallback URL")
+                            # Create a search-based fallback URL
+                            fallback_url = f"{self.base_url}/search?q={quote(title_text)}"
+                            moviebox_titles.append({
+                                'title': self._clean_title(title_text),
+                                'detail_url': fallback_url
+                            })
+                            logger.info(f"MovieBox: created fallback URL for '{title_text}': {fallback_url}")
+                
+                # Add MovieBox titles to items
+                logger.info(f"MovieBox: adding {len(moviebox_titles)} MovieBox-specific titles to items")
+                for mb_item in moviebox_titles:
+                    logger.info(f"MovieBox: adding item: '{mb_item['title']}' -> {mb_item['detail_url']}")
+                    items.append(mb_item)
+                
+                # Strategy C: Specific containers commonly seen on MovieBox-like sites
                 container_selectors = [
                     # Common movie site patterns
                     'div.search-result', 'div.search-results', 'div.search-list', 'ul.search-list',
@@ -390,7 +470,7 @@ class MovieBoxAgent:
                                 detail_url = href if href.startswith('http') else urljoin(self.base_url, href)
                                 items.append({'title': title, 'detail_url': detail_url})
 
-                # Strategy C: Broad direct anchors (works without watch buttons/containers)
+                # Strategy D: Broad direct anchors (works without watch buttons/containers)
                 for a in soup.find_all('a', href=True):
                     href = a['href']
                     if not is_internal_href(href):
@@ -403,7 +483,7 @@ class MovieBoxAgent:
                             detail_url = href if href.startswith('http') else urljoin(self.base_url, href)
                             items.append({'title': title, 'detail_url': detail_url})
 
-                # Strategy D: Aggressive search - look for ANY links with movie-like patterns
+                # Strategy E: Aggressive search - look for ANY links with movie-like patterns
                 # This catches cases where movies aren't in standard containers
                 for a in soup.find_all('a', href=True):
                     href = a['href']
@@ -437,7 +517,7 @@ class MovieBoxAgent:
                             detail_url = href if href.startswith('http') else urljoin(self.base_url, href)
                             items.append({'title': title, 'detail_url': detail_url})
 
-                # Strategy E: Look for onclick/data-href/data-url attributes with internal paths
+                # Strategy F: Look for onclick/data-href/data-url attributes with internal paths
                 for tag in soup.find_all(True):
                     for attr in ('onclick', 'data-href', 'data-url'):
                         val = tag.get(attr)
@@ -461,8 +541,8 @@ class MovieBoxAgent:
             except Exception:
                 pass
 
-            # Try all candidate search URLs until we get items
-            for idx, url in enumerate(candidates):
+            # Use only the configured search URL (first candidate)
+            for idx, url in enumerate(candidates[:1]):  # Only process first URL
                 try:
                     logger.info(f"MovieBox: searching {url}")
                     # Add a referer header for better acceptance
@@ -511,6 +591,13 @@ class MovieBoxAgent:
                     # If not enough from JSON, parse HTML
                     if len(candidate_items) == 0:
                         soup = BeautifulSoup(text, 'html.parser')
+                        
+                        # Debug: Check if this URL contains RRR content
+                        if movie_name and movie_name.lower() in text.lower():
+                            logger.info(f"MovieBox: URL {url} contains '{movie_name}' in HTML content")
+                        else:
+                            logger.info(f"MovieBox: URL {url} does NOT contain '{movie_name}' in HTML content")
+                        
                         candidate_items = extract_candidates_from_soup(soup)
                         logger.info(f"MovieBox: parsed candidate items (static): {len(candidate_items)}")
                         # Check if we're getting actual search results or just homepage content
@@ -612,6 +699,16 @@ class MovieBoxAgent:
                                     'classes': ' '.join(a.get('class') or [])
                                 })
                             logger.info(f"MovieBox: sample anchors: {samples}")
+                            
+                            # Also check if there are any elements containing the search query
+                            query_elements = []
+                            for element in soup_dbg.find_all(text=True):
+                                if movie_name and movie_name.lower() in str(element).lower():
+                                    query_elements.append(str(element).strip()[:100])
+                            if query_elements:
+                                logger.info(f"MovieBox: found text containing '{movie_name}': {query_elements[:5]}")
+                            else:
+                                logger.info(f"MovieBox: no text found containing '{movie_name}' in page content")
                         except Exception:
                             pass
 
@@ -625,13 +722,21 @@ class MovieBoxAgent:
                             
                             # Clean up title patterns like "go to MovieName [Language] detail page"
                             if 'go to' in title.lower() and 'detail page' in title.lower():
-                                match = re.search(r'go to\s+(.+?)\s*\[', title, re.IGNORECASE)
-                                if match:
-                                    extracted_title = match.group(1).strip()
-                                    if extracted_title and not is_generic_label(extracted_title):
-                                        title = self._clean_title(extracted_title)
-                                        # Update the item with cleaned title
-                                        item['title'] = title
+                                # Try multiple patterns to extract movie name
+                                patterns = [
+                                    r'go to\s+(.+?)\s*\[',  # "go to MovieName [Language] detail page"
+                                    r'go to\s+(.+?)\s+detail page',  # "go to MovieName detail page"
+                                    r'go to\s+(.+?)(?:\s+\[|\s+detail)',  # More flexible pattern
+                                ]
+                                for pattern in patterns:
+                                    match = re.search(pattern, title, re.IGNORECASE)
+                                    if match:
+                                        extracted_title = match.group(1).strip()
+                                        if extracted_title and not is_generic_label(extracted_title):
+                                            title = self._clean_title(extracted_title)
+                                            # Update the item with cleaned title
+                                            item['title'] = title
+                                            break
                             
                             if i < 5:  # Log first 5 titles for debugging
                                 logger.info(f"MovieBox: candidate {i}: '{title}'")
@@ -656,6 +761,7 @@ class MovieBoxAgent:
                                 elif len(q) <= 3 and t.startswith(q):
                                     query_matches = True
                                     logger.info(f"MovieBox: '{title}' matches '{q}' (starts with)")
+                                
                                 
                                 if not query_matches:
                                     if i < 3:  # Log why first few were filtered
