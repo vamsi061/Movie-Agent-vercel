@@ -859,7 +859,14 @@
                     
                     // Update the configuration in memory
                     agentConfig.agents[agentKey].base_url = baseUrl;
-                    agentConfig.agents[agentKey].search_url = searchUrl || `${baseUrl}/?s=`;
+                    // Use server-validated URLs returned by the backend if present
+                    const payload = result;
+                    if (payload && payload.urls) {
+                        agentConfig.agents[agentKey].search_url = payload.urls.search_url || agentConfig.agents[agentKey].search_url;
+                        agentConfig.agents[agentKey].base_url = payload.urls.base_url || baseUrl;
+                    } else {
+                        agentConfig.agents[agentKey].search_url = searchUrl || agentConfig.agents[agentKey].search_url || `${baseUrl}/?s=`;
+                    }
                     
                 } else {
                     const error = await response.json();

@@ -30,6 +30,19 @@ class AgentManager:
             if os.path.exists(self.config_file):
                 with open(self.config_file, 'r') as f:
                     self.config = json.load(f)
+                # Ensure newly added agents exist in configuration
+                if 'agents' not in self.config:
+                    self.config['agents'] = {}
+                # Inject MovieBox defaults if missing
+                if 'moviebox' not in self.config['agents']:
+                    self.config['agents']['moviebox'] = {
+                        "name": "MovieBox Agent",
+                        "enabled": True,
+                        "description": "Searches and extracts links from moviebox.ph",
+                        "base_url": "https://moviebox.ph",
+                        "search_url": "https://moviebox.ph/web/searchResult?keyword={}&utm_source="
+                    }
+                    self.save_configuration()
             else:
                 # Create default configuration
                 self.config = {
@@ -261,26 +274,34 @@ class AgentManager:
         }
     
     def update_agent_url(self, agent_key: str, base_url: str, search_url: str = None) -> bool:
-        """Update an agent's URL configuration"""
+        """Update an agent's URL configuration
+        - If search_url is provided (non-empty), set it explicitly.
+        - If search_url is None or empty, preserve existing search_url if present; otherwise derive a generic default.
+        """
         try:
-            if agent_key in self.config.get("agents", {}):
-                self.config["agents"][agent_key]["base_url"] = base_url
-                if search_url:
-                    self.config["agents"][agent_key]["search_url"] = search_url
+            agents_cfg = self.config.get("agents", {})
+            if agent_key in agents_cfg:
+                agent_cfg = agents_cfg[agent_key]
+                agent_cfg["base_url"] = base_url
+
+                if search_url is not None and str(search_url).strip() != "":
+                    agent_cfg["search_url"] = search_url
                 else:
-                    # Auto-generate search URL if not provided
-                    self.config["agents"][agent_key]["search_url"] = f"{base_url}/?s="
+                    # Preserve existing search_url when not provided
+                    if not agent_cfg.get("search_url"):
+                        # Fallback default if missing entirely
+                        agent_cfg["search_url"] = f"{base_url}/?s="
                 
                 # Update last modified timestamp
                 from datetime import datetime
-                self.config["agents"][agent_key]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                agent_cfg["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
                 self.save_configuration()
                 
                 # Reinitialize agents to use new URLs
                 self.initialize_agents()
                 
-                logger.info(f"Updated URLs for agent {agent_key}: {base_url}")
+                logger.info(f"Updated URLs for agent {agent_key}: base={base_url}, search={agent_cfg.get('search_url')}")
                 return True
             else:
                 logger.error(f"Agent {agent_key} not found in configuration")

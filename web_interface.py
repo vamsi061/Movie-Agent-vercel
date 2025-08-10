@@ -2616,7 +2616,9 @@ def update_agent_url():
         if success:
             # Reinitialize global agents
             initialize_agents()
-            return jsonify({'success': True, 'message': f'URLs updated for {agent_key}'})
+            # Return updated URLs so the UI can display exact values stored server-side
+            updated_urls = agent_manager.get_agent_url(agent_key)
+            return jsonify({'success': True, 'message': f'URLs updated for {agent_key}', 'urls': updated_urls})
         else:
             return jsonify({'error': 'Failed to update agent URLs'}), 500
             
