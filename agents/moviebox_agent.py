@@ -1089,131 +1089,191 @@ class MovieBoxAgent:
             # Look for streaming server options (FZM, IKIK, etc.) below Episodes section
             logger.info("MovieBox: Looking for streaming server options...")
             
-            # Known server names to look for
-            known_servers = ['FZM', 'IKIK', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS']
+            # Known server names to look for (including variations)
+            known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS']
             
-            # Extract streaming server URLs directly from page source without clicking
-            logger.info("MovieBox: Extracting server URLs from page source...")
+            # Use Selenium to get the REAL streaming URLs by actually interacting with the page
+            logger.info("MovieBox: Using Selenium to extract REAL server URLs...")
             
-            # Look for server elements and their associated streaming URLs
-            # Check for common patterns where server URLs might be stored
-            
-            # Pattern 1: Look for data attributes that contain streaming URLs
-            for element in soup.find_all(attrs={"data-url": True}):
-                data_url = element.get('data-url')
-                element_text = element.get_text(strip=True)
-                if data_url and any(server in element_text for server in known_servers):
-                    logger.info(f"MovieBox: found server URL in data-url: {element_text} -> {data_url}")
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                from selenium.webdriver.common.by import By
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                import time
+                
+                # Create a new Selenium driver in headless mode
+                options = Options()
+                options.add_argument("--headless")  # Force headless mode
+                options.add_argument("--no-sandbox")
+                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--disable-gpu")
+                options.add_argument("--disable-extensions")
+                options.add_argument("--disable-web-security")
+                options.add_argument("--disable-features=VizDisplayCompositor")
+                options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                
+                driver = None
+                try:
+                    driver = webdriver.Chrome(options=options)
+                    driver.set_page_load_timeout(30)
+                    
+                    logger.info(f"MovieBox: Loading page with Selenium: {detail_url}")
+                    driver.get(detail_url)
+                    
+                    # Wait for page to load
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "body"))
+                    )
+                    time.sleep(3)  # Wait for JavaScript to load
+                    
+                    # Look for Episodes section and server buttons below it
+                    for server_name in known_servers:
+                        try:
+                            logger.info(f"MovieBox: Looking for {server_name} server in Episodes section...")
+                            
+                            # First, find the Episodes section
+                            episodes_section = None
+                            try:
+                                episodes_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Episodes')]")
+                                if episodes_elements:
+                                    episodes_section = episodes_elements[0]
+                                    logger.info("MovieBox: Found Episodes section")
+                            except:
+                                pass
+                            
+                            # Find server buttons (look for clickable elements with server names)
+                            server_selectors = [
+                                f"//button[contains(text(), '{server_name}')]",
+                                f"//span[contains(text(), '{server_name}') and (@onclick or parent::*[@onclick])]",
+                                f"//div[contains(text(), '{server_name}') and (@onclick or parent::*[@onclick])]",
+                                f"//*[text()='{server_name}' and (self::button or self::span or self::div)]",
+                                f"//*[contains(text(), '{server_name}')]",  # More flexible search
+                                f"//span[text()='{server_name}']",  # Direct span text match
+                                f"//div[text()='{server_name}']"   # Direct div text match
+                            ]
+                            
+                            server_element = None
+                            for selector in server_selectors:
+                                try:
+                                    elements = driver.find_elements(By.XPATH, selector)
+                                    if elements:
+                                        server_element = elements[0]
+                                        logger.info(f"MovieBox: Found {server_name} server button using selector: {selector}")
+                                        break
+                                except:
+                                    continue
+                            
+                            if server_element:
+                                try:
+                                    # Scroll to server element
+                                    driver.execute_script("arguments[0].scrollIntoView(true);", server_element)
+                                    time.sleep(1)
+                                    
+                                    # Click the server button using JavaScript to avoid interception
+                                    driver.execute_script("arguments[0].click();", server_element)
+                                    logger.info(f"MovieBox: Clicked {server_name} server button using JavaScript")
+                                    time.sleep(2)  # Wait for server to be selected
+                                    
+                                    # Now look for and click the "Watch Free" button
+                                    watch_free_selectors = [
+                                        "//button[contains(text(), 'Watch Free')]",
+                                        "//div[contains(text(), 'Watch Free') and (@onclick or parent::*[@onclick])]",
+                                        "//span[contains(text(), 'Watch Free')]",
+                                        "//*[contains(@class, 'watch') and contains(text(), 'Free')]",
+                                        "//button[contains(text(), 'Watch Now')]",
+                                        "//*[contains(@class, 'pc-watch-btn')]"
+                                    ]
+                                    
+                                    watch_free_element = None
+                                    for selector in watch_free_selectors:
+                                        try:
+                                            elements = driver.find_elements(By.XPATH, selector)
+                                            if elements:
+                                                watch_free_element = elements[0]
+                                                button_text = watch_free_element.text.strip()
+                                                logger.info(f"MovieBox: Found Watch Free button for {server_name}: '{button_text}'")
+                                                break
+                                        except:
+                                            continue
+                                    
+                                    if watch_free_element:
+                                        # Click the Watch Free button using JavaScript to avoid interception
+                                        driver.execute_script("arguments[0].click();", watch_free_element)
+                                        logger.info(f"MovieBox: Clicked Watch Free button for {server_name} using JavaScript")
+                                        time.sleep(4)  # Wait longer for streaming URL to load
+                                        
+                                        # Check if URL changed to streaming URL
+                                        current_url = driver.current_url
+                                        if current_url != detail_url:
+                                            logger.info(f"MovieBox: {server_name} Watch Free redirected to: {current_url}")
+                                            watch_buttons.append({
+                                                'text': f'{server_name} Server',
+                                                'url': current_url,
+                                                'host': urlparse(current_url).netloc,
+                                                'quality': ['HD'],
+                                                'file_size': None,
+                                                'service_type': f'{server_name} Streaming'
+                                            })
+                                        else:
+                                            # Check for iframes or new windows that might contain streaming URL
+                                            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                                            for iframe in iframes:
+                                                iframe_src = iframe.get_attribute("src")
+                                                if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src):
+                                                    logger.info(f"MovieBox: {server_name} Watch Free loaded iframe: {iframe_src}")
+                                                    watch_buttons.append({
+                                                        'text': f'{server_name} Server',
+                                                        'url': iframe_src,
+                                                        'host': urlparse(iframe_src).netloc,
+                                                        'quality': ['HD'],
+                                                        'file_size': None,
+                                                        'service_type': f'{server_name} Streaming'
+                                                    })
+                                                    break
+                                        
+                                        # Go back to original page for next server
+                                        driver.get(detail_url)
+                                        WebDriverWait(driver, 5).until(
+                                            EC.presence_of_element_located((By.TAG_NAME, "body"))
+                                        )
+                                        time.sleep(2)
+                                    else:
+                                        logger.info(f"MovieBox: Could not find Watch Free button for {server_name}")
+                                        
+                                except Exception as click_error:
+                                    logger.info(f"MovieBox: Error clicking {server_name} server: {click_error}")
+                                    continue
+                            else:
+                                logger.info(f"MovieBox: Could not find {server_name} server button")
+                                
+                        except Exception as server_error:
+                            logger.info(f"MovieBox: Error processing {server_name}: {server_error}")
+                            continue
+                    
+                    logger.info(f"MovieBox: Selenium found {len(watch_buttons)} real server URLs")
+                    
+                finally:
+                    if driver:
+                        driver.quit()
+                        
+            except Exception as selenium_error:
+                logger.error(f"MovieBox: Selenium extraction failed: {selenium_error}")
+                
+                # Fallback: If Selenium fails, return the detail page URL
+                if not watch_buttons:
+                    logger.info("MovieBox: Selenium failed, using detail page as fallback")
                     watch_buttons.append({
-                        'text': f'{element_text} Server',
-                        'url': data_url,
-                        'host': urlparse(data_url).netloc,
+                        'text': 'Watch on MovieBox',
+                        'url': detail_url,
+                        'host': 'moviebox.ph',
                         'quality': ['HD'],
                         'file_size': None,
-                        'service_type': f'{element_text} Streaming'
+                        'service_type': 'MovieBox Detail Page'
                     })
             
-            # Pattern 2: Look for JavaScript variables that contain streaming URLs
-            for script in soup.find_all('script'):
-                script_text = script.get_text()
-                if 'fmoviesunblocked.net' in script_text or 'videoPlayPage' in script_text:
-                    logger.info("MovieBox: Found streaming URLs in JavaScript")
-                    import re
-                    
-                    # Look for different URL patterns in JavaScript
-                    url_patterns = [
-                        r'["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
-                        r'url\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
-                        r'src\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']'
-                    ]
-                    
-                    for pattern in url_patterns:
-                        matches = re.findall(pattern, script_text)
-                        for match in matches:
-                            streaming_url = match.strip('"\'')
-                            logger.info(f"MovieBox: extracted streaming URL from script: {streaming_url}")
-                            
-                            # Try to determine which server this URL belongs to
-                            server_name = "Unknown"
-                            if 'server=fzm' in streaming_url or 'fzm' in streaming_url.lower():
-                                server_name = "FZM"
-                            elif 'server=netflix' in streaming_url or 'netflix' in streaming_url.lower():
-                                server_name = "Netflix"
-                            elif 'server=plex' in streaming_url or 'plex' in streaming_url.lower():
-                                server_name = "Plex"
-                            elif 'server=ikik' in streaming_url or 'ikik' in streaming_url.lower():
-                                server_name = "IKIK"
-                            
-                            watch_buttons.append({
-                                'text': f'{server_name} Server',
-                                'url': streaming_url,
-                                'host': urlparse(streaming_url).netloc,
-                                'quality': ['HD'],
-                                'file_size': None,
-                                'service_type': f'{server_name} Streaming'
-                            })
-            
-            # Pattern 3: Look for specific server elements and construct URLs
-            # Based on the URL pattern you provided, construct streaming URLs for each server
-            if '/detail/' in detail_url and 'id=' in detail_url:
-                try:
-                    # Extract movie ID and other parameters from the detail URL
-                    import re
-                    from urllib.parse import parse_qs, urlparse
-                    
-                    parsed_url = urlparse(detail_url)
-                    query_params = parse_qs(parsed_url.query)
-                    movie_id = query_params.get('id', [None])[0]
-                    
-                    # Extract movie slug from path
-                    path_parts = parsed_url.path.split('/')
-                    movie_slug = None
-                    for part in path_parts:
-                        if part and part != 'detail':
-                            movie_slug = part
-                            break
-                    
-                    if movie_id and movie_slug:
-                        # Construct streaming URLs for different servers with unique endpoints
-                        server_configs = [
-                            {
-                                'name': 'FZM', 
-                                'url': f"https://fmoviesunblocked.net/spa/videoPlayPage/movies/{movie_slug}?id={movie_id}&type=/movie/detail&server=fzm&source=moviebox"
-                            },
-                            {
-                                'name': 'IKIK', 
-                                'url': f"https://streamwish.to/e/{movie_id}?server=ikik&title={movie_slug}"
-                            },
-                            {
-                                'name': 'Netflix', 
-                                'url': f"https://netnaija.video/watch/{movie_slug}?id={movie_id}&server=netflix"
-                            },
-                            {
-                                'name': 'Plex', 
-                                'url': f"https://www.plex.tv/watch/{movie_slug}?id={movie_id}&server=plex"
-                            },
-                            {
-                                'name': '1080P', 
-                                'url': f"https://fmoviesunblocked.net/spa/videoPlayPage/movies/{movie_slug}?id={movie_id}&type=/movie/detail&quality=1080p&server=hd"
-                            }
-                        ]
-                        
-                        for server_config in server_configs:
-                            logger.info(f"MovieBox: constructed {server_config['name']} streaming URL: {server_config['url']}")
-                            
-                            watch_buttons.append({
-                                'text': f"{server_config['name']} Server",
-                                'url': server_config['url'],
-                                'host': urlparse(server_config['url']).netloc,
-                                'quality': ['HD'],
-                                'file_size': None,
-                                'service_type': f"{server_config['name']} Streaming"
-                            })
-                            
-                except Exception as url_construction_error:
-                    logger.info(f"MovieBox: URL construction failed: {url_construction_error}")
-            
-            logger.info(f"MovieBox: Direct extraction found {len(watch_buttons)} server links")
+            logger.info(f"MovieBox: Total extraction found {len(watch_buttons)} server links")
             
             # If no streaming URL found, look in all script tags and page content for the streaming URL
             if not watch_buttons:

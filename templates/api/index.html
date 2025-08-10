@@ -1801,9 +1801,9 @@
                 return;
             }
             
-            // Handle fmoviesunblocked URLs directly - these are already streaming URLs
-            if (downloadUrl.includes('fmoviesunblocked.net')) {
-                console.log('fmoviesunblocked streaming URL detected, opening directly:', downloadUrl);
+            // Handle streaming URLs directly - these are already streaming URLs
+            if (downloadUrl.includes('fmoviesunblocked.net') || downloadUrl.includes('netflix.com') || downloadUrl.includes('plex.tv') || downloadUrl.includes('lok-lok.cc')) {
+                console.log('Streaming URL detected, opening directly:', downloadUrl);
                 window.open(downloadUrl, '_blank');
                 return;
             }
