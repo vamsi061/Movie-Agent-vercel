@@ -251,7 +251,23 @@ class AgentManager:
     
     def get_agent(self, agent_key: str) -> Optional[Any]:
         """Get a specific agent if it's enabled and initialized"""
-        return self.agents.get(agent_key)
+        agent = self.agents.get(agent_key)
+        if agent is None and agent_key == "moviebox" and self.is_agent_enabled("moviebox"):
+            # Try to reinitialize MovieBox agent if it failed before
+            try:
+                from agents.moviebox_agent import MovieBoxAgent
+                agent = MovieBoxAgent()
+                config = self.config.get("agents", {}).get("moviebox", {})
+                if config.get("base_url"):
+                    agent.base_url = config["base_url"]
+                if config.get("search_url"):
+                    agent.search_url = config["search_url"]
+                self.agents["moviebox"] = agent
+                logger.info(f"MovieBox agent re-initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to re-initialize MovieBox agent: {str(e)}")
+                return None
+        return agent
     
     def get_enabled_agent_names(self) -> List[str]:
         """Get list of enabled agent names"""

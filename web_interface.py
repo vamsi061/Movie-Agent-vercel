@@ -741,6 +741,9 @@ def extract_download_links():
                 elif movie_source == 'Movies4U':
                     agent = movies4u_agent
                     print(f"DEBUG: Using Movies4U agent for extraction")
+                elif movie_source == 'MovieBox':
+                    agent = agent_manager.get_agent('moviebox')
+                    print(f"DEBUG: Using MovieBox agent for extraction")
                 else:
                     agent = downloadhub_agent
                     print(f"DEBUG: Using DownloadHub agent for extraction")
@@ -758,6 +761,9 @@ def extract_download_links():
                 elif movie_source == 'Movies4U':
                     result = agent.extract_download_links(movie_url)
                     print(f"DEBUG: Movies4U extraction completed")
+                elif movie_source == 'MovieBox':
+                    result = agent.get_download_links(movie_url)
+                    print(f"DEBUG: MovieBox extraction completed")
                 else:
                     result = agent.get_download_links(movie_url)
                 print(f"DEBUG: Extraction completed for {extraction_id} with {len(result) if result else 0} links")
@@ -2860,6 +2866,9 @@ def enhanced_chat_extract():
                 elif movie_source == 'Movies4U':
                     agent = movies4u_agent
                     print(f"DEBUG: Using Movies4U agent for extraction")
+                elif movie_source == 'MovieBox':
+                    agent = agent_manager.get_agent('moviebox')
+                    print(f"DEBUG: Using MovieBox agent for extraction")
                 else:
                     agent = downloadhub_agent
                     print(f"DEBUG: Using DownloadHub agent for extraction")
@@ -2873,27 +2882,35 @@ def enhanced_chat_extract():
                     result = agent.get_download_links(movie_url)
                 elif movie_source == 'Movies4U':
                     result = agent.extract_download_links(movie_url)
+                elif movie_source == 'MovieBox':
+                    result = agent.get_download_links(movie_url)
                 else:
                     result = agent.get_download_links(movie_url)
                 
                 print(f"DEBUG: Extraction completed for {extraction_id} with {len(result) if result else 0} links")
                 
-                # Normalize result format
+                # Normalize result format - preserve full result structure for MovieBox
                 if isinstance(result, dict) and 'download_links' in result:
-                    download_links = result['download_links']
-                elif isinstance(result, list):
-                    download_links = result
+                    # For structured results (like MovieBox), preserve the full structure
+                    extraction_results[extraction_id] = {
+                        'status': 'completed',
+                        'movie_title': movie_title,
+                        'movie_url': movie_url,
+                        'movie_source': movie_source,
+                        'result': result,  # Store full result with all metadata
+                        'timestamp': time.time()
+                    }
                 else:
-                    download_links = []
-                
-                extraction_results[extraction_id] = {
-                    'status': 'completed',
-                    'movie_title': movie_title,
-                    'movie_url': movie_url,
-                    'movie_source': movie_source,
-                    'result': download_links,
-                    'timestamp': time.time()
-                }
+                    # For simple list results, wrap in structure
+                    download_links = result if isinstance(result, list) else []
+                    extraction_results[extraction_id] = {
+                        'status': 'completed',
+                        'movie_title': movie_title,
+                        'movie_url': movie_url,
+                        'movie_source': movie_source,
+                        'result': {'download_links': download_links},
+                        'timestamp': time.time()
+                    }
             except Exception as e:
                 print(f"DEBUG: Extraction failed for {extraction_id} in chat: {str(e)}")
                 extraction_results[extraction_id] = {

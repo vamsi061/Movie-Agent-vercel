@@ -3169,6 +3169,13 @@
 
         // Download Modal Functions
         function openDownloadModal(title, url, source) {
+            // For MovieBox, redirect directly to the detail page instead of extracting
+            if (source === 'MovieBox') {
+                console.log(`Redirecting to MovieBox detail page: ${url}`);
+                window.open(url, '_blank');
+                return;
+            }
+            
             const modal = document.getElementById('downloadModal');
             const modalTitle = document.getElementById('modalMovieTitle');
             const modalContent = document.getElementById('modalContent');
@@ -3184,7 +3191,7 @@
             modal.classList.add('show');
             document.body.style.overflow = 'hidden';
             
-            // Extract download links
+            // Extract download links for other sources
             extractDownloadLinks(title, url, source);
         }
 

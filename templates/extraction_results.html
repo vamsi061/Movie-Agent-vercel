@@ -249,7 +249,16 @@
                     <div class="download-links">
                         <h3>📥 Available Download Links ({{ result.download_links|length }})</h3>
                         
-                        {% for link in result.download_links %}
+                        <!-- DEBUG: Show result structure -->
+                        <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-size: 12px;">
+                            <strong>DEBUG RESULT STRUCTURE:</strong><br>
+                            result type: {{ result.__class__.__name__ }}<br>
+                            result keys: {{ result.keys() if result.keys else 'No keys method' }}<br>
+                            has download_links: {{ 'download_links' in result if result.keys else 'Cannot check' }}<br>
+                            result content: {{ result|truncate(200) }}
+                        </div>
+                        
+                        {% for link in (result.download_links if result.download_links else result) %}
                             <div class="link-item">
                                 <div class="link-title">
                                     {{ link.text or link.quality or 'Download Link' }}
@@ -259,10 +268,34 @@
                                         {% if link.quality %}Quality: {{ link.quality }}{% endif %}
                                         {% if link.host %} • Host: {{ link.host }}{% endif %}
                                         {% if link.size %} • Size: {{ link.size }}{% endif %}
+                                        {% if link.service_type %} • Type: {{ link.service_type }}{% endif %}
+                                        <!-- DEBUG: Show all link properties -->
+                                        <br><small style="color: #666;">DEBUG: service_type="{{ link.service_type }}", text="{{ link.text }}"</small>
                                     </div>
-                                    <a href="{{ link.url }}" target="_blank" class="download-btn">
-                                        Download
-                                    </a>
+                                    <div class="button-group">
+                                        {% if link.service_type == 'App Required' %}
+                                            <!-- Special buttons for MovieBox app links -->
+                                            <a href="{{ link.url }}" target="_blank" class="download-btn app-required" style="background: #ff6b6b; margin-right: 10px;">
+                                                📱 Get MovieBox App
+                                            </a>
+                                            <a href="{{ link.url }}" target="_blank" class="download-btn streaming" style="background: #4ecdc4;">
+                                                🎬 Open in New Tab
+                                            </a>
+                                        {% elif link.service_type == 'Streaming' %}
+                                            <!-- Button for streaming links -->
+                                            <a href="{{ link.url }}" target="_blank" class="download-btn streaming" style="background: #45b7d1; margin-right: 10px;">
+                                                ▶️ Watch Now
+                                            </a>
+                                            <a href="{{ link.url }}" target="_blank" class="download-btn" style="background: #96ceb4;">
+                                                🔗 Open Link
+                                            </a>
+                                        {% else %}
+                                            <!-- Regular download button -->
+                                            <a href="{{ link.url }}" target="_blank" class="download-btn">
+                                                📥 Download - TEMPLATE WORKING!
+                                            </a>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}

@@ -1727,6 +1727,13 @@
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
             
+            // Skip MovieBox URLs - let them be handled by the main interface
+            if (downloadUrl.includes('moviebox.ph') || downloadUrl.includes('movieboxapp.org')) {
+                console.log('MovieBox URL detected, redirecting directly:', downloadUrl);
+                window.open(downloadUrl, '_blank');
+                return;
+            }
+            
             // Check if it's a MoviezWap URL that needs resolution (download.php or extlinks_)
             if (downloadUrl.includes('moviezwap') && (downloadUrl.includes('download.php') || downloadUrl.includes('extlinks_'))) {
                 console.log('MoviezWap URL detected (download.php or extlinks_), auto-resolving...');
