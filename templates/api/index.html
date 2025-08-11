@@ -1898,14 +1898,29 @@
                         buttonElement.innerHTML = '<i class="fas fa-download"></i> Download Ready';
                         buttonElement.style.background = '#28a745';
                         
-                        // Start the download via proxy to ensure proper headers
-                        const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
-                        const link = document.createElement('a');
-                        link.href = proxyUrl;
-                        link.download = '';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        // Check if this is a DownloadHub link - open in new tab instead of downloading
+                        const isDownloadHubLink = ['downloadhub', 'hdhub4u', 'taazabull', 'hubdrive'].some(host => 
+                            data.final_download_url.toLowerCase().includes(host)
+                        );
+                        
+                        console.log('URL:', data.final_download_url, 'isDownloadHubLink:', isDownloadHubLink);
+                        
+                        if (isDownloadHubLink) {
+                            // Open DownloadHub links in new tab ONLY
+                            console.log('Opening DownloadHub link in new tab:', data.final_download_url);
+                            window.open(data.final_download_url, '_blank');
+                            return; // IMPORTANT: Exit here to prevent download
+                        } else {
+                            // Start the download via proxy for other links
+                            console.log('Starting download for non-DownloadHub link:', data.final_download_url);
+                            const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
+                            const link = document.createElement('a');
+                            link.href = proxyUrl;
+                            link.download = '';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
                         
                         // Show download started UI
                         showDownloadStatus();
@@ -1990,15 +2005,29 @@
                         buttonElement.innerHTML = '<i class="fas fa-download"></i> Download Ready';
                         buttonElement.style.background = '#28a745';
                         
-                        // Use the download proxy for better file handling
-                        const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
-                        const link = document.createElement('a');
-                        link.href = proxyUrl;
-                        link.download = ''; // Force download
-                        // link.target = '_blank'; // Removed to prevent new tab opening
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        // Check if this is a DownloadHub link - open in new tab instead of downloading
+                        const isDownloadHubLink = ['downloadhub', 'hdhub4u', 'taazabull', 'hubdrive'].some(host => 
+                            data.final_download_url.toLowerCase().includes(host)
+                        );
+                        
+                        console.log('Protected URL:', data.final_download_url, 'isDownloadHubLink:', isDownloadHubLink);
+                        
+                        if (isDownloadHubLink) {
+                            // Open DownloadHub links in new tab ONLY
+                            console.log('Opening protected DownloadHub link in new tab:', data.final_download_url);
+                            window.open(data.final_download_url, '_blank');
+                            return; // IMPORTANT: Exit here to prevent download
+                        } else {
+                            // Use the download proxy for better file handling
+                            const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
+                            const link = document.createElement('a');
+                            link.href = proxyUrl;
+                            link.download = ''; // Force download
+                            // link.target = '_blank'; // Removed to prevent new tab opening
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
                         
                         // Show success message
                         showMoviezWapNotification('SUCCESS: Protected download link processed! Download should start.', 'success');

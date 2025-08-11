@@ -1621,6 +1621,22 @@ def download_file():
         if not file_url:
             return jsonify({'error': 'No URL provided'}), 400
 
+        # For DownloadHub/HDHub4u/Taazabull/HubDrive links, open in new tab instead of downloading
+        if any(host in file_url.lower() for host in ['downloadhub', 'hdhub4u', 'taazabull', 'hubdrive']):
+            logger.info(f"DownloadHub link detected, opening in new tab: {file_url}")
+            return f'''
+            <html>
+            <head><title>Opening Link...</title></head>
+            <body>
+                <script>
+                    window.open('{file_url}', '_blank');
+                    window.close();
+                </script>
+                <p>Opening link in new tab... <a href="{file_url}" target="_blank">Click here if it doesn't open automatically</a></p>
+            </body>
+            </html>
+            ''', 200, {'Content-Type': 'text/html'}
+
         print(f"DEBUG: Proxying download for URL: {file_url}")
 
         parsed = urlparse(file_url)

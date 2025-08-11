@@ -1369,7 +1369,7 @@ class MovieBoxAgent:
                                 # Only add if it's actually a streaming URL, not an app download page
                                 if not any(x in current_url.lower() for x in ['download', 'app', 'install', 'play.google', 'app.store']):
                                     watch_buttons.append({
-                                        'text': 'Watch Free (FZM Server)',
+                                        'text': 'Play Stream (FZM Server)',
                                         'url': current_url,
                                         'host': urlparse(current_url).netloc,
                                         'quality': ['HD'],
@@ -1387,7 +1387,7 @@ class MovieBoxAgent:
                                     if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src or 'play' in iframe_src):
                                         logger.info(f"MovieBox: Watch Free loaded iframe: {iframe_src}")
                                         watch_buttons.append({
-                                            'text': 'Watch Free (Iframe)',
+                                            'text': 'Play Stream (Iframe)',
                                             'url': iframe_src,
                                             'host': urlparse(iframe_src).netloc,
                                             'quality': ['HD'],
@@ -1405,7 +1405,7 @@ class MovieBoxAgent:
                                         if url and not any(x in url.lower() for x in ['download', 'app', 'install']):
                                             logger.info(f"MovieBox: Found streaming URL in page source: {url}")
                                             watch_buttons.append({
-                                                'text': 'Watch Free (Extracted)',
+                                                'text': 'Play Stream (Extracted)',
                                                 'url': url,
                                                 'host': urlparse(url).netloc,
                                                 'quality': ['HD'],
@@ -1481,7 +1481,7 @@ class MovieBoxAgent:
                                     logger.info(f"MovieBox: Watch Free redirected to: {current_url}")
                                     if not any(x in current_url.lower() for x in ['download', 'app', 'install', 'play.google', 'app.store']):
                                         watch_buttons.append({
-                                            'text': 'Watch Free (Direct)',
+                                            'text': 'Play Stream (Direct)',
                                             'url': current_url,
                                             'host': urlparse(current_url).netloc,
                                             'quality': ['HD'],
@@ -1498,7 +1498,7 @@ class MovieBoxAgent:
                                         if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src or 'play' in iframe_src):
                                             logger.info(f"MovieBox: Watch Free loaded iframe: {iframe_src}")
                                             watch_buttons.append({
-                                                'text': 'Watch Free (Iframe)',
+                                                'text': 'Play Stream (Iframe)',
                                                 'url': iframe_src,
                                                 'host': urlparse(iframe_src).netloc,
                                                 'quality': ['HD'],
@@ -1516,7 +1516,7 @@ class MovieBoxAgent:
                                             if url and not any(x in url.lower() for x in ['download', 'app', 'install']):
                                                 logger.info(f"MovieBox: Found streaming URL in page source: {url}")
                                                 watch_buttons.append({
-                                                    'text': 'Watch Free (Extracted)',
+                                                    'text': 'Play Stream (Extracted)',
                                                     'url': url,
                                                     'host': urlparse(url).netloc,
                                                     'quality': ['HD'],
@@ -1543,7 +1543,7 @@ class MovieBoxAgent:
                 if not watch_buttons:
                     logger.info("MovieBox: Selenium failed, using detail page as fallback")
                     watch_buttons.append({
-                        'text': 'Watch on MovieBox',
+                        'text': 'Play Stream on MovieBox',
                         'url': detail_url,
                         'host': 'moviebox.ph',
                         'quality': ['HD'],
@@ -1575,7 +1575,7 @@ class MovieBoxAgent:
                                 streaming_url = url_match.group(0).strip('"\'')
                                 logger.info(f"MovieBox: extracted streaming URL from script: {streaming_url}")
                                 watch_buttons.append({
-                                    'text': 'Watch Free (Streaming)',
+                                    'text': 'Play Stream',
                                     'url': streaming_url,
                                     'host': 'fmoviesunblocked.net',
                                     'quality': ['HD'],

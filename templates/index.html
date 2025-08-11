@@ -2476,7 +2476,7 @@
                                     </div>
                                     <div class="movie-actions">
                                         <button class="download-btn" onclick="event.stopPropagation(); openDownloadModal('${movie.title}', '${movie.url || movie.detail_url}', '${movie.source}')">
-                                            <i class="fas fa-download"></i> Get Links
+                                            <i class="fas fa-${movie.source === 'MovieBox' ? 'play' : 'download'}"></i> ${movie.source === 'MovieBox' ? 'Play Stream' : 'Get Links'}
                                         </button>
                                     </div>
                                 </div>
@@ -2888,7 +2888,7 @@
                             ${link.host ? `<span style="background: rgba(255, 255, 255, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500; color: white;">Host: ${link.host}</span>` : ''}
                         </div>
                         <a href="${linkUrl}" target="_blank" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
-                            <i class="fas fa-download"></i> Download Now
+                            <i class="fas fa-${movieTitle.includes('MovieBox') ? 'play' : 'download'}"></i> ${movieTitle.includes('MovieBox') ? 'Play Stream' : 'Download Now'}
                         </a>
                     </div>
                 `;
@@ -2981,7 +2981,7 @@
                     </div>
                     <div class="movie-actions" style="display:flex; gap:10px;">
                         <button class="extract-btn" onclick="event.stopPropagation(); extractLinks(${actualIndex})">
-                            Extract Download Links
+                            ${movie.source === 'MovieBox' ? 'Get Stream Links' : 'Extract Download Links'}
                         </button>
                         <a class="extract-btn" style="display:none; background:#0088cc;" target="_blank" id="tg-btn-${actualIndex}">
                             <i class='fab fa-telegram-plane'></i> Open in Telegram
@@ -3161,7 +3161,10 @@
                     ${link.quality ? `<span class="meta-tag">Quality: ${link.quality}</span>` : ''}
                     ${link.file_size ? `<span class="meta-tag">Size: ${link.file_size}</span>` : ''}
                     <br>
-                    <a href="${link.url}" target="_blank">Download</a>
+                    <a href="${link.url}" target="_blank">
+                        ${link.url.includes('moviebox.ph') || link.url.includes('fmoviesunblocked') || link.url.includes('fmovies') ? 'Play Stream' : 
+                          (link.url.includes('downloadhub') || link.url.includes('hdhub4u') || link.url.includes('taazabull') || link.url.includes('hubdrive') ? 'Open Link' : 'Download')}
+                    </a>
                 `;
                 downloadLinks.appendChild(linkDiv);
             });
@@ -3314,10 +3317,16 @@
                                     ${isPriority ? 'Unlock & Download (Priority)' : 'Unlock & Download'}
                                 </button>
                             ` : `
-                                <a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
-                                    <i class="fas fa-download"></i>
-                                    ${isPriority ? 'Download Now (Priority)' : 'Download Now'}
-                                </a>
+                                ${linkUrl.includes('downloadhub') || linkUrl.includes('hdhub4u') || linkUrl.includes('taazabull') || linkUrl.includes('hubdrive') ? 
+                                    `<button class="download-link-button ${isPriority ? 'priority' : ''}" onclick="event.stopPropagation(); window.open('${linkUrl}', '_blank');" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                                        <i class="fas fa-external-link-alt"></i>
+                                        ${isPriority ? 'Open Link (Priority)' : 'Open Link'}
+                                    </button>` :
+                                    `<a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
+                                        <i class="fas fa-${movieTitle.includes('MovieBox') ? 'play' : 'download'}"></i>
+                                        ${movieTitle.includes('MovieBox') ? (isPriority ? 'Play Stream (Priority)' : 'Play Stream') : (isPriority ? 'Download Now (Priority)' : 'Download Now')}
+                                    </a>`
+                                }
                             `}
                         </div>
                         <div id="modal-unlocked-container-${index}"></div>

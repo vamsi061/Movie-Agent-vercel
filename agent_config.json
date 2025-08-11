@@ -2,7 +2,7 @@
   "agents": {
     "downloadhub": {
       "name": "Enhanced DownloadHub Agent",
-      "enabled": false,
+      "enabled": true,
       "description": "Searches and extracts download links from DownloadHub",
       "base_url": "https://hdhub4u.build/",
       "search_url": "https://hdhub4u.build/?s=rrr",
@@ -22,10 +22,10 @@
       "name": "MovieRulz Agent",
       "enabled": false,
       "description": "Searches and extracts download links from MovieRulz",
-      "base_url": "https://www.5movierulz.fish/",
-      "search_url": "https://www.5movierulz.fish/search_movies?s=",
+      "base_url": "https://www.5movierulz.pizza/",
+      "search_url": "https://www.5movierulz.pizza/search_movies?s=",
       "status": "active",
-      "last_updated": "2025-08-06 14:25:30"
+      "last_updated": "2025-08-11 22:05:49"
     },
     "skysetx": {
       "name": "SkySetX Agent",
@@ -56,7 +56,7 @@
     },
     "moviebox": {
       "name": "MovieBox Agent",
-      "enabled": true,
+      "enabled": false,
       "description": "Searches and extracts links from moviebox.ph",
       "base_url": "https://moviebox.ph",
       "search_url": "https://moviebox.ph/web/searchResult?keyword={}&utm_source=",

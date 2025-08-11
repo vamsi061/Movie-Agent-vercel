@@ -696,13 +696,24 @@ class MovieRulzAgent:
                                 'source': 'MovieRulz'
                             })
             
-            # Remove duplicates
+            # Filter to only show vcdnlare.com links
+            vcdnlare_links = []
             seen_urls = set()
-            unique_links = []
+            
             for link in download_links:
-                if link['url'] not in seen_urls:
-                    seen_urls.add(link['url'])
-                    unique_links.append(link)
+                # Only include vcdnlare.com links
+                if 'vcdnlare' in link.get('host', '').lower() or 'vcdnlare' in link.get('url', '').lower():
+                    if link['url'] not in seen_urls:
+                        seen_urls.add(link['url'])
+                        vcdnlare_links.append(link)
+            
+            # If no vcdnlare links found, log it but still return empty result
+            if not vcdnlare_links:
+                logger.info("MovieRulz: No vcdnlare.com streaming links found, filtering out all other links")
+            else:
+                logger.info(f"MovieRulz: Found {len(vcdnlare_links)} vcdnlare.com streaming links, filtered out other hosts")
+            
+            unique_links = vcdnlare_links
             
             return {
                 'status': 'success',
