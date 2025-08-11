@@ -32,9 +32,11 @@ debug_*
 cursor_*
 AUTO_*
 
-# Ignore JSON data files
-*.json
+# Ignore JSON data files (but keep essential config files)
 !config.json
+!agent_config.json
+!requirements.txt
+!package.json
 
 # Ignore nested git repositories
 movie_web_interface/

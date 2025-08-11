@@ -1,0 +1,66 @@
+{
+  "agents": {
+    "downloadhub": {
+      "name": "Enhanced DownloadHub Agent",
+      "enabled": false,
+      "description": "Searches and extracts download links from DownloadHub",
+      "base_url": "https://hdhub4u.build/",
+      "search_url": "https://hdhub4u.build/?s=rrr",
+      "status": "active",
+      "last_updated": "2025-08-06 08:04:42"
+    },
+    "moviezwap": {
+      "name": "MoviezWap Agent",
+      "enabled": false,
+      "description": "Searches and extracts download links from MoviezWap",
+      "base_url": "https://www.moviezwap.blue/",
+      "search_url": "https://www.moviezwap.blue/search.php?q=",
+      "status": "active",
+      "last_updated": "2025-08-03 16:01:54"
+    },
+    "movierulz": {
+      "name": "MovieRulz Agent",
+      "enabled": false,
+      "description": "Searches and extracts download links from MovieRulz",
+      "base_url": "https://www.5movierulz.fish/",
+      "search_url": "https://www.5movierulz.fish/search_movies?s=",
+      "status": "active",
+      "last_updated": "2025-08-06 14:25:30"
+    },
+    "skysetx": {
+      "name": "SkySetX Agent",
+      "enabled": false,
+      "description": "Searches and extracts download links from SkySetX",
+      "base_url": "https://skysetx.rip",
+      "search_url": "https://skysetx.rip/?s=",
+      "status": "active",
+      "last_updated": "2024-01-01"
+    },
+    "telegram": {
+      "name": "Telegram Movie Agent",
+      "enabled": false,
+      "description": "Searches movies through Telegram channels",
+      "base_url": "telegram://",
+      "search_url": "telegram://",
+      "status": "inactive",
+      "last_updated": "2025-08-08 19:15:24"
+    },
+    "movies4u": {
+      "name": "Movies4U Agent",
+      "enabled": false,
+      "description": "Searches and extracts download links from Movies4U with verification handling",
+      "base_url": "https://movies4u.bh/",
+      "search_url": "https://movies4u.bh/?s={}&ct_post_type=post%3Apage",
+      "status": "active",
+      "last_updated": "2025-08-09 21:27:16"
+    },
+    "moviebox": {
+      "name": "MovieBox Agent",
+      "enabled": true,
+      "description": "Searches and extracts links from moviebox.ph",
+      "base_url": "https://moviebox.ph",
+      "search_url": "https://moviebox.ph/web/searchResult?keyword={}&utm_source=",
+      "last_updated": "2025-08-10 06:59:22"
+    }
+  }
+}

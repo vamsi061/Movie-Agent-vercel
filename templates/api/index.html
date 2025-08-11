@@ -1723,6 +1723,62 @@
             }, 100);
         }
 
+        // Universal MoviezWap URL detection function
+        function isMoviezWapRelatedUrl(url) {
+            if (!url) return false;
+            
+            const urlLower = url.toLowerCase();
+            
+            // Direct MoviezWap domains
+            const moviezwapDomains = [
+                'moviezwap.com', 'moviezwap.org', 'moviezwap.in', 'moviezwap.pink',
+                'moviezwap.net', 'moviezwap.co', 'moviezwap.me', 'moviezwap.info',
+                'moviezzwaphd.xyz'
+            ];
+            
+            // Known MoviezWap redirect domains
+            const redirectDomains = [
+                'taazabull24.com', 'taazabull.com', 'taazabull1.com', 'taazabull2.com',
+                'taazabull3.com', 'taazabull4.com', 'taazabull5.com',
+                'hubdrive.space', 'hubdrive.me', 'hubdrive.in', 'hubdrive.com',
+                'moviesda.com', 'moviesda.net', 'moviesda.in',
+                'tamilrockers.com', 'tamilrockers.net', 'tamilrockers.in',
+                'isaimini.com', 'isaimini.net', 'isaimini.in'
+            ];
+            
+            // Check for direct MoviezWap domains
+            for (const domain of moviezwapDomains) {
+                if (urlLower.includes(domain)) {
+                    return true;
+                }
+            }
+            
+            // Check for known redirect domains
+            for (const domain of redirectDomains) {
+                if (urlLower.includes(domain)) {
+                    return true;
+                }
+            }
+            
+            // Check for MoviezWap URL patterns
+            const moviezwapPatterns = [
+                /download\.php/i,
+                /extlinks_/i,
+                /\?id=[A-Za-z0-9+/=]{20,}/,  // Base64-like encoded IDs
+                /moviezwap/i,
+                /taazabull/i,
+                /hubdrive/i
+            ];
+            
+            for (const pattern of moviezwapPatterns) {
+                if (pattern.test(url)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
         // Enhanced MoviezWap Auto-Resolution Function
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
@@ -1815,9 +1871,9 @@
                 return;
             }
             
-            // Check if it's a MoviezWap URL that needs resolution (download.php or extlinks_)
-            if (downloadUrl.includes('moviezwap') && (downloadUrl.includes('download.php') || downloadUrl.includes('extlinks_'))) {
-                console.log('MoviezWap URL detected (download.php or extlinks_), auto-resolving...');
+            // Universal MoviezWap detection - check for various MoviezWap patterns
+            if (isMoviezWapRelatedUrl(downloadUrl)) {
+                console.log('MoviezWap-related URL detected, auto-resolving...', downloadUrl);
                 
                 // Show loading state
                 const originalText = buttonElement.innerHTML;
@@ -1908,7 +1964,7 @@
                         // window.location.href = downloadUrl; // Removed - download already started
                     }, 3000);
                 });
-            } else if (downloadUrl.includes('moviezzwaphd.xyz')) {
+            } else if (isMoviezWapRelatedUrl(downloadUrl) || downloadUrl.includes('moviezzwaphd.xyz')) {
                 // This is a protected MoviezWap direct download URL that needs special handling
                 console.log('Protected MoviezWap download URL detected, using special handling:', downloadUrl);
                 

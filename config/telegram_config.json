@@ -1,0 +1,10 @@
+{
+  "bot_token": "8459285481:AAHYaC4cWJVH_f1AT2ibdsg5RzRU55nlU5k",
+  "channel_id": "-1001972104489",
+  "bot_username": "MoviesAgent123bot",
+  "enabled": true,
+  "webhook_url": "",
+  "auto_add_movies": true,
+  "search_timeout": 30,
+  "last_updated": "2025-08-08T19:12:59.432929"
+}

@@ -432,29 +432,64 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         return True
     
     def _init_movie_agents(self):
-        """Initialize movie search agents safely"""
+        """Initialize movie search agents safely using AgentManager"""
+        try:
+            from agent_manager import AgentManager
+            self.agent_manager = AgentManager()
+            self.agent_manager.initialize_agents()
+            
+            # Get only enabled agents from the agent manager
+            enabled_agents = self.agent_manager.get_enabled_agents()
+            self.movie_agents = enabled_agents
+            
+            logger.info(f"Initialized {len(self.movie_agents)} enabled movie search agents: {list(self.movie_agents.keys())}")
+            
+            if not self.movie_agents:
+                logger.warning("No movie agents are enabled! Please enable at least one agent in the admin panel.")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize movie agents through AgentManager: {e}")
+            # Fallback to manual initialization (old behavior) if AgentManager fails
+            self._init_movie_agents_fallback()
+    
+    def _init_movie_agents_fallback(self):
+        """Fallback method to initialize movie agents manually (old behavior)"""
+        logger.warning("Using fallback agent initialization - agents may not respect enabled/disabled settings")
         try:
             from agents.movierulz_agent import MovieRulzAgent
             self.movie_agents['movierulz'] = MovieRulzAgent()
-            logger.info("MovieRulz agent initialized")
+            logger.info("MovieRulz agent initialized (fallback)")
         except Exception as e:
             logger.error(f"Failed to initialize MovieRulz agent: {e}")
         
         try:
             from agents.moviezwap_agent import MoviezWapAgent
             self.movie_agents['moviezwap'] = MoviezWapAgent()
-            logger.info("MoviezWap agent initialized")
+            logger.info("MoviezWap agent initialized (fallback)")
         except Exception as e:
             logger.error(f"Failed to initialize MoviezWap agent: {e}")
         
         try:
             from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
             self.movie_agents['downloadhub'] = EnhancedDownloadHubAgent()
-            logger.info("DownloadHub agent initialized")
+            logger.info("DownloadHub agent initialized (fallback)")
         except Exception as e:
             logger.error(f"Failed to initialize DownloadHub agent: {e}")
         
-        logger.info(f"Initialized {len(self.movie_agents)} movie search agents: {list(self.movie_agents.keys())}")
+        logger.info(f"Fallback initialization completed: {len(self.movie_agents)} agents: {list(self.movie_agents.keys())}")
+    
+    def refresh_agents(self):
+        """Refresh movie agents based on current configuration"""
+        logger.info("Refreshing movie agents based on current configuration...")
+        self._init_movie_agents()
+    
+    def get_enabled_agent_names(self) -> List[str]:
+        """Get list of currently enabled agent names"""
+        if hasattr(self, 'agent_manager') and self.agent_manager:
+            return self.agent_manager.get_enabled_agent_names()
+        else:
+            # Fallback: return names of initialized agents
+            return [agent_name.title() + " Agent" for agent_name in self.movie_agents.keys()]
     
     def search_movies_with_sources(self, search_query: str, search_variations: List[str] = None) -> Dict[str, Any]:
         """Search for movies across all available sources in parallel"""

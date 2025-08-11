@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: movie-agent
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web_interface:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+    disk:
+      name: movie-agent-disk
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

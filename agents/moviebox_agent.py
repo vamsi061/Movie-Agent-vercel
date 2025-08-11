@@ -410,13 +410,32 @@ class MovieBoxAgent:
                         # Filter out music/song content - prioritize actual movies
                         is_music_content = any(keyword in title_text.lower() for keyword in [
                             'song', 'music', 'video song', 'full video', 'ost', 'soundtrack', 
-                            'audio', 'lyrical', 'lyrics', 'theme song', 'title song', 'bgm'
+                            'audio', 'lyrical', 'lyrics', 'theme song', 'title song', 'bgm',
+                            'ft.', 'feat.', 'featuring', 'privity', 'toni talks', 'became the',
+                            'rap', 'hip hop', 'album', 'track', 'single', 'remix', 'cover',
+                            # Additional music-specific patterns for Baahubali
+                            'jiyo re', 'manohari', 'oka praanam', 'acapella', 'version', 'daler mehndi',
+                            'divya kumar', 'neeti mohan', 'no instruments', '|', 'singer', 'artist'
                         ])
                         
                         if is_music_content:
                             logger.info(f"MovieBox: skipping music content: '{title_text}'")
                             continue
-                            
+                        
+                        # Prioritize simple, clean movie titles over complex ones
+                        is_simple_movie_title = False
+                        simple_patterns = [
+                            r'^baahubali\s*\d*\s*(\[.*\])?$',  # "Baahubali" or "Baahubali 2 [Telugu]"
+                            r'^baahubali.*conclusion.*(\[.*\])?$',  # "Baahubali 2 The Conclusion [Telugu]"
+                            r'^baahubali.*beginning.*(\[.*\])?$',   # "Baahubali The Beginning [Hindi]"
+                        ]
+                        
+                        for pattern in simple_patterns:
+                            if re.match(pattern, title_text.lower()):
+                                is_simple_movie_title = True
+                                logger.info(f"MovieBox: found simple movie title: '{title_text}'")
+                                break
+                        
                         logger.info(f"MovieBox: processing movie title: '{title_text}'")
                         # Look for parent container that might have click handlers or data attributes
                         container = title_elem.parent
@@ -592,12 +611,48 @@ class MovieBoxAgent:
                 
                 # Sort MovieBox titles to prioritize actual movies over other content
                 # Prioritize shorter, cleaner titles (likely actual movies) over longer descriptive ones
-                moviebox_titles.sort(key=lambda x: (
-                    # Prioritize titles that are just the movie name with language
-                    0 if re.match(r'^[A-Za-z0-9\s]+\s*\[[A-Za-z]+\]$', x['title']) else 1,
-                    # Then prioritize shorter titles
-                    len(x['title'])
-                ))
+                def movie_priority_score(item):
+                    title = item['title'].lower()
+                    url = item['detail_url'].lower()
+                    
+                    # HIGHEST PRIORITY: Simple, clean movie titles
+                    simple_movie_patterns = [
+                        r'^baahubali\s*\d*\s*(\[.*\])?$',  # "Baahubali" or "Baahubali 2 [Telugu]"
+                        r'^baahubali.*conclusion.*(\[.*\])?$',  # "Baahubali 2 The Conclusion [Telugu]"
+                        r'^baahubali.*beginning.*(\[.*\])?$',   # "Baahubali The Beginning [Hindi]"
+                    ]
+                    for pattern in simple_movie_patterns:
+                        if re.match(pattern, title):
+                            return (-10, len(item['title']))  # HIGHEST priority for actual movie titles
+                    
+                    # Deprioritize music/video content HEAVILY
+                    music_keywords = ['song', 'music', 'ft.', 'feat.', 'featuring', 'privity', 'toni talks', 
+                                    'became the', 'rap', 'hip hop', 'album', 'track', 'single', 'remix', 'cover',
+                                    'jiyo re', 'manohari', 'oka praanam', 'acapella', 'version', 'daler mehndi',
+                                    'divya kumar', 'neeti mohan', 'no instruments', '|', 'singer', 'artist']
+                    if any(keyword in title for keyword in music_keywords):
+                        return (20, len(item['title']))  # VERY low priority for music content
+                    
+                    # INTELLIGENT URL VALIDATION: Test if URL leads to streaming vs app download
+                    # Instead of hardcoding patterns, detect URL quality dynamically
+                    url_quality_score = self._assess_url_quality(item['detail_url'])
+                    if url_quality_score == 'bad':
+                        return (15, len(item['title']))  # Very low priority for app download URLs
+                    elif url_quality_score == 'good':
+                        return (-5, len(item['title']))  # High priority for streaming URLs
+                    
+                    # High priority for clean movie titles with language tags
+                    if re.match(r'^[A-Za-z0-9\s]+\s*\[[A-Za-z]+\]$', item['title']):
+                        return (0, len(item['title']))
+                    
+                    # Medium priority for clean movie titles without language tags
+                    if re.match(r'^[A-Za-z0-9\s]+$', item['title']) and len(item['title']) < 50:
+                        return (1, len(item['title']))
+                    
+                    # Lower priority for longer titles (likely descriptions)
+                    return (5, len(item['title']))
+                
+                moviebox_titles.sort(key=movie_priority_score)
                 
                 logger.info(f"MovieBox: adding {len(moviebox_titles)} MovieBox-specific titles to items")
                 for mb_item in moviebox_titles:
@@ -1012,8 +1067,38 @@ class MovieBoxAgent:
                     logger.warning(f"MovieBox: search candidate failed: {e}")
                     continue
 
-            # Deduplicate by URL and keep best titles (longer first)
-            results.sort(key=lambda r: len(r.get('title') or ''), reverse=True)
+            # Deduplicate by URL and prioritize good URLs over bad ones
+            def final_priority_score(result):
+                title = result.get('title', '').lower()
+                url = result.get('url', '').lower()
+                
+                # INTELLIGENT URL VALIDATION: Test if URL leads to streaming vs app download
+                # Only assess URLs for movie-like titles to avoid wasting time on music content
+                if not any(keyword in title for keyword in ['song', 'music', '|', 'ft.', 'feat.']):
+                    url_quality = self._assess_url_quality(result.get('url', ''))
+                    if url_quality == 'bad':
+                        return (15, len(result.get('title', '')))  # Very low priority for app download URLs
+                    elif url_quality == 'good':
+                        return (-1, len(result.get('title', '')))  # Very high priority for streaming URLs
+                
+                # Deprioritize music/video content
+                music_keywords = ['song', 'music', 'ft.', 'feat.', 'featuring', 'privity', 'toni talks', 
+                                'became the', 'rap', 'hip hop', 'album', 'track', 'single', 'remix', 'cover']
+                if any(keyword in title for keyword in music_keywords):
+                    return (10, len(result.get('title', '')))  # Low priority for music content
+                
+                # Default priority based on title length (longer titles first)
+                return (5, -len(result.get('title', '')))  # Negative length for descending order
+            
+            # Sort results by priority (good URLs first, then by title length)
+            results.sort(key=final_priority_score)
+            
+            # Log the top results to see the prioritization
+            logger.info("MovieBox: Final results after prioritization:")
+            for i, result in enumerate(results[:5]):
+                url_snippet = result.get('url', '')[-20:]  # Last 20 chars of URL
+                logger.info(f"  {i+1}. '{result.get('title')}' -> ...{url_snippet}")
+            
             seen = set()
             unique = []
             for r in results:
@@ -1045,6 +1130,25 @@ class MovieBoxAgent:
                     'total_links': 0,
                     'source': 'MovieBox',
                     'error': 'Cannot extract download links from search page. Need actual movie detail page URL.'
+                }
+            
+            # Check if this is a music/video content (not a movie)
+            if any(keyword in detail_url.lower() for keyword in ['song', 'music', 'video', 'ft.', 'feat.', 'privity', 'toni-talks']):
+                logger.info(f"MovieBox: Detected music/video content, not a movie: {detail_url}")
+                return {
+                    'title': 'Music/Video Content',
+                    'url': detail_url,
+                    'download_links': [{
+                        'text': 'Visit MovieBox for Music/Video',
+                        'url': detail_url,
+                        'host': 'moviebox.ph',
+                        'quality': ['HD'],
+                        'file_size': None,
+                        'service_type': 'Music/Video Content - Visit page directly',
+                        'instructions': 'This appears to be music or video content. Visit the page directly to access the content.'
+                    }],
+                    'total_links': 1,
+                    'source': 'MovieBox'
                 }
             
             # For MovieBox, we need to extract the actual streaming URL from the "Watch Free" button
@@ -1092,8 +1196,8 @@ class MovieBoxAgent:
             # Known server names to look for (including variations)
             known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS']
             
-            # Use Selenium to get the REAL streaming URLs by actually interacting with the page
-            logger.info("MovieBox: Using Selenium to extract REAL server URLs...")
+            # Use Selenium to follow the correct MovieBox workflow
+            logger.info("MovieBox: Using Selenium to follow correct MovieBox workflow...")
             
             try:
                 from selenium import webdriver
@@ -1105,7 +1209,7 @@ class MovieBoxAgent:
                 
                 # Create a new Selenium driver in headless mode
                 options = Options()
-                options.add_argument("--headless")  # Force headless mode
+                options.add_argument("--headless")
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
@@ -1119,138 +1223,312 @@ class MovieBoxAgent:
                     driver = webdriver.Chrome(options=options)
                     driver.set_page_load_timeout(30)
                     
-                    logger.info(f"MovieBox: Loading page with Selenium: {detail_url}")
+                    logger.info(f"MovieBox: Loading movie detail page: {detail_url}")
                     driver.get(detail_url)
                     
                     # Wait for page to load
                     WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
-                    time.sleep(3)  # Wait for JavaScript to load
+                    time.sleep(5)  # Wait longer for JavaScript to load completely
                     
-                    # Look for Episodes section and server buttons below it
-                    for server_name in known_servers:
+                    # Follow MovieBox workflow: Look for "Watch Free" button directly
+                    # (FZM server should be selected by default according to user)
+                    logger.info("MovieBox: Looking for Watch Free button (FZM should be default)...")
+                    
+                    # Look for Watch Free button with comprehensive selectors
+                    watch_free_selectors = [
+                        "//button[contains(text(), 'Watch Free')]",
+                        "//div[contains(text(), 'Watch Free') and (@onclick or parent::*[@onclick])]",
+                        "//span[contains(text(), 'Watch Free')]",
+                        "//*[contains(@class, 'watch') and contains(text(), 'Free')]",
+                        "//button[contains(text(), 'Watch Now')]",
+                        "//*[contains(@class, 'pc-watch-btn')]",
+                        "//*[contains(@class, 'watch-btn')]",
+                        "//*[contains(@class, 'play-btn')]",
+                        "//button[contains(@class, 'btn') and contains(text(), 'Watch')]",
+                        "//a[contains(text(), 'Watch Free')]",
+                        "//a[contains(text(), 'Watch Now')]",
+                        # More specific MovieBox selectors
+                        "//*[@class='pc-watch-btn']",
+                        "//*[contains(@class, 'watch-free')]",
+                        "//*[contains(@class, 'btn-watch')]",
+                        # Try variations
+                        "//button[text()='Watch Free']",
+                        "//div[text()='Watch Free']",
+                        "//*[@onclick and contains(text(), 'Watch')]"
+                    ]
+                    
+                    watch_free_element = None
+                    for selector in watch_free_selectors:
                         try:
-                            logger.info(f"MovieBox: Looking for {server_name} server in Episodes section...")
-                            
-                            # First, find the Episodes section
-                            episodes_section = None
-                            try:
-                                episodes_elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Episodes')]")
-                                if episodes_elements:
-                                    episodes_section = episodes_elements[0]
-                                    logger.info("MovieBox: Found Episodes section")
-                            except:
-                                pass
-                            
-                            # Find server buttons (look for clickable elements with server names)
-                            server_selectors = [
-                                f"//button[contains(text(), '{server_name}')]",
-                                f"//span[contains(text(), '{server_name}') and (@onclick or parent::*[@onclick])]",
-                                f"//div[contains(text(), '{server_name}') and (@onclick or parent::*[@onclick])]",
-                                f"//*[text()='{server_name}' and (self::button or self::span or self::div)]",
-                                f"//*[contains(text(), '{server_name}')]",  # More flexible search
-                                f"//span[text()='{server_name}']",  # Direct span text match
-                                f"//div[text()='{server_name}']"   # Direct div text match
-                            ]
-                            
-                            server_element = None
-                            for selector in server_selectors:
+                            elements = driver.find_elements(By.XPATH, selector)
+                            if elements:
+                                watch_free_element = elements[0]
+                                button_text = watch_free_element.text.strip()
+                                logger.info(f"MovieBox: Found Watch Free button: '{button_text}' using selector: {selector}")
+                                break
+                        except:
+                            continue
+                    
+                    # If no Watch Free button found, debug what's actually on the page
+                    if not watch_free_element:
+                        logger.info("MovieBox: Debugging - looking for all buttons and clickable elements...")
+                        try:
+                            # Find all buttons
+                            all_buttons = driver.find_elements(By.TAG_NAME, "button")
+                            logger.info(f"MovieBox: Found {len(all_buttons)} button elements")
+                            for i, btn in enumerate(all_buttons[:10]):  # Log first 10 buttons
                                 try:
-                                    elements = driver.find_elements(By.XPATH, selector)
-                                    if elements:
-                                        server_element = elements[0]
-                                        logger.info(f"MovieBox: Found {server_name} server button using selector: {selector}")
-                                        break
+                                    btn_text = btn.text.strip()
+                                    btn_class = btn.get_attribute("class")
+                                    logger.info(f"MovieBox: Button {i}: text='{btn_text}' class='{btn_class}'")
                                 except:
-                                    continue
+                                    pass
                             
-                            if server_element:
+                            # Find all divs with onclick
+                            clickable_divs = driver.find_elements(By.XPATH, "//div[@onclick]")
+                            logger.info(f"MovieBox: Found {len(clickable_divs)} clickable div elements")
+                            for i, div in enumerate(clickable_divs[:5]):  # Log first 5 divs
                                 try:
-                                    # Scroll to server element
-                                    driver.execute_script("arguments[0].scrollIntoView(true);", server_element)
-                                    time.sleep(1)
-                                    
-                                    # Click the server button using JavaScript to avoid interception
-                                    driver.execute_script("arguments[0].click();", server_element)
-                                    logger.info(f"MovieBox: Clicked {server_name} server button using JavaScript")
-                                    time.sleep(2)  # Wait for server to be selected
-                                    
-                                    # Now look for and click the "Watch Free" button
-                                    watch_free_selectors = [
-                                        "//button[contains(text(), 'Watch Free')]",
-                                        "//div[contains(text(), 'Watch Free') and (@onclick or parent::*[@onclick])]",
-                                        "//span[contains(text(), 'Watch Free')]",
-                                        "//*[contains(@class, 'watch') and contains(text(), 'Free')]",
-                                        "//button[contains(text(), 'Watch Now')]",
-                                        "//*[contains(@class, 'pc-watch-btn')]"
-                                    ]
-                                    
-                                    watch_free_element = None
-                                    for selector in watch_free_selectors:
-                                        try:
-                                            elements = driver.find_elements(By.XPATH, selector)
-                                            if elements:
-                                                watch_free_element = elements[0]
-                                                button_text = watch_free_element.text.strip()
-                                                logger.info(f"MovieBox: Found Watch Free button for {server_name}: '{button_text}'")
-                                                break
-                                        except:
-                                            continue
-                                    
-                                    if watch_free_element:
-                                        # Click the Watch Free button using JavaScript to avoid interception
-                                        driver.execute_script("arguments[0].click();", watch_free_element)
-                                        logger.info(f"MovieBox: Clicked Watch Free button for {server_name} using JavaScript")
-                                        time.sleep(4)  # Wait longer for streaming URL to load
+                                    div_text = div.text.strip()
+                                    div_class = div.get_attribute("class")
+                                    logger.info(f"MovieBox: Clickable div {i}: text='{div_text}' class='{div_class}'")
+                                except:
+                                    pass
+                            
+                            # Look for any element containing "watch" text
+                            watch_elements = driver.find_elements(By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'watch')]")
+                            logger.info(f"MovieBox: Found {len(watch_elements)} elements containing 'watch'")
+                            for i, elem in enumerate(watch_elements[:5]):
+                                try:
+                                    elem_text = elem.text.strip()
+                                    elem_tag = elem.tag_name
+                                    elem_class = elem.get_attribute("class")
+                                    logger.info(f"MovieBox: Watch element {i}: tag='{elem_tag}' text='{elem_text}' class='{elem_class}'")
+                                except:
+                                    pass
+                        except Exception as debug_error:
+                            logger.error(f"MovieBox: Debug error: {debug_error}")
+                    
+                    # If still no Watch Free button found, try alternative approaches
+                    if not watch_free_element:
+                        logger.info("MovieBox: Trying alternative approaches to find watch button...")
+                        
+                        # Try to find any button that might be the watch button
+                        alternative_selectors = [
+                            "//button",  # Any button
+                            "//div[contains(@class, 'btn')]",  # Div with btn class
+                            "//*[@onclick]",  # Any element with onclick
+                            "//a[contains(@class, 'btn')]",  # Link with btn class
+                            "//*[contains(@class, 'play')]",  # Any element with play class
+                            "//*[contains(@class, 'stream')]",  # Any element with stream class
+                        ]
+                        
+                        for selector in alternative_selectors:
+                            try:
+                                elements = driver.find_elements(By.XPATH, selector)
+                                for elem in elements:
+                                    try:
+                                        elem_text = elem.text.strip().lower()
+                                        elem_class = elem.get_attribute("class") or ""
                                         
-                                        # Check if URL changed to streaming URL
-                                        current_url = driver.current_url
-                                        if current_url != detail_url:
-                                            logger.info(f"MovieBox: {server_name} Watch Free redirected to: {current_url}")
+                                        # Check if this might be a watch/play button
+                                        # EXCLUDE "Download App" buttons - these are not what we want
+                                        if 'download' in elem_text and 'app' in elem_text:
+                                            logger.info(f"MovieBox: Skipping Download App button: text='{elem_text}'")
+                                            continue
+                                        
+                                        if any(keyword in elem_text for keyword in ['watch', 'play', 'stream', 'free']) or \
+                                           any(keyword in elem_class.lower() for keyword in ['watch', 'play', 'stream']) and 'btn' in elem_class.lower():
+                                            logger.info(f"MovieBox: Found potential watch button: text='{elem_text}' class='{elem_class}'")
+                                            watch_free_element = elem
+                                            break
+                                    except:
+                                        continue
+                                if watch_free_element:
+                                    break
+                            except:
+                                continue
+                    
+                    if watch_free_element:
+                        try:
+                            # Scroll to and click the Watch Free button
+                            driver.execute_script("arguments[0].scrollIntoView(true);", watch_free_element)
+                            time.sleep(2)
+                            
+                            # Click using JavaScript to avoid interception
+                            driver.execute_script("arguments[0].click();", watch_free_element)
+                            logger.info("MovieBox: Clicked Watch Free button")
+                            time.sleep(8)  # Wait longer for streaming URL to load
+                            
+                            # Check if URL changed to streaming URL
+                            current_url = driver.current_url
+                            if current_url != detail_url:
+                                logger.info(f"MovieBox: Watch Free redirected to: {current_url}")
+                                # Only add if it's actually a streaming URL, not an app download page
+                                if not any(x in current_url.lower() for x in ['download', 'app', 'install', 'play.google', 'app.store']):
+                                    watch_buttons.append({
+                                        'text': 'Watch Free (FZM Server)',
+                                        'url': current_url,
+                                        'host': urlparse(current_url).netloc,
+                                        'quality': ['HD'],
+                                        'file_size': None,
+                                        'service_type': 'FZM Streaming Server'
+                                    })
+                                    logger.info(f"MovieBox: Successfully extracted streaming URL: {current_url}")
+                                else:
+                                    logger.info("MovieBox: Watch Free redirected to app download page, skipping")
+                            else:
+                                # Check for iframes that might contain streaming URL
+                                iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                                for iframe in iframes:
+                                    iframe_src = iframe.get_attribute("src")
+                                    if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src or 'play' in iframe_src):
+                                        logger.info(f"MovieBox: Watch Free loaded iframe: {iframe_src}")
+                                        watch_buttons.append({
+                                            'text': 'Watch Free (Iframe)',
+                                            'url': iframe_src,
+                                            'host': urlparse(iframe_src).netloc,
+                                            'quality': ['HD'],
+                                            'file_size': None,
+                                            'service_type': 'Iframe Streaming'
+                                        })
+                                        break
+                                
+                                # Also check page source for streaming URLs
+                                if not watch_buttons:
+                                    page_source = driver.page_source
+                                    import re
+                                    streaming_urls = re.findall(r'https://[^"\'>\s]*(?:fmovies|stream|video|play)[^"\'>\s]*', page_source)
+                                    for url in streaming_urls:
+                                        if url and not any(x in url.lower() for x in ['download', 'app', 'install']):
+                                            logger.info(f"MovieBox: Found streaming URL in page source: {url}")
                                             watch_buttons.append({
-                                                'text': f'{server_name} Server',
-                                                'url': current_url,
-                                                'host': urlparse(current_url).netloc,
+                                                'text': 'Watch Free (Extracted)',
+                                                'url': url,
+                                                'host': urlparse(url).netloc,
                                                 'quality': ['HD'],
                                                 'file_size': None,
-                                                'service_type': f'{server_name} Streaming'
+                                                'service_type': 'Extracted Streaming'
                                             })
-                                        else:
-                                            # Check for iframes or new windows that might contain streaming URL
-                                            iframes = driver.find_elements(By.TAG_NAME, "iframe")
-                                            for iframe in iframes:
-                                                iframe_src = iframe.get_attribute("src")
-                                                if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src):
-                                                    logger.info(f"MovieBox: {server_name} Watch Free loaded iframe: {iframe_src}")
-                                                    watch_buttons.append({
-                                                        'text': f'{server_name} Server',
-                                                        'url': iframe_src,
-                                                        'host': urlparse(iframe_src).netloc,
-                                                        'quality': ['HD'],
-                                                        'file_size': None,
-                                                        'service_type': f'{server_name} Streaming'
-                                                    })
-                                                    break
-                                        
-                                        # Go back to original page for next server
-                                        driver.get(detail_url)
-                                        WebDriverWait(driver, 5).until(
-                                            EC.presence_of_element_located((By.TAG_NAME, "body"))
-                                        )
-                                        time.sleep(2)
-                                    else:
-                                        logger.info(f"MovieBox: Could not find Watch Free button for {server_name}")
-                                        
-                                except Exception as click_error:
-                                    logger.info(f"MovieBox: Error clicking {server_name} server: {click_error}")
-                                    continue
-                            else:
-                                logger.info(f"MovieBox: Could not find {server_name} server button")
+                                            break
+                            
+                        except Exception as click_error:
+                            logger.error(f"MovieBox: Error clicking Watch Free button: {click_error}")
+                    else:
+                        logger.warning("MovieBox: Could not find Watch Free button on the page")
+                        
+                        # Check if we're on a "Download App" page (wrong URL)
+                        page_source = driver.page_source.lower()
+                        if 'download app' in page_source and 'watch free' not in page_source:
+                            logger.error("MovieBox: This appears to be a 'Download App' page, not a movie streaming page!")
+                            logger.error("MovieBox: The search result URL is incorrect - it leads to an app download page instead of streaming page")
+                            # Return an error indicating wrong URL
+                            watch_buttons.append({
+                                'text': 'Wrong URL - App Download Page',
+                                'url': detail_url,
+                                'host': 'moviebox.ph',
+                                'quality': ['N/A'],
+                                'file_size': None,
+                                'service_type': 'Error - This URL leads to app download page, not streaming',
+                                'error': 'This MovieBox URL leads to an app download page instead of the movie streaming page. The search algorithm needs to select a different URL.'
+                            })
+                    
+                    # If no server-specific buttons found, try to find "Watch Free" button directly
+                    if not watch_buttons:
+                        logger.info("MovieBox: No server buttons found, looking for Watch Free button directly...")
+                        
+                        # Look for Watch Free button without server selection
+                        watch_free_selectors = [
+                            "//button[contains(text(), 'Watch Free')]",
+                            "//div[contains(text(), 'Watch Free') and (@onclick or parent::*[@onclick])]",
+                            "//span[contains(text(), 'Watch Free')]",
+                            "//*[contains(@class, 'watch') and contains(text(), 'Free')]",
+                            "//button[contains(text(), 'Watch Now')]",
+                            "//*[contains(@class, 'pc-watch-btn')]",
+                            "//*[contains(@class, 'watch-btn')]",
+                            "//*[contains(@class, 'play-btn')]",
+                            "//button[contains(@class, 'btn') and contains(text(), 'Watch')]",
+                            "//a[contains(text(), 'Watch Free')]",
+                            "//a[contains(text(), 'Watch Now')]"
+                        ]
+                        
+                        watch_free_element = None
+                        for selector in watch_free_selectors:
+                            try:
+                                elements = driver.find_elements(By.XPATH, selector)
+                                if elements:
+                                    watch_free_element = elements[0]
+                                    button_text = watch_free_element.text.strip()
+                                    logger.info(f"MovieBox: Found Watch Free button: '{button_text}' using selector: {selector}")
+                                    break
+                            except:
+                                continue
+                        
+                        if watch_free_element:
+                            try:
+                                # Scroll to and click the Watch Free button
+                                driver.execute_script("arguments[0].scrollIntoView(true);", watch_free_element)
+                                time.sleep(1)
+                                driver.execute_script("arguments[0].click();", watch_free_element)
+                                logger.info("MovieBox: Clicked Watch Free button directly")
+                                time.sleep(5)  # Wait for streaming URL to load
                                 
-                        except Exception as server_error:
-                            logger.info(f"MovieBox: Error processing {server_name}: {server_error}")
-                            continue
+                                # Check if URL changed to streaming URL
+                                current_url = driver.current_url
+                                if current_url != detail_url:
+                                    logger.info(f"MovieBox: Watch Free redirected to: {current_url}")
+                                    if not any(x in current_url.lower() for x in ['download', 'app', 'install', 'play.google', 'app.store']):
+                                        watch_buttons.append({
+                                            'text': 'Watch Free (Direct)',
+                                            'url': current_url,
+                                            'host': urlparse(current_url).netloc,
+                                            'quality': ['HD'],
+                                            'file_size': None,
+                                            'service_type': 'Direct Streaming'
+                                        })
+                                    else:
+                                        logger.info("MovieBox: Watch Free redirected to app download page, skipping")
+                                else:
+                                    # Check for iframes that might contain streaming URL
+                                    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                                    for iframe in iframes:
+                                        iframe_src = iframe.get_attribute("src")
+                                        if iframe_src and ('fmovies' in iframe_src or 'video' in iframe_src or 'stream' in iframe_src or 'play' in iframe_src):
+                                            logger.info(f"MovieBox: Watch Free loaded iframe: {iframe_src}")
+                                            watch_buttons.append({
+                                                'text': 'Watch Free (Iframe)',
+                                                'url': iframe_src,
+                                                'host': urlparse(iframe_src).netloc,
+                                                'quality': ['HD'],
+                                                'file_size': None,
+                                                'service_type': 'Iframe Streaming'
+                                            })
+                                            break
+                                    
+                                    # Also check page source for streaming URLs
+                                    if not watch_buttons:
+                                        page_source = driver.page_source
+                                        import re
+                                        streaming_urls = re.findall(r'https://[^"\'>\s]*(?:fmovies|stream|video|play)[^"\'>\s]*', page_source)
+                                        for url in streaming_urls:
+                                            if url and not any(x in url.lower() for x in ['download', 'app', 'install']):
+                                                logger.info(f"MovieBox: Found streaming URL in page source: {url}")
+                                                watch_buttons.append({
+                                                    'text': 'Watch Free (Extracted)',
+                                                    'url': url,
+                                                    'host': urlparse(url).netloc,
+                                                    'quality': ['HD'],
+                                                    'file_size': None,
+                                                    'service_type': 'Extracted Streaming'
+                                                })
+                                                break
+                                
+                            except Exception as click_error:
+                                logger.info(f"MovieBox: Error clicking Watch Free button: {click_error}")
+                        else:
+                            logger.info("MovieBox: Could not find any Watch Free button")
                     
                     logger.info(f"MovieBox: Selenium found {len(watch_buttons)} real server URLs")
                     
@@ -1343,17 +1621,69 @@ class MovieBoxAgent:
                             'service_type': 'Streaming'
                         })
             
-            # If still no streaming URL found, fallback to detail page
+            # If still no streaming URL found, try to extract the real streaming URL from the page
             if not watch_buttons:
-                logger.info("MovieBox: No streaming URL found, using detail page as fallback")
-                watch_buttons.append({
-                    'text': 'Watch on MovieBox',
-                    'url': detail_url,
-                    'host': 'moviebox.ph',
-                    'quality': ['HD'],
-                    'file_size': None,
-                    'service_type': 'MovieBox Detail Page'
-                })
+                logger.info("MovieBox: No streaming URL found via Selenium, trying manual extraction...")
+                
+                # Look for the actual streaming URL patterns in the page
+                streaming_patterns = [
+                    r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+',
+                    r'https://[^"\'>\s]*fmovies[^"\'>\s]*/[^"\'>\s]*',
+                    r'https://[^"\'>\s]*stream[^"\'>\s]*/[^"\'>\s]*',
+                    r'https://[^"\'>\s]*video[^"\'>\s]*/[^"\'>\s]*',
+                    r'https://[^"\'>\s]*play[^"\'>\s]*/[^"\'>\s]*'
+                ]
+                
+                page_content = str(soup)
+                for pattern in streaming_patterns:
+                    import re
+                    matches = re.findall(pattern, page_content, re.IGNORECASE)
+                    for match in matches:
+                        # Clean up the URL
+                        clean_url = match.strip('"\'')
+                        if 'fmovies' in clean_url or 'stream' in clean_url:
+                            logger.info(f"MovieBox: Found streaming URL via pattern matching: {clean_url}")
+                            watch_buttons.append({
+                                'text': 'Watch Free (Streaming)',
+                                'url': clean_url,
+                                'host': urlparse(clean_url).netloc,
+                                'quality': ['HD'],
+                                'file_size': None,
+                                'service_type': 'Streaming Server'
+                            })
+                            break
+                    if watch_buttons:
+                        break
+                
+                # If still no streaming URL, look for iframe sources
+                if not watch_buttons:
+                    logger.info("MovieBox: Looking for iframe sources...")
+                    for iframe in soup.find_all('iframe'):
+                        src = iframe.get('src', '')
+                        if src and ('stream' in src or 'video' in src or 'play' in src):
+                            logger.info(f"MovieBox: Found iframe streaming source: {src}")
+                            watch_buttons.append({
+                                'text': 'Watch Free (Iframe)',
+                                'url': src,
+                                'host': urlparse(src).netloc,
+                                'quality': ['HD'],
+                                'file_size': None,
+                                'service_type': 'Iframe Streaming'
+                            })
+                            break
+                
+                # Last resort: Return a message indicating the user should visit the page directly
+                if not watch_buttons:
+                    logger.info("MovieBox: Could not extract streaming URL, providing manual instructions")
+                    watch_buttons.append({
+                        'text': 'Visit MovieBox Page (Manual)',
+                        'url': detail_url,
+                        'host': 'moviebox.ph',
+                        'quality': ['HD'],
+                        'file_size': None,
+                        'service_type': 'Manual - Visit page and click "Watch Free" button',
+                        'instructions': 'Visit this page, select a server (FZM, IKIK, etc.) and click "Watch Free" to get the streaming link'
+                    })
             
             logger.info(f"MovieBox: returning {len(watch_buttons)} streaming links")
             
@@ -1396,6 +1726,78 @@ class MovieBoxAgent:
 
     def _is_direct_file(self, url: str) -> bool:
         return any(ext in url.lower() for ext in ['.mp4', '.mkv', '.avi', '.m3u8'])
+
+    def _assess_url_quality(self, url: str) -> str:
+        """
+        Intelligently assess if a MovieBox URL leads to streaming content or app download page.
+        Returns: 'good' for streaming URLs, 'bad' for app download URLs, 'unknown' for uncertain
+        """
+        try:
+            # Quick check: Make a lightweight request to see what type of page it is
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+            }
+            
+            # Make a quick HEAD request first to check if URL is accessible
+            try:
+                head_response = requests.head(url, headers=headers, timeout=5, allow_redirects=True)
+                if head_response.status_code != 200:
+                    return 'unknown'
+            except:
+                return 'unknown'
+            
+            # Make a quick GET request to check page content
+            response = requests.get(url, headers=headers, timeout=8, allow_redirects=True)
+            if response.status_code != 200:
+                return 'unknown'
+            
+            content = response.text.lower()
+            
+            # Check for app download indicators (bad URLs)
+            app_download_indicators = [
+                'download app', 'download the app', 'get the app', 'install app',
+                'app store', 'play store', 'google play', 'app.moviebox',
+                'mobile app', 'download moviebox app', 'get moviebox app'
+            ]
+            
+            # Check for streaming indicators (good URLs)
+            streaming_indicators = [
+                'watch free', 'watch now', 'play movie', 'streaming',
+                'fzm', 'ikik', 'server', 'episode', 'quality',
+                'watch online', 'stream online', 'video player'
+            ]
+            
+            app_score = sum(1 for indicator in app_download_indicators if indicator in content)
+            streaming_score = sum(1 for indicator in streaming_indicators if indicator in content)
+            
+            # If page has strong app download indicators and no streaming indicators
+            if app_score >= 2 and streaming_score == 0:
+                logger.info(f"MovieBox: URL assessment - BAD (app download page): {url[-30:]}")
+                return 'bad'
+            
+            # If page has streaming indicators and minimal app indicators
+            elif streaming_score >= 2 and app_score <= 1:
+                logger.info(f"MovieBox: URL assessment - GOOD (streaming page): {url[-30:]}")
+                return 'good'
+            
+            # Check for specific page structure indicators
+            elif 'watch free' in content and 'download app' not in content:
+                logger.info(f"MovieBox: URL assessment - GOOD (has watch free): {url[-30:]}")
+                return 'good'
+            
+            elif 'download app' in content and 'watch free' not in content:
+                logger.info(f"MovieBox: URL assessment - BAD (only download app): {url[-30:]}")
+                return 'bad'
+            
+            else:
+                logger.info(f"MovieBox: URL assessment - UNKNOWN (mixed signals): {url[-30:]}")
+                return 'unknown'
+                
+        except Exception as e:
+            logger.warning(f"MovieBox: URL assessment failed for {url[-30:]}: {e}")
+            return 'unknown'
 
     def _is_potential_link(self, url: str, text: str) -> bool:
         host = urlparse(url).netloc.lower()

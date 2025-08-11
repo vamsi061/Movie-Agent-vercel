@@ -6,10 +6,11 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, quote
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+# Selenium imports - disabled for Render deployment
+# import undetected_chromedriver as uc
+# from selenium.webdriver.common.by import By
+# from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.support import expected_conditions as EC
 import Levenshtein
 import base64
 import threading
@@ -99,35 +100,19 @@ def is_fuzzy_match(input_title, candidate_title, threshold=60):
     return ratio >= threshold
 
 def get_rendered_html(url, wait_time=10):
-    """Get rendered HTML with improved error handling"""
-    options = uc.ChromeOptions()
-    options.headless = True
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-    
-    driver = None
+    """Get rendered HTML - Selenium disabled for Render deployment"""
+    print(f"Warning: Selenium functionality disabled for Render deployment. URL: {url}")
     try:
-        driver = uc.Chrome(options=options)
-        driver.set_page_load_timeout(30)
-        driver.get(url)
-        
-        # Wait for page to load
-        WebDriverWait(driver, wait_time).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
-        
-        # Additional wait for dynamic content
-        time.sleep(5)
-        
-        return driver.page_source, driver.current_url
+        # Fallback to simple requests for basic HTML
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.text, response.url
     except Exception as e:
         print(f"Error loading page {url}: {e}")
         return None, None
-    finally:
-        if driver:
-            driver.quit()
 
 def search_movie_on_site(base_url, movie_name):
     """Search for movie using site's search functionality"""
@@ -1067,144 +1052,15 @@ def resolve_download():
             # Initialize MoviezWap agent
             downloadhub_agent, moviezwap_agent, movierulz_agent, skysetx_agent, telegram_agent, movies4u_agent = initialize_agents()
             
-            # Use Selenium to handle the protected link with proper headers and referrer
-            try:
-                import undetected_chromedriver as uc
-                from selenium.webdriver.common.by import By
-                import time
-                
-                options = uc.ChromeOptions()
-                options.headless = True
-                options.add_argument("--no-sandbox")
-                options.add_argument("--disable-dev-shm-usage")
-                options.add_argument("--disable-blink-features=AutomationControlled")
-                options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                
-                driver = None
-                try:
-                    print(f"DEBUG: Starting Chrome to handle protected link: {download_url}")
-                    try:
-                        driver = uc.Chrome(options=options)
-                    except Exception as e:
-                        msg = str(e)
-                        print(f"DEBUG: Initial Chrome start failed for protected link: {msg}")
-                        import re as _re
-                        m = _re.search(r"Current browser version is\s*(\d+)", msg)
-                        if m:
-                            ver = int(m.group(1))
-                            print(f"DEBUG: Retrying Chrome for protected link with version_main={ver} using fresh options")
-                            options_retry = uc.ChromeOptions()
-                            options_retry.headless = True
-                            options_retry.add_argument("--no-sandbox")
-                            options_retry.add_argument("--disable-dev-shm-usage")
-                            options_retry.add_argument("--disable-blink-features=AutomationControlled")
-                            options_retry.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                            driver = uc.Chrome(options=options_retry, version_main=ver)
-                        else:
-                            raise
-                    driver.set_page_load_timeout(30)
-                    
-                    # Set proper referrer to MoviezWap
-                    driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-                        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    })
-                    
-                    # Navigate to MoviezWap first to set proper referrer
-                    driver.get("https://www.moviezwap.pink")
-                    time.sleep(2)
-                    
-                    # Now navigate to the protected URL with proper referrer
-                    driver.get(download_url)
-                    time.sleep(8)
-                    
-                    # Check if we got redirected to a download or if the file starts downloading
-                    current_url = driver.current_url
-                    print(f"DEBUG: Current URL after navigation: {current_url}")
-                    
-                    # Check if the page has a download button or direct download link
-                    download_elements = driver.find_elements(By.XPATH, "//a[contains(text(), 'Download') or contains(text(), 'download') or contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi')]")
-                    
-                    if download_elements:
-                        # Click the download button/link
-                        download_element = download_elements[0]
-                        download_href = download_element.get_attribute('href')
-                        download_text = download_element.text
-                        
-                        print(f"DEBUG: Found download element: '{download_text}' -> {download_href}")
-                        
-                        if download_href and any(ext in download_href.lower() for ext in ['.mp4', '.mkv', '.avi']):
-                            print(f"DEBUG: Direct file link found: {download_href}")
-                            return jsonify({
-                                'status': 'success',
-                                'final_download_url': download_href,
-                                'original_url': download_url,
-                                'message': 'Protected link resolved to direct file',
-                                'instructions': 'Direct download link extracted.'
-                            })
-                        else:
-                            # Try clicking the download button
-                            try:
-                                driver.execute_script("arguments[0].click();", download_element)
-                                time.sleep(5)
-                                
-                                # Check if download started or we got redirected
-                                new_url = driver.current_url
-                                print(f"DEBUG: URL after clicking download: {new_url}")
-                                
-                                if new_url != current_url and any(ext in new_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
-                                    return jsonify({
-                                        'status': 'success',
-                                        'final_download_url': new_url,
-                                        'original_url': download_url,
-                                        'message': 'Protected link resolved by clicking download',
-                                        'instructions': 'Direct download link extracted.'
-                                    })
-                            except Exception as click_error:
-                                print(f"DEBUG: Error clicking download button: {click_error}")
-                    
-                    # Check if current URL is a direct file
-                    elif any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi']):
-                        print(f"DEBUG: Current URL is direct file: {current_url}")
-                        return jsonify({
-                            'status': 'success',
-                            'final_download_url': current_url,
-                            'original_url': download_url,
-                            'message': 'Protected link resolved to direct file',
-                            'instructions': 'Direct download link extracted.'
-                        })
-                    
-                    # If no direct download found, return for manual handling
-                    print(f"DEBUG: No direct download found, returning original URL for manual handling")
-                    return jsonify({
-                        'status': 'partial_success',
-                        'final_download_url': download_url,
-                        'original_url': download_url,
-                        'message': 'Protected link requires manual action',
-                        'instructions': 'Please click the download link manually on the opened page.'
-                    })
-                        
-                except Exception as e:
-                    print(f"DEBUG: Error handling protected link: {str(e)}")
-                    return jsonify({
-                        'status': 'partial_success',
-                        'final_download_url': download_url,
-                        'original_url': download_url,
-                        'message': 'Protected link processing failed',
-                        'instructions': 'Please click the download link manually on the opened page.'
-                    })
-                finally:
-                    if driver:
-                        driver.quit()
-                        
-            except ImportError:
-                print(f"DEBUG: Selenium not available for protected link handling")
-                return jsonify({
-                    'status': 'partial_success',
-                    'final_download_url': download_url,
-                    'original_url': download_url,
-                    'message': 'Protected link requires manual action',
-                    'instructions': 'Please click the download link manually on the opened page.'
-                })
+            # Selenium disabled for Render deployment
+            print(f"DEBUG: Selenium not available for protected link handling (Render deployment)")
+            return jsonify({
+                'status': 'partial_success',
+                'final_download_url': download_url,
+                'original_url': download_url,
+                'message': 'Protected link requires manual action',
+                'instructions': 'Please click the download link manually on the opened page.'
+            })
         
         # For non-MoviezWap URLs, return as-is
         else:
@@ -1742,655 +1598,20 @@ def check_download_link_health(url, timeout=10):
 
 def unlock_and_extract_links(shortlink_url):
     """
-    Use Selenium to unlock shortlink and extract ALL download links comprehensively
-    Based on tmp_rovodev_extract_all_links.py logic
+    Selenium disabled for Render deployment - return empty list
     """
-    from selenium import webdriver
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.chrome.options import Options
-    from urllib.parse import urlparse
-    import time
-    
-    options = Options()
-    options.add_argument('--headless=true')  # Run in background
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--disable-gpu')
-    
-    driver = None
-    try:
-        print(f"DEBUG: Starting Chrome for comprehensive unlock: {shortlink_url}")
-        driver = webdriver.Chrome(options=options)
-        driver.set_page_load_timeout(30)
-        
-        # Load the shortlink page
-        driver.get(shortlink_url)
-        time.sleep(5)
-        
-        print("DEBUG: Looking for unlock button...")
-        
-        # Find unlock button with comprehensive search
-        all_buttons = driver.find_elements(By.TAG_NAME, "button")
-        unlock_button = None
-        
-        # Check for various unlock button patterns
-        unlock_button_patterns = [
-            lambda text: "unlock" in text and "download" in text,  # Original pattern
-            lambda text: "get link" in text,                       # shortlinkto.onl pattern
-            lambda text: "get links" in text,                      # shortlinkto.onl pattern
-            lambda text: "continue" in text,                       # shortlinkto.onl pattern
-            lambda text: "unlock now" in text,                     # shortlinkto.onl pattern
-            lambda text: "unlock link" in text,                    # shortlinkto.onl pattern
-            lambda text: text == "unlock" or text == "continue",   # Simple patterns
-        ]
-        
-        for button in all_buttons:
-            button_text = button.text.strip().lower()
-            if any(pattern(button_text) for pattern in unlock_button_patterns):
-                unlock_button = button
-                print(f"DEBUG: Found unlock button: '{button.text}'")
-                break
-        
-        if not unlock_button:
-            print("DEBUG: No unlock button found")
-            return []
-        
-        print("DEBUG: Clicking unlock button...")
-        driver.execute_script("arguments[0].scrollIntoView(true);", unlock_button)
-        time.sleep(2)
-        
-        try:
-            unlock_button.click()
-        except:
-            driver.execute_script("arguments[0].click();", unlock_button)
-        
-        print("DEBUG: Waiting for content to load...")
-        time.sleep(10)  # Wait for links to appear
-        
-        # Extract ALL links comprehensively
-        all_links = driver.find_elements(By.TAG_NAME, "a")
-        print(f"DEBUG: Found {len(all_links)} total links on page")
-        
-        extracted_links = []
-        
-        for link in all_links:
-            try:
-                href = link.get_attribute('href')
-                text = link.text.strip()
-                
-                if href and href.startswith('http'):
-                    domain = urlparse(href).netloc
-                    
-                    # Skip internal site links
-                    if any(internal in domain.lower() for internal in ['uptobhai.blog', 'shortlinkto.onl', 'shortlink.to']):
-                        continue
-                    
-                    # Comprehensive download service detection
-                    download_services = [
-                        'drive.google.com', 'mega.nz', 'mediafire.com', 'dropbox.com', 'onedrive.live.com',
-                        'drop.download', 'megaup.net', 'uploadrar.com', 'rapidgator.net', 'nitroflare.com',
-                        'turbobit.net', 'uploaded.net', 'katfile.com', 'ddownload.com', 'file-upload.org',
-                        'hexupload.net', 'send.cm', 'workupload.com', 'racaty.io', 'krakenfiles.com',
-                        'gofile.io', 'pixeldrain.com', 'anonfiles.com', 'zippyshare.com', 'sendspace.com',
-                        'filedot.top', 'ranoz.gg', 'uptobox.com', 'filecrypt.cc', 'dailyuploads.net',
-                        'upload.ee', 'filerio.in', 'doodstream.com', 'streamtape.com', 'mixdrop.co'
-                    ]
-                    
-                    # Check if it's a known download service
-                    is_download_service = any(service in domain.lower() for service in download_services)
-                    
-                    # Check if URL looks like a download link (has file extension or download patterns)
-                    has_file_extension = any(ext in href.lower() for ext in ['.mkv', '.mp4', '.avi', '.zip', '.rar', '.mp3', '.pdf'])
-                    has_download_pattern = any(pattern in href.lower() for pattern in ['download', 'file', 'get'])
-                    
-                    # Check text for download indicators
-                    text_indicates_download = text and any(word in text.lower() for word in ['download', 'file', 'drive', 'mega', 'mediafire'])
-                    
-                    # Determine if this is a download link
-                    is_download_link = (
-                        is_download_service or 
-                        has_file_extension or 
-                        (has_download_pattern and len(href) > 20) or
-                        text_indicates_download
-                    )
-                    
-                    if is_download_link:
-                        # Determine service type and quality
-                        service_type = "Unknown"
-                        quality = "Unknown"
-                        
-                        # Identify service type
-                        if 'drive.google' in domain:
-                            service_type = "Google Drive"
-                        elif 'mega.nz' in domain:
-                            service_type = "Mega"
-                        elif 'mediafire' in domain:
-                            service_type = "MediaFire"
-                        elif 'dropbox' in domain:
-                            service_type = "Dropbox"
-                        elif 'onedrive' in domain:
-                            service_type = "OneDrive"
-                        elif any(service in domain for service in ['upload', 'download', 'file']):
-                            service_type = domain.replace('.com', '').replace('.net', '').replace('.org', '').replace('.top', '').replace('.gg', '').title()
-                        
-                        # Try to extract quality from text or URL
-                        quality_indicators = ['480p', '720p', '1080p', '4k', '2160p', 'hd', 'full hd', 'uhd']
-                        for q in quality_indicators:
-                            if q in text.lower() or q in href.lower():
-                                quality = q.upper()
-                                break
-                        
-                        # Try to extract file size
-                        file_size = "Unknown"
-                        size_patterns = ['gb', 'mb', 'kb']
-                        for pattern in size_patterns:
-                            if pattern in text.lower():
-                                # Try to find number before the size unit
-                                import re
-                                size_match = re.search(r'(\d+(?:\.\d+)?)\s*' + pattern, text.lower())
-                                if size_match:
-                                    file_size = size_match.group(0).upper()
-                                    break
-                        
-                        extracted_links.append({
-                            'text': text or f'{service_type} Download',
-                            'url': href,
-                            'host': domain,
-                            'service_type': service_type,
-                            'quality': quality,
-                            'file_size': file_size
-                        })
-                        
-                        print(f"DEBUG: Found download link: {service_type} - {text[:30]}...")
-                        
-            except Exception as e:
-                continue
-        
-        print(f"DEBUG: Successfully extracted {len(extracted_links)} download links")
-        
-        # Log the extracted links for debugging
-        for i, link in enumerate(extracted_links, 1):
-            print(f"DEBUG: Link {i}: {link['service_type']} - {link['url'][:50]}...")
-        
-        return extracted_links
-        
-    except Exception as e:
-        print(f"DEBUG: Selenium unlock error: {str(e)}")
-        return []
-    
-    finally:
-        if driver:
-            driver.quit()
+    print(f"DEBUG: Selenium unlock disabled for Render deployment. URL: {shortlink_url}")
+    return []
 
 def extract_video_sources_aggressive(movie_page_url):
-    """More aggressive video source extraction with better filtering"""
-    options = uc.ChromeOptions()
-    options.headless = True
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-web-security")
-    options.add_argument("--disable-features=VizDisplayCompositor")
-    
-    driver = None
-    video_sources = []
-    
-    try:
-        driver = uc.Chrome(options=options)
-        driver.get(movie_page_url)
-        
-        # Wait for page to load and dynamic content
-        time.sleep(12)
-        
-        # Execute JavaScript to find video sources
-        js_script = """
-        var sources = [];
-        
-        // Find all video elements
-        document.querySelectorAll('video').forEach(function(video) {
-            if (video.src && video.src.length > 10) {
-                sources.push({type: 'video', url: video.src, quality: 'Direct Video', priority: 10});
-            }
-            video.querySelectorAll('source').forEach(function(source) {
-                if (source.src && source.src.length > 10) {
-                    var quality = source.getAttribute('label') || source.getAttribute('data-quality') || 'Video Source';
-                    sources.push({type: 'video', url: source.src, quality: quality, priority: 9});
-                }
-            });
-        });
-        
-        // Find all iframes with better filtering
-        document.querySelectorAll('iframe').forEach(function(iframe) {
-            var src = iframe.src;
-            if (src && src.length > 10) {
-                var isVideoIframe = (
-                    src.includes('embed') || src.includes('player') || 
-                    src.includes('stream') || src.includes('video') ||
-                    src.includes('watch') || src.includes('movie')
-                );
-                if (isVideoIframe && !src.includes('ads') && !src.includes('banner')) {
-                    sources.push({type: 'iframe', url: src, quality: 'Embedded Player', priority: 8});
-                }
-            }
-        });
-        
-        // Look for video URLs in JavaScript variables and functions
-        var scripts = document.querySelectorAll('script');
-        scripts.forEach(function(script) {
-            if (script.innerHTML) {
-                var content = script.innerHTML;
-                
-                // Look for direct video file URLs
-                var videoRegex = /(https?:\/\/[^\s"'<>]+\.(?:mp4|m3u8|mkv|avi|webm|mov)(?:\?[^\s"'<>]*)?)/gi;
-                var videoMatches = content.match(videoRegex);
-                if (videoMatches) {
-                    videoMatches.forEach(function(match) {
-                        if (match.length > 20) {
-                            sources.push({type: 'extracted', url: match, quality: 'Direct File', priority: 7});
-                        }
-                    });
-                }
-                
-                // Look for streaming URLs
-                var streamRegex = /(https?:\/\/[^\s"'<>]*(?:embed|player|stream|watch|video)[^\s"'<>]*)/gi;
-                var streamMatches = content.match(streamRegex);
-                if (streamMatches) {
-                    streamMatches.forEach(function(match) {
-                        if (match.length > 20 && 
-                            !match.includes('facebook') && 
-                            !match.includes('twitter') && 
-                            !match.includes('google') &&
-                            !match.includes('ads')) {
-                            sources.push({type: 'stream', url: match, quality: 'Stream Link', priority: 6});
-                        }
-                    });
-                }
-                
-                // Look for HLS/DASH streams
-                var hlsRegex = /(https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*)/gi;
-                var hlsMatches = content.match(hlsRegex);
-                if (hlsMatches) {
-                    hlsMatches.forEach(function(match) {
-                        sources.push({type: 'hls', url: match, quality: 'HLS Stream', priority: 8});
-                    });
-                }
-            }
-        });
-        
-        // Look for download links
-        document.querySelectorAll('a[href]').forEach(function(link) {
-            var href = link.href;
-            var text = link.textContent.toLowerCase();
-            if (href && (text.includes('download') || text.includes('watch') || text.includes('play'))) {
-                if (href.includes('.mp4') || href.includes('.mkv') || href.includes('.avi')) {
-                    sources.push({type: 'download', url: href, quality: 'Download Link', priority: 5});
-                }
-            }
-        });
-        
-        return sources;
-        """
-        
-        sources = driver.execute_script(js_script)
-        
-        # Process and filter sources
-        for source in sources:
-            if source and source.get('url'):
-                url = source['url']
-                
-                # Validate the video source
-                if is_valid_video_source(url) and len(url) > 15:
-                    video_sources.append({
-                        'type': source.get('type', 'unknown'),
-                        'url': url,
-                        'quality': source.get('quality', 'Unknown'),
-                        'priority': source.get('priority', 1),
-                        'embeddable': True,
-                        'proxy_url': f"/proxy_video?url={base64.b64encode(url.encode()).decode()}"
-                    })
-        
-        # Sort by priority and remove duplicates
-        seen_urls = set()
-        unique_sources = []
-        
-        # Sort by priority (higher first) then by quality
-        sorted_sources = sorted(video_sources, key=lambda x: (x['priority'], len(x['url'])), reverse=True)
-        
-        for source in sorted_sources:
-            if source['url'] not in seen_urls:
-                seen_urls.add(source['url'])
-                unique_sources.append(source)
-                
-                # Limit to top 5 high-quality sources
-                if len(unique_sources) >= 5:
-                    break
-        
-        return unique_sources
-        
-    except Exception as e:
-        print(f"Aggressive extraction error: {e}")
-        return []
-    finally:
-        if driver:
-            driver.quit()
+    """Selenium disabled for Render deployment - return empty list"""
+    print(f"DEBUG: Selenium video extraction disabled for Render deployment. URL: {movie_page_url}")
+    return []
 
 def resolve_moviezwap_download(download_url):
-    """Use Selenium to resolve MoviezWap download.php URL to final download link"""
-    driver = None
-    try:
-        # More robust Chrome options
-        options = uc.ChromeOptions()
-        options.headless = True
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-plugins")
-        options.add_argument("--disable-images")
-        # options.add_argument("--disable-javascript")  # Re-enable JavaScript as it might be needed
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
-        print(f"DEBUG: Creating Chrome driver for MoviezWap resolution")
-        driver = uc.Chrome(options=options, version_main=None)
-        driver.set_page_load_timeout(20)
-        driver.implicitly_wait(10)
-        
-        print(f"DEBUG: Navigating to download page: {download_url}")
-        driver.get(download_url)
-        
-        # Wait for page to load
-        time.sleep(3)
-        
-        # Check if we're already on a direct download page
-        current_url = driver.current_url
-        print(f"DEBUG: Current URL after navigation: {current_url}")
-        
-        # Debug: Print page title and some content to understand the page structure
-        try:
-            page_title = driver.title
-            print(f"DEBUG: Page title: {page_title}")
-            
-            # Look for all links and buttons on the page for debugging
-            all_links = driver.find_elements(By.TAG_NAME, "a")
-            all_buttons = driver.find_elements(By.TAG_NAME, "button")
-            
-            print(f"DEBUG: Found {len(all_links)} links and {len(all_buttons)} buttons on page")
-            
-            # Print ALL links that might be download related (not just first 10)
-            for i, link in enumerate(all_links):
-                try:
-                    link_text = link.text.strip()
-                    link_href = link.get_attribute('href')
-                    link_onclick = link.get_attribute('onclick')
-                    if link_text and ('download' in link_text.lower() or 'server' in link_text.lower() or 'mirror' in link_text.lower() or 'fast' in link_text.lower()):
-                        print(f"DEBUG: Link {i}: '{link_text}' -> Href: {link_href} | Onclick: {link_onclick}")
-                except:
-                    continue
-            
-            # Also print all buttons
-            for i, button in enumerate(all_buttons):
-                try:
-                    button_text = button.text.strip()
-                    button_onclick = button.get_attribute('onclick')
-                    if button_text:
-                        print(f"DEBUG: Button {i}: '{button_text}' | Onclick: {button_onclick}")
-                except:
-                    continue
-                    
-        except Exception as e:
-            print(f"DEBUG: Error inspecting page: {str(e)}")
-        
-        # Check if current URL is already a direct download link (but not download.php)
-        if (any(ext in current_url.lower() for ext in ['.mp4', '.mkv', '.avi', '.mov']) and 
-            'download.php' not in current_url.lower()):
-            print(f"DEBUG: Already on direct download URL: {current_url}")
-            return current_url
-        
-        # Look for "Download Servers Below" section and find legitimate download server
-        
-        # First, try to find the "Download Servers Below" section
-        try:
-            download_servers_section = driver.find_elements(By.XPATH, "//*[contains(text(), 'Download Servers Below') or contains(text(), 'Download Server')]")
-            if download_servers_section:
-                print(f"DEBUG: Found 'Download Servers' section")
-                
-                # Since XPath isn't finding it, let's search through all links we already found
-                print(f"DEBUG: XPath search failed, checking all links for moviezzwaphd.xyz URLs")
-                
-                # Get all links again and check for moviezzwaphd URLs
-                all_links = driver.find_elements(By.TAG_NAME, "a")
-                for i, link in enumerate(all_links):
-                    try:
-                        href = link.get_attribute('href')
-                        text = link.text.strip()
-                        
-                        # Look for links with moviezzwaphd.xyz and .mp4
-                        if href and 'moviezzwaphd.xyz' in href.lower() and any(ext in href.lower() for ext in ['.mp4', '.mkv', '.avi']):
-                            print(f"DEBUG: FOUND moviezzwaphd link {i}: Text='{text}', Href='{href}'")
-                            
-                            # Instead of returning the href, click the link and follow redirects
-                            print(f"DEBUG: Clicking the moviezzwaphd link to get final URL...")
-                            try:
-                                # Store current URL
-                                current_url = driver.current_url
-                                
-                                # Click the link
-                                driver.execute_script("arguments[0].click();", link)
-                                
-                                # Wait for navigation/download to start
-                                time.sleep(3)
-                                
-                                # Check for popup or new window
-                                print(f"DEBUG: Checking for popups or new windows...")
-                                
-                                # Handle potential popup windows
-                                try:
-                                    # Check if there are multiple windows/tabs
-                                    all_windows = driver.window_handles
-                                    print(f"DEBUG: Found {len(all_windows)} browser windows/tabs")
-                                    
-                                    if len(all_windows) > 1:
-                                        # Switch to the new window/popup
-                                        driver.switch_to.window(all_windows[-1])
-                                        popup_url = driver.current_url
-                                        print(f"DEBUG: Switched to popup window: {popup_url}")
-                                        
-                                        # Look for "Continue download" button or similar
-                                        continue_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Continue') or contains(text(), 'Download')] | //a[contains(text(), 'Continue') or contains(text(), 'Download')]")
-                                        
-                                        if continue_buttons:
-                                            print(f"DEBUG: Found {len(continue_buttons)} continue/download buttons in popup")
-                                            for btn in continue_buttons:
-                                                btn_text = btn.text.strip()
-                                                print(f"DEBUG: Button text: '{btn_text}'")
-                                                
-                                                # Click the continue download button
-                                                driver.execute_script("arguments[0].click();", btn)
-                                                time.sleep(3)
-                                                
-                                                # Check final URL after clicking continue
-                                                final_popup_url = driver.current_url
-                                                print(f"DEBUG: URL after clicking continue: {final_popup_url}")
-                                                
-                                                # If this looks like a download URL, return it
-                                                if any(ext in final_popup_url.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in final_popup_url.lower():
-                                                    print(f"DEBUG: SUCCESS! Final download URL from popup: {final_popup_url}")
-                                                    return final_popup_url
-                                        
-                                        # If no continue button worked, return the popup URL
-                                        if any(ext in popup_url.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in popup_url.lower():
-                                            print(f"DEBUG: SUCCESS! Using popup URL: {popup_url}")
-                                            return popup_url
-                                
-                                except Exception as popup_error:
-                                    print(f"DEBUG: Error handling popup: {str(popup_error)}")
-                                
-                                # Get the final URL after click (main window)
-                                final_url = driver.current_url
-                                print(f"DEBUG: Main window URL after click: {final_url}")
-                                
-                                # If URL changed, return the new URL
-                                if final_url != current_url:
-                                    print(f"DEBUG: SUCCESS! Final URL after click: {final_url}")
-                                    return final_url
-                                else:
-                                    # If URL didn't change, the original href might still be valid
-                                    print(f"DEBUG: No URL change, returning original href: {href}")
-                                    return href
-                                    
-                            except Exception as click_error:
-                                print(f"DEBUG: Error clicking link: {str(click_error)}")
-                                print(f"DEBUG: Fallback to original href: {href}")
-                                return href
-                            
-                    except Exception as e:
-                        continue
-                
-                print(f"DEBUG: No moviezzwaphd links found in all links search")
-                        
-        except Exception as e:
-            print(f"DEBUG: Could not find Download Servers section: {str(e)}")
-        
-        # Approach 1: Look specifically for legitimate download server buttons (avoid ads)
-        download_selectors = [
-            "//a[contains(text(), 'Fast Download Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack'))]",
-            "//button[contains(text(), 'Fast Download Server') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads'))]",
-            "//a[contains(text(), 'Download Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack'))]", 
-            "//button[contains(text(), 'Download Server') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads'))]",
-            "//a[contains(text(), 'Fast Server') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
-            "//a[contains(text(), 'Server 1') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
-            "//a[contains(text(), 'Server 2') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
-            "//a[contains(text(), 'Mirror 1') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
-            "//a[contains(text(), 'Mirror 2') and not(contains(@href, 'betspintrack') or contains(@href, 'ads'))]",
-            "//a[contains(text(), 'Download') and not(contains(@href, 'betspintrack') or contains(@href, 'ads') or contains(@onclick, 'betspintrack') or contains(text(), 'NOW!')) and not(contains(text(), 'Movies')) and not(contains(text(), 'Telegram'))]",
-            "//button[contains(text(), 'Download') and not(contains(@onclick, 'betspintrack') or contains(@onclick, 'ads') or contains(text(), 'NOW!'))]",
-            "//a[contains(@class, 'btn') and contains(text(), 'Download') and not(contains(@href, 'betspintrack'))]",
-            "//button[contains(@class, 'btn') and contains(text(), 'Download') and not(contains(@onclick, 'betspintrack'))]"
-        ]
-        
-        # Try each selector and attempt to click
-        for selector in download_selectors:
-            try:
-                elements = driver.find_elements(By.XPATH, selector)
-                for element in elements:
-                    try:
-                        element_text = element.text.strip()
-                        element_href = element.get_attribute('href')
-                        element_onclick = element.get_attribute('onclick')
-                        
-                        print(f"DEBUG: Found element - Text: '{element_text}', Href: '{element_href}', Onclick: '{element_onclick}'")
-                        
-                        # Skip ad elements and non-download links
-                        skip_patterns = ['home', 'back', 'contact', 'about', 'telegram', 'betspintrack', 'ads', 'now!']
-                        if element_text and any(skip in element_text.lower() for skip in skip_patterns):
-                            print(f"DEBUG: Skipping ad/navigation element: {element_text}")
-                            continue
-                        
-                        # Skip elements with ad-related hrefs or onclick
-                        if element_href and any(ad in element_href.lower() for ad in ['betspintrack', 'ads', 'popup']):
-                            print(f"DEBUG: Skipping ad href: {element_href}")
-                            continue
-                        
-                        if element_onclick and any(ad in element_onclick.lower() for ad in ['betspintrack', 'ads', 'popup']):
-                            print(f"DEBUG: Skipping ad onclick: {element_onclick}")
-                            continue
-                        
-                        # Special handling for legitimate download server buttons
-                        if element_text and ('download server' in element_text.lower() or 'fast download' in element_text.lower()):
-                            print(f"DEBUG: Found legitimate download server button! Text: '{element_text}'")
-                            # If href exists and looks like a direct download, return it immediately
-                            if element_href and (any(ext in element_href.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in element_href.lower()):
-                                print(f"DEBUG: Download server button has direct download href: {element_href}")
-                                return element_href
-                            
-                        # Try clicking this element
-                        print(f"DEBUG: Attempting to click element: {element_text or element_href or 'Unknown'}")
-                        
-                        # Store current URL before clicking
-                        before_click_url = driver.current_url
-                        
-                        # Click the element
-                        driver.execute_script("arguments[0].click();", element)
-                        
-                        # Wait for potential redirect
-                        time.sleep(4)
-                        
-                        # Check new URL
-                        after_click_url = driver.current_url
-                        print(f"DEBUG: URL changed from {before_click_url} to {after_click_url}")
-                        
-                        # Check if we got a direct download URL or download started
-                        if after_click_url != before_click_url:
-                            if any(ext in after_click_url.lower() for ext in ['.mp4', '.mkv', '.avi', '.mov']):
-                                print(f"DEBUG: SUCCESS! Found direct download URL: {after_click_url}")
-                                return after_click_url
-                            elif 'moviezzwaphd.xyz' in after_click_url or 'moviezwap' in after_click_url:
-                                print(f"DEBUG: SUCCESS! Found download URL: {after_click_url}")
-                                return after_click_url
-                        
-                        # Check if download started (URL might not change but download begins)
-                        # Look for download indicators in page content or check for blob URLs
-                        try:
-                            # Check if there are any download links that appeared after clicking
-                            download_links_after_click = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi') or contains(@href, 'moviezzwaphd') or contains(@href, 'blob:')]")
-                            if download_links_after_click:
-                                final_url = download_links_after_click[0].get_attribute('href')
-                                print(f"DEBUG: SUCCESS! Found download link after Fast Server click: {final_url}")
-                                return final_url
-                        except Exception as e:
-                            print(f"DEBUG: Error checking for download links after click: {str(e)}")
-                        
-                        # If no redirect, check for new download links on the page
-                        new_download_links = driver.find_elements(By.XPATH, "//a[contains(@href, '.mp4') or contains(@href, '.mkv') or contains(@href, '.avi') or contains(@href, 'moviezzwaphd')]")
-                        if new_download_links:
-                            final_url = new_download_links[0].get_attribute('href')
-                            print(f"DEBUG: Found new download link after click: {final_url}")
-                            return final_url
-                            
-                    except Exception as e:
-                        print(f"DEBUG: Error with element: {str(e)}")
-                        continue
-                        
-            except Exception as e:
-                print(f"DEBUG: Selector {selector} failed: {str(e)}")
-                continue
-        
-        # Final approach: Click the "Fast Download Server" link and handle redirects
-        print(f"DEBUG: Reached final approach - looking for Fast Download Server link")
-        try:
-            fast_server_links = driver.find_elements(By.XPATH, "//a[contains(text(), 'Fast Download Server')]")
-            print(f"DEBUG: Found {len(fast_server_links)} Fast Download Server links")
-            
-            for i, link in enumerate(fast_server_links):
-                href = link.get_attribute('href')
-                text = link.text.strip()
-                print(f"DEBUG: Fast Download Server link {i}: Text='{text}', Href='{href}'")
-                
-                if href and (any(ext in href.lower() for ext in ['.mp4', '.mkv', '.avi']) or 'moviezzwaphd' in href.lower()):
-                    print(f"DEBUG: FOUND VALID Fast Download Server link: {href}")
-                    
-                    # Since we already have the direct .mp4 URL, let's return it immediately
-                    # The href already contains the final download URL
-                    print(f"DEBUG: SUCCESS! Returning Fast Download Server href directly: {href}")
-                    return href
-                        
-        except Exception as e:
-            print(f"DEBUG: Error finding Fast Download Server link: {str(e)}")
-        
-        print(f"DEBUG: No download server button found through selectors - trying final approach")
-        
-        print(f"DEBUG: No final download URL found")
-        return None
-        
-    except Exception as e:
-        print(f"DEBUG: Error resolving MoviezWap download: {str(e)}")
-        return None
-    finally:
-        if driver:
-            try:
-                driver.quit()
-                print(f"DEBUG: Chrome driver closed successfully")
-            except Exception as e:
-                print(f"DEBUG: Error closing driver: {str(e)}")
+    """Selenium disabled for Render deployment - return None"""
+    print(f"DEBUG: Selenium MoviezWap resolution disabled for Render deployment. URL: {download_url}")
+    return None
 
 @app.route('/download_file')
 def download_file():
@@ -2416,62 +1637,93 @@ def download_file():
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
             'Accept-Encoding': 'identity',  # avoid gzip for easier streaming of ranges
-            'Connection': 'keep-alive',
+            'Connection': 'close',  # Use close instead of keep-alive for better reliability
             'Referer': referer,
             'Origin': default_referer.rstrip('/'),
         }
         if client_range:
             headers['Range'] = client_range
 
-        # Make request to the protected URL
-        upstream = requests.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
-
-        # Determine filename
-        filename = None
-        cd = upstream.headers.get('Content-Disposition', '')
-        if 'filename=' in cd:
-            filename = cd.split('filename=')[1].strip('"')
-        if not filename:
-            filename = parsed.path.split('/')[-1] or 'movie_download.mp4'
-
-        print(f"DEBUG: Upstream responded {upstream.status_code}, filename={filename}")
-
-        # Stream response back to client
-        def generate():
+        # Try multiple times with different approaches
+        max_retries = 3
+        for attempt in range(max_retries):
             try:
-                for chunk in upstream.iter_content(chunk_size=1024 * 256):  # 256KB chunks
-                    if chunk:
-                        yield chunk
-            except Exception as stream_err:
-                print(f"DEBUG: Upstream stream error: {stream_err}")
-                raise
+                print(f"DEBUG: Attempt {attempt + 1} to download from {file_url}")
+                
+                # Make request to the protected URL with shorter timeout
+                upstream = requests.get(file_url, headers=headers, stream=True, timeout=30, allow_redirects=True)
+                upstream.raise_for_status()
+                
+                # Determine filename
+                filename = None
+                cd = upstream.headers.get('Content-Disposition', '')
+                if 'filename=' in cd:
+                    filename = cd.split('filename=')[1].strip('"')
+                if not filename:
+                    filename = parsed.path.split('/')[-1] or 'movie_download.mp4'
 
-        status = upstream.status_code if upstream.status_code in (200, 206) else 200
-        resp_headers = {
-            'Content-Type': upstream.headers.get('Content-Type', 'application/octet-stream'),
-            'Content-Disposition': f'attachment; filename="{filename}"',
-            'Cache-Control': 'no-cache',
-        }
-        # Propagate size and range headers when available
-        if upstream.headers.get('Content-Length'):
-            resp_headers['Content-Length'] = upstream.headers['Content-Length']
-        if upstream.headers.get('Accept-Ranges'):
-            resp_headers['Accept-Ranges'] = upstream.headers['Accept-Ranges']
-        if upstream.status_code == 206 and upstream.headers.get('Content-Range'):
-            resp_headers['Content-Range'] = upstream.headers['Content-Range']
+                print(f"DEBUG: Upstream responded {upstream.status_code}, filename={filename}")
 
-        return Response(generate(), status=status, headers=resp_headers)
+                # For moviezzwaphd URLs, redirect directly instead of proxying
+                if 'moviezzwaphd' in file_url.lower():
+                    print(f"DEBUG: MoviezzWapHD URL detected, redirecting directly to avoid proxy issues")
+                    upstream.close()  # Close the connection
+                    return redirect(file_url, code=302)
+
+                # Stream response back to client
+                def generate():
+                    try:
+                        for chunk in upstream.iter_content(chunk_size=1024 * 128):  # Smaller chunks for better reliability
+                            if chunk:
+                                yield chunk
+                    except Exception as stream_err:
+                        print(f"DEBUG: Upstream stream error: {stream_err}")
+                        raise
+
+                status = upstream.status_code if upstream.status_code in (200, 206) else 200
+                resp_headers = {
+                    'Content-Type': upstream.headers.get('Content-Type', 'application/octet-stream'),
+                    'Content-Disposition': f'attachment; filename="{filename}"',
+                    'Cache-Control': 'no-cache',
+                }
+                # Propagate size and range headers when available
+                if upstream.headers.get('Content-Length'):
+                    resp_headers['Content-Length'] = upstream.headers['Content-Length']
+                if upstream.headers.get('Accept-Ranges'):
+                    resp_headers['Accept-Ranges'] = upstream.headers['Accept-Ranges']
+                if upstream.status_code == 206 and upstream.headers.get('Content-Range'):
+                    resp_headers['Content-Range'] = upstream.headers['Content-Range']
+
+                return Response(generate(), status=status, headers=resp_headers)
+                
+            except (requests.exceptions.ConnectionError, ConnectionResetError) as e:
+                print(f"DEBUG: Connection error on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    print(f"DEBUG: Retrying in 2 seconds...")
+                    time.sleep(2)
+                    continue
+                else:
+                    print(f"DEBUG: All proxy attempts failed, redirecting directly")
+                    return redirect(file_url, code=302)
+                    
+            except requests.exceptions.Timeout as e:
+                print(f"DEBUG: Timeout on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    print(f"DEBUG: Retrying with shorter timeout...")
+                    continue
+                else:
+                    print(f"DEBUG: All proxy attempts timed out, redirecting directly")
+                    return redirect(file_url, code=302)
 
     except requests.exceptions.RequestException as e:
         # As a last resort, try redirecting the client to the file URL
         print(f"DEBUG: Error in download proxy (requests): {e}")
-        try:
-            return redirect(file_url, code=302)
-        except Exception:
-            return jsonify({'error': 'Download failed: upstream connection error'}), 502
+        print(f"DEBUG: Redirecting directly to file URL as fallback")
+        return redirect(file_url, code=302)
     except Exception as e:
         print(f"DEBUG: Error in download proxy: {str(e)}")
-        return jsonify({'error': f'Download failed: {str(e)}'}), 500
+        print(f"DEBUG: Redirecting directly to file URL as fallback")
+        return redirect(file_url, code=302)
 
 # Removed duplicate main block - admin routes are below
 @app.route('/auto_health_results/<extraction_id>')
@@ -3310,94 +2562,100 @@ def get_telegram_movie_link():
         logger.error(f"Error in /api/telegram/link: {e}")
         return jsonify({'error': f'Failed to get Telegram link: {str(e)}'}), 500
 
+# Add chat history API routes
+@app.route('/api/new-session', methods=['POST'])
+def start_new_session():
+    """Start a new session by deleting current session and creating a new one"""
+    try:
+        # Get current session ID
+        current_session_id = session.get('session_id')
+        
+        # Delete current session if it exists
+        if current_session_id and current_session_id in session_manager.sessions:
+            del session_manager.sessions[current_session_id]
+            logger.info(f"Deleted session: {current_session_id}")
+        
+        # Create new session
+        new_session_id = session_manager.create_session()
+        session['session_id'] = new_session_id
+        logger.info(f"Created new session: {new_session_id}")
+        
+        # Get new session stats
+        session_stats = session_manager.get_session_stats(new_session_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'New session started successfully',
+            'session_info': {
+                'session_id': new_session_id,
+                'conversation_count': 0,
+                'time_remaining_minutes': 15
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting new session: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to start new session'
+        }), 500
+
+@app.route('/api/chat-history', methods=['GET'])
+def get_chat_history():
+    """Get chat history for current session"""
+    try:
+        user_session_id = session.get('session_id')
+        if not user_session_id:
+            return jsonify({
+                'success': True,
+                'chat_history': [],
+                'session_info': None
+            })
+        
+        session_data = session_manager.get_session(user_session_id)
+        if not session_data:
+            return jsonify({
+                'success': True,
+                'chat_history': [],
+                'session_info': None
+            })
+        
+        # Format chat history for UI
+        chat_history = []
+        for conv in session_data['conversation_history']:
+            chat_history.append({
+                'user_message': conv['user_message'],
+                'ai_response': conv['ai_response'],
+                'movie_results': conv['movie_results'],
+                'timestamp': conv['timestamp']
+            })
+        
+        session_stats = session_manager.get_session_stats(user_session_id)
+        
+        return jsonify({
+            'success': True,
+            'chat_history': chat_history,
+            'session_info': {
+                'session_id': user_session_id,
+                'conversation_count': session_stats.get('conversation_count', 0),
+                'time_remaining_minutes': session_stats.get('time_remaining_minutes', 15)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting chat history: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to load chat history'
+        }), 500
+
 if __name__ == '__main__':
+    import os
     # Initialize agents on startup
     initialize_agents()
-    # Add chat history API route
-    @app.route('/api/new-session', methods=['POST'])
-    def start_new_session():
-        """Start a new session by deleting current session and creating a new one"""
-        try:
-            # Get current session ID
-            current_session_id = session.get('session_id')
-            
-            # Delete current session if it exists
-            if current_session_id and current_session_id in session_manager.sessions:
-                del session_manager.sessions[current_session_id]
-                logger.info(f"Deleted session: {current_session_id}")
-            
-            # Create new session
-            new_session_id = session_manager.create_session()
-            session['session_id'] = new_session_id
-            logger.info(f"Created new session: {new_session_id}")
-            
-            # Get new session stats
-            session_stats = session_manager.get_session_stats(new_session_id)
-            
-            return jsonify({
-                'success': True,
-                'message': 'New session started successfully',
-                'session_info': {
-                    'session_id': new_session_id,
-                    'conversation_count': 0,
-                    'time_remaining_minutes': 15
-                }
-            })
-            
-        except Exception as e:
-            logger.error(f"Error starting new session: {e}")
-            return jsonify({
-                'success': False,
-                'error': 'Failed to start new session'
-            }), 500
-
-    @app.route('/api/chat-history', methods=['GET'])
-    def get_chat_history():
-        """Get chat history for current session"""
-        try:
-            user_session_id = session.get('session_id')
-            if not user_session_id:
-                return jsonify({
-                    'success': True,
-                    'chat_history': [],
-                    'session_info': None
-                })
-            
-            session_data = session_manager.get_session(user_session_id)
-            if not session_data:
-                return jsonify({
-                    'success': True,
-                    'chat_history': [],
-                    'session_info': None
-                })
-            
-            # Format chat history for UI
-            chat_history = []
-            for conv in session_data['conversation_history']:
-                chat_history.append({
-                    'user_message': conv['user_message'],
-                    'ai_response': conv['ai_response'],
-                    'movie_results': conv['movie_results'],
-                    'timestamp': conv['timestamp']
-                })
-            
-            session_stats = session_manager.get_session_stats(user_session_id)
-            
-            return jsonify({
-                'success': True,
-                'chat_history': chat_history,
-                'session_info': {
-                    'session_id': user_session_id,
-                    'conversation_count': session_stats.get('conversation_count', 0),
-                    'time_remaining_minutes': session_stats.get('time_remaining_minutes', 15)
-                }
-            })
-            
-        except Exception as e:
-            logger.error(f"Error getting chat history: {e}")
-            return jsonify({
-                'success': False,
-                'error': 'Failed to load chat history'
-            }), 500
     
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    # Get port from environment variable (Render sets this)
+    port = int(os.environ.get('PORT', 8080))
+    
+    # Run with production settings for Render
+    app.run(host='0.0.0.0', port=port, debug=False)
