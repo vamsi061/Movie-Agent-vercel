@@ -2250,6 +2250,7 @@ def chat_with_ai():
         data = request.get_json()
         user_message = data.get('message', '').strip()
         conversation_history = data.get('conversation_history', [])
+        direct_search = data.get('direct_search', False)  # Flag for direct movie searches
         
         if not user_message:
             return jsonify({'error': 'Message is required'}), 400
@@ -2280,7 +2281,36 @@ def chat_with_ai():
             logger.info(f"Session expired, created new session: {user_session_id}")
         
         # Use enhanced movie request processing with session context
-        result = llm_chat_agent.process_movie_request(user_message, session_id=user_session_id)
+        if direct_search:
+            # For direct searches (movie chip clicks), bypass LLM analysis and search directly
+            logger.info(f"Direct search requested for: {user_message}")
+            search_result = llm_chat_agent.search_movies_with_sources(user_message, [user_message])
+            # Create a simple response structure for direct searches
+            if search_result.get('movies'):
+                result = {
+                    'response_text': f"Found results for '{user_message}':",
+                    'movies': search_result.get('movies', []),
+                    'search_performed': True,
+                    'intent': {
+                        'intent_type': 'movie_request',
+                        'movie_details': {'movie_titles': [user_message]},
+                        'user_intent_analysis': {'is_specific_movie': True}
+                    }
+                }
+            else:
+                result = {
+                    'response_text': f"Sorry, I couldn't find '{user_message}' in our download sources. The movie might not be available yet or could have a different title spelling.",
+                    'movies': [],
+                    'search_performed': True,
+                    'intent': {
+                        'intent_type': 'movie_request',
+                        'movie_details': {'movie_titles': []},
+                        'user_intent_analysis': {'is_specific_movie': True}
+                    }
+                }
+        else:
+            # Normal chat processing with LLM analysis
+            result = llm_chat_agent.process_movie_request(user_message, session_id=user_session_id)
         
         # Add conversation to session memory
         session_manager.add_conversation(
