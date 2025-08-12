@@ -292,6 +292,65 @@
             max-width: 100%;
         }
         
+        /* Movie Selection Buttons */
+        .movie-selection-section {
+            margin: 16px 0;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .movie-selection-header {
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            color: white;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .movie-selection-header .icon {
+            font-size: 16px;
+        }
+        
+        .movie-selection-buttons {
+            padding: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .movie-selection-btn {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .movie-selection-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        }
+        
+        .movie-selection-btn:active {
+            transform: translateY(0);
+        }
+        
         /* Enhanced layout for many movies */
         .movie-grid-modern.many-movies {
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -762,6 +821,28 @@
                 width: 100%;
             }
             
+            /* Movie selection mobile */
+            .movie-selection-section {
+                margin: 12px 0;
+                border-radius: 8px;
+            }
+            
+            .movie-selection-header {
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+            
+            .movie-selection-buttons {
+                padding: 12px;
+                gap: 6px;
+            }
+            
+            .movie-selection-btn {
+                font-size: 12px;
+                padding: 6px 12px;
+                max-width: 150px;
+            }
+            
         }
         /* Perplexity-like mobile-first enhancements */
         :root {
@@ -917,6 +998,7 @@
                     <button class="quick-suggestion" onclick="sendQuickMessage('Suggest some comedy movies')">Comedy Movies</button>
                     <button class="quick-suggestion" onclick="sendQuickMessage('What are the latest movies?')">Latest Movies</button>
                     <button class="quick-suggestion" onclick="sendQuickMessage('I want to watch something romantic')">Romance Movies</button>
+                    <button class="quick-suggestion" onclick="testMovieSelection()" style="background: #ff6b6b; border-color: #ff6b6b;">🧪 Test Movie Buttons</button>
                 </div>
             </div>
         </div>
@@ -989,6 +1071,9 @@
     </div>
 
     <script>
+        console.log('🚀 SCRIPT LOADING: JavaScript file started - VERSION 2.0');
+        document.title = 'Movie Agent - JS LOADED';
+        
         let conversationHistory = [];
         let isWaitingForResponse = false;
 
@@ -1004,11 +1089,81 @@
             sendMessage();
         }
 
+        function testMovieSelection() {
+            console.log('DEBUG: Testing movie selection chips');
+            
+            // Add a test message first
+            addMessage('Here are some test action movies:', 'assistant');
+            
+            // Test movie titles
+            const testMovieTitles = ['The Dark Knight', 'Mad Max: Fury Road', 'Inception', 'John Wick', 'Die Hard'];
+            
+            // Add movie chips directly
+            addMovieChips(testMovieTitles);
+            
+            console.log('DEBUG: Test movie chips added');
+        }
+
+        function searchSpecificMovie(movieTitle) {
+            console.log('Searching for movie:', movieTitle);
+            
+            // Add user message showing their selection
+            addMessage(`Search for: ${movieTitle}`, 'user');
+            
+            // Show typing indicator
+            showTypingIndicator();
+            isWaitingForResponse = true;
+            
+            // Send search request for the selected movie
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: movieTitle,
+                    conversation_history: conversationHistory || []
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Add AI response
+                    addMessage(data.response, 'assistant');
+                    
+                    // Show movie results if any
+                    if (data.movie_results && data.movie_results.length > 0) {
+                        addMovieResults(data.movie_results, data.search_query);
+                    }
+                    
+                    // Update conversation history
+                    conversationHistory = data.conversation_history || [];
+                } else {
+                    addMessage('Sorry, I encountered an error searching for that movie. Please try again.', 'assistant');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                addMessage('Sorry, I encountered a connection error. Please try again.', 'assistant');
+            })
+            .finally(() => {
+                hideTypingIndicator();
+                isWaitingForResponse = false;
+            });
+        }
+
         async function sendMessage() {
+            console.log('DEBUG: sendMessage called');
+            
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             
-            if (!message || isWaitingForResponse) return;
+            console.log('DEBUG: Message:', message);
+            
+            if (!message || isWaitingForResponse) {
+                console.log('DEBUG: Empty message or waiting for response');
+                return;
+            }
 
             // Add user message to chat
             addMessage(message, 'user');
@@ -1034,16 +1189,43 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Add AI response
+                    console.log('DEBUG: Full response data:', data);
+                    
+                    // Add AI response first
                     addMessage(data.response, 'assistant');
+                    
+                    // Extract movie titles from intent data if available
+                    console.log('DEBUG: Checking for intent data...');
+                    console.log('DEBUG: data.intent exists:', !!data.intent);
+                    
+                    if (data.intent) {
+                        console.log('DEBUG: Intent data:', data.intent);
+                        console.log('DEBUG: movie_details exists:', !!data.intent.movie_details);
+                        
+                        if (data.intent.movie_details) {
+                            console.log('DEBUG: movie_details:', data.intent.movie_details);
+                            console.log('DEBUG: movie_titles exists:', !!data.intent.movie_details.movie_titles);
+                            console.log('DEBUG: movie_titles:', data.intent.movie_details.movie_titles);
+                            
+                            let movieTitles = data.intent.movie_details.movie_titles;
+                            if (movieTitles && Array.isArray(movieTitles) && movieTitles.length > 0) {
+                                console.log('DEBUG: Adding movie chips for:', movieTitles);
+                                addMovieChips(movieTitles);
+                            } else {
+                                console.log('DEBUG: No valid movie titles array found');
+                            }
+                        } else {
+                            console.log('DEBUG: No movie_details in intent');
+                        }
+                    } else {
+                        console.log('DEBUG: No intent data in response');
+                    }
 
                     // Tag assistant message with intent for subtle styling
                     if (data.intent_type) {
                         tagLastAssistantIntent(data.intent_type);
                     }
 
-
-                    
                     // Show movie results if any
                     if (data.movie_results && data.movie_results.length > 0) {
                         addMovieResults(data.movie_results, data.search_query);
@@ -1094,6 +1276,9 @@
             
             messageDiv.appendChild(messageContainer);
             messagesContainer.appendChild(messageDiv);
+            
+            // Movie chips are now handled separately in the main chat function
+            
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
             // Hide welcome message
@@ -1155,6 +1340,172 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
         
+        function addMovieChips(movieTitles) {
+            console.log('DEBUG: addMovieChips called with:', movieTitles);
+            
+            if (!movieTitles || !Array.isArray(movieTitles) || movieTitles.length === 0) {
+                console.log('DEBUG: No valid movie titles to display');
+                return;
+            }
+            
+            const messagesContainer = document.getElementById('chatMessages');
+            
+            // Create movie chips container
+            const chipsContainer = document.createElement('div');
+            chipsContainer.className = 'movie-chips-container';
+            chipsContainer.style.cssText = `
+                margin: 16px 0;
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            `;
+            
+            // Header
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                color: #e5e7eb;
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            `;
+            headerDiv.innerHTML = '<span>🎬</span><span>Select a movie to search:</span>';
+            
+            // Horizontal scrollable chips container
+            const scrollContainer = document.createElement('div');
+            scrollContainer.style.cssText = `
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+                padding: 4px 0;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(59, 130, 246, 0.3) transparent;
+            `;
+            
+            // Add CSS for webkit scrollbar
+            const style = document.createElement('style');
+            style.textContent = `
+                .movie-chips-container::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .movie-chips-container::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 3px;
+                }
+                .movie-chips-container::-webkit-scrollbar-thumb {
+                    background: rgba(59, 130, 246, 0.3);
+                    border-radius: 3px;
+                }
+                .movie-chips-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(59, 130, 246, 0.5);
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Create chips for each movie
+            movieTitles.forEach((movieTitle, index) => {
+                if (movieTitle && movieTitle.trim()) {
+                    const chip = document.createElement('div');
+                    chip.className = 'movie-chip';
+                    chip.textContent = movieTitle.trim();
+                    chip.style.cssText = `
+                        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 500;
+                        white-space: nowrap;
+                        transition: all 0.2s ease;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                        min-width: fit-content;
+                        user-select: none;
+                    `;
+                    
+                    // Add hover effects
+                    chip.onmouseover = () => {
+                        chip.style.transform = 'translateY(-2px)';
+                        chip.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                        chip.style.background = 'linear-gradient(135deg, #2563eb, #1e40af)';
+                    };
+                    
+                    chip.onmouseout = () => {
+                        chip.style.transform = 'translateY(0)';
+                        chip.style.boxShadow = 'none';
+                        chip.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+                    };
+                    
+                    // Add click handler
+                    chip.onclick = () => {
+                        console.log('DEBUG: Movie chip clicked:', movieTitle);
+                        searchSelectedMovie(movieTitle.trim());
+                    };
+                    
+                    scrollContainer.appendChild(chip);
+                    console.log('DEBUG: Added chip for:', movieTitle);
+                }
+            });
+            
+            chipsContainer.appendChild(headerDiv);
+            chipsContainer.appendChild(scrollContainer);
+            messagesContainer.appendChild(chipsContainer);
+            
+            // Scroll to show the new chips
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            console.log('DEBUG: Movie chips added to DOM');
+        }
+        
+        function searchSelectedMovie(movieTitle) {
+            // Add user message showing their selection
+            addMessage(`Search for: ${movieTitle}`, 'user');
+            
+            // Show typing indicator
+            showTypingIndicator();
+            isWaitingForResponse = true;
+            
+            // Send search request for the selected movie
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: movieTitle,
+                    conversation_history: conversationHistory
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Add AI response
+                    addMessage(data.response, 'assistant');
+                    
+                    // Show movie results if any
+                    if (data.movie_results && data.movie_results.length > 0) {
+                        addMovieResults(data.movie_results, data.search_query);
+                    }
+                    
+                    // Update conversation history
+                    conversationHistory = data.conversation_history || [];
+                } else {
+                    addMessage('Sorry, I encountered an error searching for that movie. Please try again.', 'assistant');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                addMessage('Sorry, I encountered a connection error. Please try again.', 'assistant');
+            })
+            .finally(() => {
+                hideTypingIndicator();
+                isWaitingForResponse = false;
+            });
+        }
+        
         function extractLinks(movieTitle) {
             // Redirect to extraction page
             window.location.href = `/?search=${encodeURIComponent(movieTitle)}&extract=true`;
@@ -1186,10 +1537,27 @@
             content = content.replace(urlRegex, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
             // Simple formatting for better readability
-            return content
+            let formatted = content
                 .replace(/\n/g, '<br>')
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\*(.*?)\*/g, '<em>$1</em>');
+            
+            // Make movie titles clickable using movielink tags
+            if (formatted.includes('🎬 **Select a movie to search:**')) {
+                // Convert <movielink> tags to clickable spans
+                formatted = formatted.replace(/<movielink>([^<]+)<\/movielink>/g, (match, movieTitle) => {
+                    const cleanTitle = movieTitle.trim();
+                    return `<span onclick="searchSpecificMovie('${cleanTitle.replace(/'/g, "\\'")}'); return false;" 
+                                  style="color: #60a5fa; cursor: pointer; text-decoration: underline; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 2px 6px; border-radius: 4px;"
+                                  onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.color='#3b82f6';"
+                                  onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.color='#60a5fa';"
+                                  title="Click to search for ${cleanTitle}">
+                                ${cleanTitle}
+                            </span>`;
+                });
+            }
+            
+            return formatted;
         }
 
         function showTypingIndicator() {
@@ -1204,6 +1572,10 @@
 
         // Auto-focus on input
         document.getElementById('chatInput').focus();
+        
+        // Test if JavaScript is working
+        console.log('DEBUG: JavaScript loaded successfully');
+        console.log('DEBUG: Chat system initialized');
         
         // Direct Search Functions
         function handleDirectSearchKeyPress(event) {

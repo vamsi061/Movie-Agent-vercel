@@ -2313,6 +2313,14 @@ def chat_with_ai():
         search_performed = result.get('search_performed', False)
         response_text = result.get('response_text', '')
         
+        # Store movie titles for frontend to create movie selection chips
+        movie_details = intent.get('movie_details', {})
+        movie_titles = movie_details.get('movie_titles', [])
+        
+        if movie_titles and len(movie_titles) > 0:
+            logger.info(f"Movie titles available for frontend selection: {movie_titles}")
+            # The frontend will handle creating the selection UI using the intent data
+        
         # Log for debugging
         if search_performed:
             logger.info(f"Chat: Found {len(movies)} movies for user request")
@@ -2327,6 +2335,7 @@ def chat_with_ai():
             'movie_results': movies,
             'search_performed': search_performed,
             'intent_type': intent.get('intent_type', 'unknown'),
+            'intent': intent,  # Include full intent data for movie selection buttons
             'session_info': {
                 'session_id': user_session_id,
                 'conversation_count': session_stats.get('conversation_count', 0),

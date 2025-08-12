@@ -2760,6 +2760,14 @@
                         addMessage(data.response, false);
                     }
                     
+                    // Add movie selection chips if available
+                    if (data.intent && data.intent.movie_details && data.intent.movie_details.movie_titles) {
+                        const movieTitles = data.intent.movie_details.movie_titles;
+                        if (movieTitles && movieTitles.length > 0) {
+                            addMovieSelectionChips(movieTitles);
+                        }
+                    }
+                    
                     // Show suggestions if available
                     if (data.suggestions && data.suggestions.length > 0) {
                         displaySuggestions(data.suggestions);
@@ -3830,6 +3838,106 @@
                 hideConfirmationModal();
             }
         });
+
+        function addMovieSelectionChips(movieTitles) {
+            console.log('Adding movie selection chips:', movieTitles);
+            
+            if (!movieTitles || !Array.isArray(movieTitles) || movieTitles.length === 0) {
+                return;
+            }
+            
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // Create movie chips container
+            const chipsContainer = document.createElement('div');
+            chipsContainer.className = 'movie-chips-container';
+            chipsContainer.style.cssText = `
+                margin: 16px 0;
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+            `;
+            
+            // Header
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                color: #e5e7eb;
+                font-size: 14px;
+                font-weight: 600;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            `;
+            headerDiv.innerHTML = '<span>🎬</span><span>Select a movie to search:</span>';
+            
+            // Horizontal scrollable chips container
+            const scrollContainer = document.createElement('div');
+            scrollContainer.style.cssText = `
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+                padding: 4px 0;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(59, 130, 246, 0.3) transparent;
+            `;
+            
+            // Create chips for each movie
+            movieTitles.forEach((movieTitle, index) => {
+                if (movieTitle && movieTitle.trim()) {
+                    const chip = document.createElement('div');
+                    chip.className = 'movie-chip';
+                    chip.textContent = movieTitle.trim();
+                    chip.style.cssText = `
+                        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 500;
+                        white-space: nowrap;
+                        transition: all 0.2s ease;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                        min-width: fit-content;
+                        user-select: none;
+                    `;
+                    
+                    // Add hover effects
+                    chip.onmouseover = () => {
+                        chip.style.transform = 'translateY(-2px)';
+                        chip.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                        chip.style.background = 'linear-gradient(135deg, #2563eb, #1e40af)';
+                    };
+                    
+                    chip.onmouseout = () => {
+                        chip.style.transform = 'translateY(0)';
+                        chip.style.boxShadow = 'none';
+                        chip.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+                    };
+                    
+                    // Add click handler
+                    chip.onclick = () => {
+                        console.log('Movie chip clicked:', movieTitle);
+                        document.getElementById('chatInput').value = movieTitle.trim();
+                        sendChatMessage();
+                    };
+                    
+                    scrollContainer.appendChild(chip);
+                }
+            });
+            
+            chipsContainer.appendChild(headerDiv);
+            chipsContainer.appendChild(scrollContainer);
+            chatMessages.appendChild(chipsContainer);
+            
+            // Scroll to show the new chips
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            console.log('Movie chips added successfully');
+        }
 
         // Initialize chat input focus and auto-resize
         document.addEventListener('DOMContentLoaded', function() {

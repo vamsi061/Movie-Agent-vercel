@@ -81,10 +81,12 @@ class EnhancedLLMChatAgent:
         try:
             system_prompt = """You are an intelligent assistant that analyzes user messages to understand their intent.
 
+CRITICAL: When users ask for movie recommendations (like "good action movies", "best comedies", "latest movies"), you MUST populate the movie_titles array with specific movie names.
+
 ANALYZE THE USER'S MESSAGE CAREFULLY and determine:
 1. Intent type: "personal", "movie_request", "general_chat", "greeting", "information_request", or "date_time"
 2. If they mention a specific movie, research and provide complete details
-3. The best search terms for finding movies (only for movie requests)
+3. If they ask for movie recommendations, provide 3-5 specific movie titles in the movie_titles array
 
 INTENT CATEGORIES:
 - "date_time": Questions about current date, time, day, etc.
@@ -94,53 +96,51 @@ INTENT CATEGORIES:
 - "greeting": Simple greetings and hellos
 - "general_chat": Other conversational messages
 
-FOR MOVIE REQUESTS (like "rrr movie", "avatar", "john wick"):
+FOR MOVIE RECOMMENDATIONS (like "good action movies", "best comedies", "latest movies"):
+- Set intent_type to "movie_request"
+- ALWAYS populate movie_titles with 3-5 specific movie names
+- These titles will become clickable buttons for the user
+- Example: "good action movies" → movie_titles: ["The Dark Knight", "Mad Max: Fury Road", "Inception", "John Wick", "Mission: Impossible"]
+
+FOR SPECIFIC MOVIE REQUESTS (like "rrr movie", "avatar", "john wick"):
 - Research the movie thoroughly
 - Provide the correct full title, year, and key details
 - Handle common abbreviations and alternate names
-- Suggest the best search terms
-
-FOR NON-MOVIE REQUESTS:
-- Identify the specific type of information they want
-- Don't force movie-related responses
 
 Respond in JSON format:
 {
-    "intent_type": "personal|movie_request|general_chat|greeting|information_request|date_time",
+    "intent_type": "movie_request",
     "confidence": 0.9,
     "movie_details": {
-        "movie_titles": ["exact movie names with full details"],
-        "genres": ["specific genres"],
-        "years": ["release years"],
-        "actors": ["main actors"],
-        "directors": ["directors"],
-        "language": "movie language",
+        "movie_titles": ["The Dark Knight", "Mad Max: Fury Road", "Inception", "John Wick", "Mission: Impossible"],
+        "genres": ["action"],
+        "years": [],
+        "actors": [],
+        "directors": [],
+        "language": "",
         "movie_research": {
-            "full_title": "complete official movie title",
-            "release_year": "year",
-            "alternate_names": ["other known names"],
-            "key_details": "important info about the movie"
+            "full_title": "",
+            "release_year": "",
+            "alternate_names": [],
+            "key_details": ""
         },
-        "search_query": "BEST search term for movie APIs",
-        "search_variations": ["alternative search terms to try"]
+        "search_query": "action movies",
+        "search_variations": ["action films", "action movies", "thriller movies"]
     },
     "user_intent_analysis": {
-        "what_they_want": "specific movie or general preference or information",
-        "is_specific_movie": true/false,
-        "confidence_in_movie_match": "high/medium/low"
+        "what_they_want": "action movie recommendations",
+        "is_specific_movie": false,
+        "confidence_in_movie_match": "medium"
     }
 }
 
-MOVIE RESEARCH EXAMPLES:
-- "rrr movie" → movie_research: {"full_title": "RRR", "release_year": "2022", "alternate_names": ["RRR (Rise Roar Revolt)", "Roudram Ranam Rudhiram"], "key_details": "Telugu epic action film by S.S. Rajamouli starring Ram Charan and Jr. NTR"}, search_query: "RRR 2022", search_variations: ["RRR", "RRR movie", "RRR 2022"]
+EXAMPLES:
+- "good action movies" → movie_titles: ["The Dark Knight", "Mad Max: Fury Road", "Inception", "John Wick", "Mission: Impossible"]
+- "best comedies" → movie_titles: ["The Hangover", "Superbad", "Anchorman", "Dumb and Dumber", "Borat"]
+- "latest Marvel movies" → movie_titles: ["Avengers: Endgame", "Spider-Man: No Way Home", "Black Widow", "Shang-Chi", "Eternals"]
+- "horror movies" → movie_titles: ["The Conjuring", "Hereditary", "Get Out", "A Quiet Place", "It"]
 
-- "avatar" → movie_research: {"full_title": "Avatar", "release_year": "2009", "alternate_names": ["Avatar: The Way of Water (2022 sequel)"], "key_details": "James Cameron sci-fi film"}, search_query: "Avatar 2009", search_variations: ["Avatar", "Avatar movie", "Avatar James Cameron"]
-
-- "john wick" → movie_research: {"full_title": "John Wick", "release_year": "2014", "alternate_names": ["John Wick Chapter series"], "key_details": "Action thriller starring Keanu Reeves"}, search_query: "John Wick", search_variations: ["John Wick", "John Wick 2014", "John Wick movie"]
-
-- "avengers endgame" → movie_research: {"full_title": "Avengers: Endgame", "release_year": "2019", "key_details": "Marvel superhero film, final Infinity Saga movie"}, search_query: "Avengers Endgame", search_variations: ["Avengers Endgame", "Avengers: Endgame", "Endgame"]
-
-BE THOROUGH in movie research and provide multiple search variations!"""
+REMEMBER: Always populate movie_titles array for any movie recommendation request!"""
 
             # Attach recent session context to help handle follow-ups like "yes"/"no"
             if conversation_context:
@@ -163,7 +163,6 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(400, 4000),
                 temperature=0.3
             )
             
@@ -308,9 +307,12 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             if franchises:
                 # For Marvel, DC, etc., use the franchise name as primary search term
                 search_parts.extend(franchises[:1])
-                # Add "latest" if mentioned
+                # Add specific recent years if "latest", "new", or "recent" is mentioned
                 if 'latest' in message_lower or 'new' in message_lower or 'recent' in message_lower:
-                    search_parts.append('latest')
+                    # Add current year and previous year for truly latest movies
+                    from datetime import datetime
+                    current_year = datetime.now().year
+                    search_parts.extend([str(current_year), str(current_year - 1)])  # 2025, 2024
             
             if language != "any":
                 search_parts.append(language)
@@ -335,7 +337,7 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                     "mood": mood,
                     "language": language,
                     "search_query": search_query,
-                    "search_variations": [search_query] + franchises if franchises else [search_query]
+                    "search_variations": self._build_search_variations(search_query, franchises, message_lower)
                 },
                 "user_intent_analysis": {
                     "what_they_want": f"{franchises[0]} movies" if franchises else "general movie recommendations",
@@ -474,6 +476,40 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         
         return None
     
+    def _build_search_variations(self, search_query: str, franchises: List[str], message_lower: str) -> List[str]:
+        """Build multiple search variations for better movie finding, especially for latest requests"""
+        variations = [search_query]
+        
+        if franchises:
+            franchise = franchises[0]
+            variations.append(franchise)
+            
+            # For latest requests, create year-specific variations
+            if 'latest' in message_lower or 'new' in message_lower or 'recent' in message_lower:
+                from datetime import datetime
+                current_year = datetime.now().year
+                
+                # Add variations with specific years
+                variations.extend([
+                    f"{franchise} {current_year}",      # "marvel 2025"
+                    f"{franchise} {current_year - 1}",  # "marvel 2024"
+                    f"{franchise} movies {current_year}",
+                    f"{franchise} movies {current_year - 1}",
+                    f"new {franchise} movies",
+                    f"latest {franchise}",
+                    f"recent {franchise} movies"
+                ])
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_variations = []
+        for var in variations:
+            if var not in seen:
+                seen.add(var)
+                unique_variations.append(var)
+        
+        return unique_variations
+    
     def _looks_like_movie_title(self, text: str) -> bool:
         """Heuristic to decide if a short user input likely refers to a movie title.
         Examples: 'rrr', 'constable kanakam', 'pushpa', 'john wick 4'
@@ -588,31 +624,38 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             "search_queries_used": search_variations
         }
         
-        # Search across all agents with timeout
-        with ThreadPoolExecutor(max_workers=len(self.movie_agents)) as executor:
+        # Search across all agents with timeout, trying multiple variations
+        with ThreadPoolExecutor(max_workers=len(self.movie_agents) * min(3, len(search_variations))) as executor:
             future_to_agent = {}
             
             for agent_name, agent in self.movie_agents.items():
-                # Use primary search query for each agent
-                query = search_variations[0] if search_variations else search_query
-                future = executor.submit(self._safe_search, agent, agent_name, query)
-                future_to_agent[future] = (agent_name, query)
+                # Try multiple search variations for better results
+                variations_to_try = search_variations[:3]  # Try top 3 variations
+                for i, query in enumerate(variations_to_try):
+                    future = executor.submit(self._safe_search, agent, agent_name, query)
+                    future_to_agent[future] = (agent_name, query, i)
             
             # Collect results with timeout
             for future in as_completed(future_to_agent, timeout=60):  # 60 second total timeout
-                agent_name, query = future_to_agent[future]
+                agent_name, query, variation_index = future_to_agent[future]
                 try:
                     result = future.result(timeout=30)  # 30 second per agent timeout
                     if result and result.get('movies'):
                         all_results.extend(result['movies'])
-                        search_summary["successful_sources"].append(f"{agent_name}")
-                        logger.info(f"Found {len(result['movies'])} movies from {agent_name}")
+                        source_info = f"{agent_name} (query: '{query}')"
+                        if source_info not in search_summary["successful_sources"]:
+                            search_summary["successful_sources"].append(source_info)
+                        logger.info(f"Found {len(result['movies'])} movies from {agent_name} using query: '{query}'")
                     
-                    search_summary["sources_searched"].append(agent_name)
+                    search_info = f"{agent_name} (variation {variation_index + 1})"
+                    if search_info not in search_summary["sources_searched"]:
+                        search_summary["sources_searched"].append(search_info)
                     
                 except Exception as e:
-                    logger.error(f"Error searching {agent_name}: {str(e)}")
-                    search_summary["sources_searched"].append(f"{agent_name} - FAILED")
+                    logger.error(f"Error searching {agent_name} with query '{query}': {str(e)}")
+                    error_info = f"{agent_name} ('{query}') - FAILED"
+                    if error_info not in search_summary["sources_searched"]:
+                        search_summary["sources_searched"].append(error_info)
         
         # Remove duplicates and sort
         unique_movies = self._remove_duplicate_movies(all_results)
@@ -658,6 +701,7 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             return movies
         
         search_lower = search_query.lower()
+        is_latest_request = any(word in search_lower for word in ['latest', 'new', 'recent', '2024', '2025'])
         
         def relevance_score(movie):
             title = movie.get('title', '').lower()
@@ -665,7 +709,27 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             
             score = 0
             
-            # Exact title match gets highest score
+            # For "latest" requests, heavily prioritize recent years
+            if is_latest_request and year:
+                try:
+                    movie_year = int(year)
+                    current_year = 2025  # Current year
+                    year_diff = current_year - movie_year
+                    
+                    if year_diff <= 1:  # 2024-2025
+                        score += 200  # Highest priority for very recent
+                    elif year_diff <= 2:  # 2023
+                        score += 150
+                    elif year_diff <= 3:  # 2022
+                        score += 100
+                    elif year_diff <= 5:  # 2020-2021
+                        score += 50
+                    else:  # Older than 2020
+                        score += 10  # Much lower priority for old movies
+                except ValueError:
+                    pass
+            
+            # Exact title match gets high score
             if search_lower == title:
                 score += 100
             
@@ -890,7 +954,6 @@ Be natural, friendly, and show enthusiasm for helping with movies."""
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(150, 4000),
                 temperature=0.8
             )
             
@@ -948,7 +1011,6 @@ Be genuine, caring, and helpful."""
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    max_tokens=max_tokens,
                     temperature=0.7
                 )
             except Exception as api_error:
@@ -1067,7 +1129,6 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(500, 4000),
                 temperature=0.7
             )
             
@@ -1139,7 +1200,6 @@ Keep response focused on DOWNLOADING, not streaming platforms."""
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                max_tokens=400,
                 temperature=0.7
             )
             
@@ -1180,7 +1240,6 @@ Be helpful and encouraging, not dismissive. Focus on finding download solutions.
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                max_tokens=250,
                 temperature=0.7
             )
             
@@ -1242,7 +1301,6 @@ User's question: "{user_message}" """
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(200, 4000),
                 temperature=0.7
             )
             
@@ -1277,7 +1335,6 @@ Keep responses concise but engaging."""
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(150, 4000),
                 temperature=0.7
             )
             
@@ -1403,7 +1460,6 @@ Examples:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(200, 4000),
                 temperature=0.8
             )
             
