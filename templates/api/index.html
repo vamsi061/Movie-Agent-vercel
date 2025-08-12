@@ -1883,9 +1883,11 @@
                 
                 // Show loading state
                 const originalText = buttonElement.innerHTML;
+                let skipReset = false; // Flag to prevent automatic reset for taazabull links
                 buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
                 buttonElement.disabled = true;
                 buttonElement.style.pointerEvents = 'none';
+                buttonElement.style.background = '#6c757d';
                 
                 // Call the resolve_download endpoint
                 fetch('/api/resolve_download', {
@@ -1921,6 +1923,9 @@
                                 buttonElement.style.background = '#f59e0b';
                                 buttonElement.disabled = true;
                                 buttonElement.style.pointerEvents = 'none';
+                                
+                                // Skip the automatic button reset for taazabull links
+                                skipReset = true;
                                 
                                 // Call backend to resolve the taazabull link
                                 fetch('/api/resolve_taazabull', {
@@ -2037,13 +2042,15 @@
                         // Show success message
                         showMoviezWapNotification('SUCCESS: Direct download link resolved! Download should start automatically.', 'success');
                         
-                        // Reset button after 3 seconds
-                        setTimeout(() => {
-                            buttonElement.innerHTML = originalText;
-                            buttonElement.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
-                            buttonElement.disabled = false;
-                            buttonElement.style.pointerEvents = 'auto';
-                        }, 3000);
+                        // Reset button after 3 seconds (only if not processing taazabull)
+                        if (typeof skipReset === 'undefined' || !skipReset) {
+                            setTimeout(() => {
+                                buttonElement.innerHTML = originalText;
+                                buttonElement.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
+                                buttonElement.disabled = false;
+                                buttonElement.style.pointerEvents = 'auto';
+                            }, 3000);
+                        }
                         
                     } else {
                         console.log('Partial success or manual action required');
