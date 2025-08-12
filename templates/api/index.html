@@ -1779,6 +1779,43 @@
             return false;
         }
 
+        // Handle MoviezWap manual download instructions
+        function handleMoviezWapManualDownload(originalUrl, resolvedUrl, buttonElement) {
+            console.log('Showing MoviezWap manual download instructions');
+            
+            // Clone the button to remove all event listeners
+            const newButton = buttonElement.cloneNode(true);
+            
+            // Update the new button
+            newButton.innerHTML = '<i class="fas fa-external-link-alt"></i> Manual Download';
+            newButton.style.background = '#ffc107';
+            newButton.disabled = false;
+            newButton.style.pointerEvents = 'auto';
+            
+            // Remove any MoviezWap-related attributes and classes
+            newButton.removeAttribute('onclick');
+            newButton.removeAttribute('data-url');
+            newButton.classList.remove('moviezwap-link');
+            newButton.setAttribute('data-moviezwap-manual', 'true');
+            
+            // Add new click handler to open manual download page
+            newButton.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Opening MoviezWap manual download page:', originalUrl);
+                window.open(originalUrl, '_blank');
+                return false;
+            };
+            
+            // Replace the old button with the new one
+            buttonElement.parentNode.replaceChild(newButton, buttonElement);
+            
+            // Show simple, clear instructions
+            const instructionMessage = `Click "Manual Download" → Find "Fast Download Server" → Click to Download`;
+            
+            showMoviezWapNotification(instructionMessage, 'warning', 15000); // Show for 15 seconds
+        }
+
         // Enhanced MoviezWap Auto-Resolution Function
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
@@ -1786,6 +1823,12 @@
             // Skip if this button has already been resolved
             if (buttonElement.getAttribute('data-taazabull-resolved') === 'true') {
                 console.log('Button already resolved, skipping...');
+                return;
+            }
+            
+            // Skip if this button is set to manual download
+            if (buttonElement.getAttribute('data-moviezwap-manual') === 'true') {
+                console.log('Button set to manual download, skipping...');
                 return;
             }
             
@@ -2024,23 +2067,62 @@
                             }
                             return; // IMPORTANT: Exit here to prevent download
                         } else {
-                            // Start the download via proxy for other links
-                            console.log('Starting download for non-DownloadHub link:', data.final_download_url);
-                            const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
-                            const link = document.createElement('a');
-                            link.href = proxyUrl;
-                            link.download = '';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            // Check if this is a MoviezWap link that might need manual handling
+                            if (data.final_download_url.includes('moviezwap') || data.final_download_url.includes('moviezzwaphd')) {
+                                console.log('MoviezWap link detected, checking if download works...');
+                                
+                                // Try to test the download link first
+                                fetch(`/download_file?url=${encodeURIComponent(data.final_download_url)}`, {
+                                    method: 'HEAD'
+                                })
+                                .then(response => {
+                                    if (response.ok || response.status === 302) {
+                                        // Download should work (200 OK or 302 redirect), proceed normally
+                                        console.log('MoviezWap download link is working, starting download...');
+                                        const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
+                                        const link = document.createElement('a');
+                                        link.href = proxyUrl;
+                                        link.download = '';
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        
+                                        showDownloadStatus();
+                                        showDownloadStartedNotification(data.final_download_url);
+                                        showMoviezWapNotification('SUCCESS: MoviezWap download started!', 'success');
+                                    } else {
+                                        // Download failed, show manual instructions
+                                        console.log('MoviezWap download failed, showing manual instructions...');
+                                        handleMoviezWapManualDownload(downloadUrl, data.final_download_url, buttonElement);
+                                        skipReset = true; // Prevent automatic reset
+                                    }
+                                })
+                                .catch(error => {
+                                    console.log('MoviezWap download test failed, showing manual instructions...');
+                                    handleMoviezWapManualDownload(downloadUrl, data.final_download_url, buttonElement);
+                                    skipReset = true; // Prevent automatic reset
+                                });
+                                
+                                return; // Exit here to prevent showing success message prematurely
+                            } else {
+                                // Start the download via proxy for other links
+                                console.log('Starting download for non-DownloadHub/non-MoviezWap link:', data.final_download_url);
+                                const proxyUrl = `/download_file?url=${encodeURIComponent(data.final_download_url)}`;
+                                const link = document.createElement('a');
+                                link.href = proxyUrl;
+                                link.download = '';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                
+                                // Show download started UI
+                                showDownloadStatus();
+                                showDownloadStartedNotification(data.final_download_url);
+                                
+                                // Show success message
+                                showMoviezWapNotification('SUCCESS: Direct download link resolved! Download should start automatically.', 'success');
+                            }
                         }
-                        
-                        // Show download started UI
-                        showDownloadStatus();
-                        showDownloadStartedNotification(data.final_download_url);
-                        
-                        // Show success message
-                        showMoviezWapNotification('SUCCESS: Direct download link resolved! Download should start automatically.', 'success');
                         
                         // Reset button after 3 seconds (only if not processing taazabull)
                         if (typeof skipReset === 'undefined' || !skipReset) {
