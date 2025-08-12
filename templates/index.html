@@ -2753,18 +2753,22 @@
                     // Update conversation history
                     conversationHistory = data.conversation_history || [];
                     
-                    // Display AI response and movie results
+                    // EXACT ORIGINAL LOGIC RESTORED FROM COMMIT ec61886
                     if (data.movie_results && data.movie_results.length > 0) {
                         displayMovieResultsInChat(data.movie_results, data.response);
                     } else {
                         addMessage(data.response, false);
-                    }
-                    
-                    // Add movie selection chips if available
-                    if (data.intent && data.intent.movie_details && data.intent.movie_details.movie_titles) {
-                        const movieTitles = data.intent.movie_details.movie_titles;
-                        if (movieTitles && movieTitles.length > 0) {
-                            addMovieSelectionChips(movieTitles);
+                        
+                        // Add movie selection chips only for recommendation requests (not specific movie searches)
+                        if (data.intent && data.intent.movie_details && data.intent.movie_details.movie_titles) {
+                            const movieTitles = data.intent.movie_details.movie_titles;
+                            const userIntent = data.intent.user_intent_analysis || {};
+                            const isSpecificMovie = userIntent.is_specific_movie;
+                            
+                            // Only show chips for general recommendations, not specific movie searches
+                            if (movieTitles && movieTitles.length > 0 && !isSpecificMovie) {
+                                addMovieSelectionChips(movieTitles);
+                            }
                         }
                     }
                     
