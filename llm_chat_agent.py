@@ -79,22 +79,34 @@ class EnhancedLLMChatAgent:
             return self._fallback_intent_analysis(user_message)
         
         try:
-            system_prompt = """You are an expert movie database assistant that analyzes user messages to understand their exact movie requests.
+            system_prompt = """You are an intelligent assistant that analyzes user messages to understand their intent.
 
-ANALYZE THE USER'S MESSAGE CAREFULLY and extract:
-1. Intent type: "personal", "movie_request", "general_chat", or "greeting"
+ANALYZE THE USER'S MESSAGE CAREFULLY and determine:
+1. Intent type: "personal", "movie_request", "general_chat", "greeting", "information_request", or "date_time"
 2. If they mention a specific movie, research and provide complete details
-3. The best search terms for finding movies
+3. The best search terms for finding movies (only for movie requests)
 
-FOR SPECIFIC MOVIE REQUESTS (like "rrr movie", "avatar", "john wick"):
+INTENT CATEGORIES:
+- "date_time": Questions about current date, time, day, etc.
+- "information_request": General knowledge questions, facts, explanations
+- "personal": Questions about the assistant (how are you, who are you, etc.)
+- "movie_request": Anything related to finding, downloading, or discussing movies
+- "greeting": Simple greetings and hellos
+- "general_chat": Other conversational messages
+
+FOR MOVIE REQUESTS (like "rrr movie", "avatar", "john wick"):
 - Research the movie thoroughly
 - Provide the correct full title, year, and key details
 - Handle common abbreviations and alternate names
 - Suggest the best search terms
 
+FOR NON-MOVIE REQUESTS:
+- Identify the specific type of information they want
+- Don't force movie-related responses
+
 Respond in JSON format:
 {
-    "intent_type": "personal|movie_request|general_chat|greeting",
+    "intent_type": "personal|movie_request|general_chat|greeting|information_request|date_time",
     "confidence": 0.9,
     "movie_details": {
         "movie_titles": ["exact movie names with full details"],
@@ -113,7 +125,7 @@ Respond in JSON format:
         "search_variations": ["alternative search terms to try"]
     },
     "user_intent_analysis": {
-        "what_they_want": "specific movie or general preference",
+        "what_they_want": "specific movie or general preference or information",
         "is_specific_movie": true/false,
         "confidence_in_movie_match": "high/medium/low"
     }
@@ -156,16 +168,40 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             )
             
             response_text = response.choices[0].message.content
+            logger.debug(f"LLM response: {response_text}")
             
-            # Try to parse JSON response
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                intent = json.loads(json_match.group())
-                logger.info(f"Analyzed intent: {intent}")
+            # Try to parse JSON response with multiple strategies
+            try:
+                # Strategy 1: Try to parse the entire response as JSON
+                intent = json.loads(response_text.strip())
+                logger.info(f"Analyzed intent (full parse): {intent}")
                 return intent
-            else:
-                logger.warning("Could not parse LLM response as JSON")
-                return self._fallback_intent_analysis(user_message)
+            except json.JSONDecodeError:
+                pass
+            
+            try:
+                # Strategy 2: Extract JSON from response using regex
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    intent = json.loads(json_match.group())
+                    logger.info(f"Analyzed intent (regex parse): {intent}")
+                    return intent
+            except json.JSONDecodeError:
+                pass
+            
+            try:
+                # Strategy 3: Look for JSON between code blocks
+                code_block_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                if code_block_match:
+                    intent = json.loads(code_block_match.group(1))
+                    logger.info(f"Analyzed intent (code block parse): {intent}")
+                    return intent
+            except json.JSONDecodeError:
+                pass
+            
+            # If all parsing strategies fail, log the response and use fallback
+            logger.warning(f"Could not parse LLM response as JSON. Response was: {response_text[:500]}...")
+            return self._fallback_intent_analysis(user_message)
                 
         except Exception as e:
             logger.error(f"Error analyzing user intent: {str(e)}")
@@ -174,6 +210,30 @@ BE THOROUGH in movie research and provide multiple search variations!"""
     def _fallback_intent_analysis(self, user_message: str) -> Dict[str, Any]:
         """Enhanced fallback method for intent analysis when LLM fails"""
         message_lower = user_message.lower()
+        
+        # Check for date/time questions
+        date_time_keywords = ['date', 'time', 'today', 'now', 'current', 'what day', 'what time', 'clock', 'calendar']
+        if any(keyword in message_lower for keyword in date_time_keywords):
+            return {
+                "intent_type": "date_time",
+                "confidence": 0.9,
+                "response_style": "informative",
+                "information_context": {"topic": "date_time", "requires_current_info": True}
+            }
+        
+        # Check for general information requests
+        info_keywords = ['what is', 'what are', 'how does', 'explain', 'define', 'meaning', 'why', 'where', 'when']
+        question_indicators = ['?', 'what', 'how', 'why', 'where', 'when', 'who']
+        if (any(keyword in message_lower for keyword in info_keywords) or 
+            any(indicator in message_lower for indicator in question_indicators)):
+            # But exclude movie and personal questions
+            if not any(word in message_lower for word in ['movie', 'film', 'how are you', 'who are you']):
+                return {
+                    "intent_type": "information_request",
+                    "confidence": 0.8,
+                    "response_style": "informative",
+                    "information_context": {"topic": "general_knowledge", "requires_explanation": True}
+                }
         
         # Check for greetings
         greetings = ['hello', 'hi', 'hey', 'good morning', 'good evening', 'good afternoon']
@@ -203,13 +263,15 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         # Enhanced movie keyword detection for general requests
         movie_keywords = ['movie', 'film', 'watch', 'download', 'stream', 'cinema', 'bollywood', 'hollywood', 'show', 'series']
         mood_keywords = ['exciting', 'funny', 'romantic', 'scary', 'thrilling', 'action-packed', 'laugh', 'cry']
-        theme_keywords = ['superhero', 'space', 'war', 'family', 'crime', 'zombie', 'vampire', 'magic']
+        theme_keywords = ['superhero', 'space', 'war', 'family', 'crime', 'zombie', 'vampire', 'magic', 'marvel', 'dc', 'disney']
+        franchise_keywords = ['marvel', 'dc', 'disney', 'pixar', 'star wars', 'harry potter', 'fast and furious', 'john wick']
         
-        if any(keyword in message_lower for keyword in movie_keywords + mood_keywords + theme_keywords):
+        if any(keyword in message_lower for keyword in movie_keywords + mood_keywords + theme_keywords + franchise_keywords):
             # Extract detailed movie preferences
             genres = [genre for genre in self.movie_genres if genre in message_lower]
             years = re.findall(r'\b(19|20)\d{2}\b', user_message)
             themes = [theme for theme in theme_keywords if theme in message_lower]
+            franchises = [franchise for franchise in franchise_keywords if franchise in message_lower]
             
             # Detect mood from keywords
             mood = "any"
@@ -241,11 +303,20 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             
             # Build intelligent search query
             search_parts = []
+            
+            # Prioritize franchises for specific searches
+            if franchises:
+                # For Marvel, DC, etc., use the franchise name as primary search term
+                search_parts.extend(franchises[:1])
+                # Add "latest" if mentioned
+                if 'latest' in message_lower or 'new' in message_lower or 'recent' in message_lower:
+                    search_parts.append('latest')
+            
             if language != "any":
                 search_parts.append(language)
             if genres:
                 search_parts.extend(genres[:2])
-            if themes:
+            if themes and not franchises:  # Don't add themes if we already have franchises
                 search_parts.extend(themes[:1])
             if years:
                 search_parts.extend(years[:1])
@@ -260,12 +331,14 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                     "genres": genres,
                     "years": years,
                     "themes": themes,
+                    "franchises": franchises,
                     "mood": mood,
                     "language": language,
-                    "search_query": search_query
+                    "search_query": search_query,
+                    "search_variations": [search_query] + franchises if franchises else [search_query]
                 },
                 "user_intent_analysis": {
-                    "what_they_want": "general movie recommendations",
+                    "what_they_want": f"{franchises[0]} movies" if franchises else "general movie recommendations",
                     "is_specific_movie": False,
                     "confidence_in_movie_match": "medium"
                 },
@@ -661,8 +734,8 @@ BE THOROUGH in movie research and provide multiple search variations!"""
         is_clear_personal = any(p in normalized_input for p in ['how are you', 'who are you', 'what are you'])
         
         # If not already a movie request but has movie indicators or looks like title, make it one
-        # BUT respect clear greetings and personal questions
-        if (intent.get('intent_type') not in ('movie_request', 'greeting', 'personal') and 
+        # BUT respect clear greetings, personal questions, date/time, and information requests
+        if (intent.get('intent_type') not in ('movie_request', 'greeting', 'personal', 'date_time', 'information_request') and 
             (contains_movie_indicator or looks_like_title) and 
             not is_clear_greeting and not is_clear_personal):
             
@@ -758,9 +831,11 @@ BE THOROUGH in movie research and provide multiple search variations!"""
                 else:
                     # If affirmation but no context, fall back to contextual response
                     response_data["response_text"] = self.generate_contextual_response(user_message, intent)
-            elif self._looks_like_movie_title(user_message) and not is_clear_greeting and not is_clear_personal:
+            elif (self._looks_like_movie_title(user_message) and 
+                  not is_clear_greeting and not is_clear_personal and
+                  intent.get('intent_type') not in ('date_time', 'information_request')):
                 # If the user typed a likely movie title but LLM intent didn't trigger, force a movie search
-                # BUT don't search if it's clearly a greeting like "hlo"
+                # BUT don't search if it's clearly a greeting, personal question, date/time, or info request
                 title = user_message.strip()
                 search_results = self.search_movies_with_sources(title, [title])
                 response_data["movies"] = search_results.get("movies", [])
@@ -784,6 +859,10 @@ BE THOROUGH in movie research and provide multiple search variations!"""
             return self._generate_personal_response(user_message, intent)
         elif intent_type == "movie_request":
             return self._generate_movie_response(user_message, intent, search_results)
+        elif intent_type == "date_time":
+            return self._generate_date_time_response(user_message, intent)
+        elif intent_type == "information_request":
+            return self._generate_information_response(user_message, intent)
         else:
             return self._generate_general_response(user_message, intent)
     
@@ -988,7 +1067,7 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=min(350, 4000),
+                max_tokens=min(500, 4000),
                 temperature=0.7
             )
             
@@ -1060,7 +1139,7 @@ Keep response focused on DOWNLOADING, not streaming platforms."""
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                max_tokens=200,
+                max_tokens=400,
                 temperature=0.7
             )
             
@@ -1114,6 +1193,64 @@ Be helpful and encouraging, not dismissive. Focus on finding download solutions.
                 return f"I understand you're looking for '{movie_research['full_title']}' ({movie_research.get('release_year', 'Unknown year')}). Unfortunately, it's not currently available in our download sources. This could be because it's very new, not yet released, or might be listed under a different name. Try searching with alternative spellings or let me know if you'd like suggestions for similar movies!"
             else:
                 return f"I couldn't find '{search_query}' in our current download sources. This might be because it's very new, not yet released, or listed differently. Try alternative spellings or let me know if you'd like suggestions for similar movies!"
+    
+    def _generate_date_time_response(self, user_message: str, intent: Dict[str, Any]) -> str:
+        """Generate response for date/time questions"""
+        try:
+            from datetime import datetime
+            import pytz
+            
+            # Get current date and time
+            now = datetime.now()
+            current_date = now.strftime("%A, %B %d, %Y")
+            current_time = now.strftime("%I:%M %p")
+            
+            # Determine what specific info they want
+            message_lower = user_message.lower()
+            
+            if 'time' in message_lower:
+                return f"The current time is {current_time}. Is there a specific movie you'd like to watch today?"
+            elif 'day' in message_lower:
+                day_name = now.strftime("%A")
+                return f"Today is {day_name}. Perfect day for watching a good movie! What genre are you in the mood for?"
+            else:
+                return f"Today's date is {current_date}. How about we find you a great movie to watch today?"
+                
+        except Exception as e:
+            logger.error(f"Error generating date/time response: {str(e)}")
+            return "I can help you with movie recommendations! What kind of movies are you interested in watching?"
+    
+    def _generate_information_response(self, user_message: str, intent: Dict[str, Any]) -> str:
+        """Generate response for general information requests"""
+        try:
+            if not self.has_api_key:
+                return "I'm primarily designed to help with movie recommendations and downloads. For general information, I'd suggest checking reliable sources online. Meanwhile, can I help you find some great movies to watch?"
+            
+            system_prompt = f"""You are {self.agent_personality['name']}, but the user is asking a general knowledge question, not about movies.
+
+IMPORTANT: You should provide a helpful, accurate answer to their question, but then gently redirect the conversation back to movies since that's your specialty.
+
+Be informative but concise. After answering their question, suggest how you can help them with movies.
+
+User's question: "{user_message}" """
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=min(200, 4000),
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error generating information response: {str(e)}")
+            return "I'm primarily designed to help with movie recommendations and downloads. For detailed information on other topics, I'd suggest checking reliable sources. However, I'd love to help you find some great movies! What genre interests you?"
     
     def _generate_general_response(self, user_message: str, intent: Dict[str, Any]) -> str:
         """Generate general conversational response"""

@@ -287,8 +287,29 @@
         .movie-grid-modern {
             padding: 24px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 16px;
+            max-width: 100%;
+        }
+        
+        /* Enhanced layout for many movies */
+        .movie-grid-modern.many-movies {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+        }
+        
+        .movie-grid-modern.many-movies .movie-item {
+            padding: 16px;
+        }
+        
+        .movie-grid-modern.many-movies .movie-title {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .movie-grid-modern.many-movies .meta-badge {
+            font-size: 11px;
+            padding: 4px 8px;
         }
 
         .movie-item {
@@ -1099,7 +1120,7 @@
                         <span class="icon">🎬</span>
                         <span>Found ${movies.length} Movie${movies.length !== 1 ? 's' : ''}</span>
                     </div>
-                    <div class="movie-grid-modern">
+                    <div class="movie-grid-modern${movies.length > 6 ? ' many-movies' : ''}">
                         ${movies.slice(0, 6).map(movie => `
                             <div class="movie-item" onclick="searchMovie('${movie.title.replace(/'/g, "\\'")}')">
                                 <div class="movie-title">${escapeHtml(movie.title)}</div>
@@ -1260,7 +1281,7 @@
                         <span class="icon">🎬</span>
                         <span>Found ${movies.length} Movie${movies.length !== 1 ? 's' : ''} for "${searchQuery}"</span>
                     </div>
-                    <div class="movie-grid-modern">
+                    <div class="movie-grid-modern${movies.length > 6 ? ' many-movies' : ''}">
                         ${movies.map(movie => `
                             <div class="movie-item" onclick="searchMovie('${movie.title.replace(/'/g, "\\'")}')">
                                 <div class="movie-title">${escapeHtml(movie.title)}</div>
