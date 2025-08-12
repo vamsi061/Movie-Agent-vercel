@@ -87,6 +87,66 @@
             margin-bottom: 15px;
         }
 
+        .health-status {
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+
+        .health-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .health-badge.healthy {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .health-badge.unhealthy {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .health-badge.timeout {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .health-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .health-badge.skipped {
+            background: #e2e3e5;
+            color: #6c757d;
+            border: 1px solid #d6d8db;
+        }
+
+        .health-badge.checking {
+            background: #cce5ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .health-response-time {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-left: 4px;
+        }
+
         .agent-name {
             font-size: 1.3rem;
             font-weight: 600;
@@ -653,9 +713,90 @@
     <script>
         let agentConfig = {};
 
+        // Health check functions
+        async function checkAgentHealth() {
+            try {
+                const response = await fetch('/admin/health-check');
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateHealthBadges(data.health_status);
+                } else {
+                    console.error('Health check failed:', data.error);
+                    // Show error state for all agents
+                    document.querySelectorAll('.health-badge').forEach(badge => {
+                        badge.className = 'health-badge error';
+                        badge.textContent = 'Check Failed';
+                    });
+                }
+            } catch (error) {
+                console.error('Error checking agent health:', error);
+                // Show error state for all agents
+                document.querySelectorAll('.health-badge').forEach(badge => {
+                    badge.className = 'health-badge error';
+                    badge.textContent = 'Check Failed';
+                });
+            }
+        }
+
+        function updateHealthBadges(healthStatus) {
+            Object.keys(healthStatus).forEach(agentKey => {
+                const healthElement = document.getElementById(`health-${agentKey}`);
+                if (healthElement) {
+                    const status = healthStatus[agentKey];
+                    const badge = healthElement.querySelector('.health-badge');
+                    
+                    if (badge) {
+                        badge.className = `health-badge ${status.status}`;
+                        
+                        let badgeText = '';
+                        let responseTimeText = '';
+                        
+                        switch (status.status) {
+                            case 'healthy':
+                                badgeText = `✓ ${status.status_code}`;
+                                responseTimeText = `${status.response_time}ms`;
+                                break;
+                            case 'unhealthy':
+                                badgeText = `✗ ${status.status_code}`;
+                                responseTimeText = `${status.response_time}ms`;
+                                break;
+                            case 'timeout':
+                                badgeText = '⏱ Timeout';
+                                responseTimeText = '>10s';
+                                break;
+                            case 'error':
+                                badgeText = `✗ ${status.status_code}`;
+                                responseTimeText = status.message;
+                                break;
+                            case 'skipped':
+                                badgeText = '— N/A';
+                                responseTimeText = status.message;
+                                break;
+                            default:
+                                badgeText = 'Unknown';
+                                responseTimeText = '';
+                        }
+                        
+                        badge.innerHTML = `
+                            ${badgeText}
+                            ${responseTimeText ? `<span class="health-response-time">(${responseTimeText})</span>` : ''}
+                        `;
+                        
+                        // Add tooltip with full status info
+                        badge.title = `Status: ${status.status}\nCode: ${status.status_code}\nMessage: ${status.message}\nResponse Time: ${status.response_time}ms`;
+                    }
+                }
+            });
+        }
+
         // Load agent configuration on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadAgentConfiguration();
+            // Check health status after agents are loaded
+            setTimeout(() => {
+                checkAgentHealth();
+            }, 1000);
         });
 
         async function loadAgentConfiguration() {
@@ -687,6 +828,9 @@
             card.innerHTML = `
                 <div class="agent-header">
                     <div class="agent-name">${agent.name}</div>
+                    <div class="health-status" id="health-${agentKey}">
+                        <span class="health-badge checking">Checking...</span>
+                    </div>
                     <label class="toggle-switch">
                         <input type="checkbox" ${agent.enabled ? 'checked' : ''} 
                                onchange="toggleAgent('${agentKey}', this.checked)">

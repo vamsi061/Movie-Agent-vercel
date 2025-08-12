@@ -5,6 +5,10 @@ Admin Routes - API endpoints for admin panel configuration
 
 from flask import Blueprint, request, jsonify, render_template, Response, redirect, url_for, session
 import logging
+import requests
+import threading
+import time
+from datetime import datetime
 from config_manager import config_manager
 from agents.telegram_agent import telegram_agent
 
@@ -496,6 +500,95 @@ def login():
             return render_template('admin_login.html', error='Invalid username or password')
     # GET
     return render_template('admin_login.html')
+
+@admin_bp.route('/health-check')
+def health_check():
+    """Check the health status of all agent base URLs"""
+    if not is_logged_in():
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        # Load agent configuration directly from agent_config.json
+        import json
+        import os
+        
+        config_dir = os.path.dirname(os.path.abspath(__file__))
+        agent_config_path = os.path.join(config_dir, 'agent_config.json')
+        
+        with open(agent_config_path, 'r') as f:
+            config = json.load(f)
+        
+        agents = config.get('agents', {})
+        health_status = {}
+        
+        def check_agent_health(agent_key, agent_config):
+            """Check health of a single agent"""
+            base_url = agent_config.get('base_url', '')
+            
+            # Skip telegram and other non-HTTP agents
+            if not base_url or not base_url.startswith('http'):
+                health_status[agent_key] = {
+                    'status': 'skipped',
+                    'status_code': 'N/A',
+                    'message': 'Non-HTTP agent',
+                    'response_time': 0
+                }
+                return
+            
+            try:
+                start_time = time.time()
+                response = requests.get(base_url, timeout=10, allow_redirects=True)
+                response_time = round((time.time() - start_time) * 1000, 2)  # in milliseconds
+                
+                health_status[agent_key] = {
+                    'status': 'healthy' if response.status_code == 200 else 'unhealthy',
+                    'status_code': response.status_code,
+                    'message': 'OK' if response.status_code == 200 else f'HTTP {response.status_code}',
+                    'response_time': response_time
+                }
+                
+            except requests.exceptions.Timeout:
+                health_status[agent_key] = {
+                    'status': 'timeout',
+                    'status_code': 'TIMEOUT',
+                    'message': 'Request timeout (>10s)',
+                    'response_time': 10000
+                }
+            except requests.exceptions.ConnectionError:
+                health_status[agent_key] = {
+                    'status': 'error',
+                    'status_code': 'CONNECTION_ERROR',
+                    'message': 'Connection failed',
+                    'response_time': 0
+                }
+            except Exception as e:
+                health_status[agent_key] = {
+                    'status': 'error',
+                    'status_code': 'ERROR',
+                    'message': str(e)[:100],
+                    'response_time': 0
+                }
+        
+        # Check all agents in parallel using threads
+        threads = []
+        for agent_key, agent_config in agents.items():
+            thread = threading.Thread(target=check_agent_health, args=(agent_key, agent_config))
+            thread.start()
+            threads.append(thread)
+        
+        # Wait for all threads to complete (max 15 seconds)
+        for thread in threads:
+            thread.join(timeout=15)
+        
+        return jsonify({
+            'success': True,
+            'health_status': health_status,
+            'checked_at': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error checking agent health: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/logout')
 def logout():
