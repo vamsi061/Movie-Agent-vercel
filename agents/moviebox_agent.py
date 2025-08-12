@@ -1451,7 +1451,163 @@ class MovieBoxAgent:
                             # Click using JavaScript to avoid interception
                             driver.execute_script("arguments[0].click();", watch_free_element)
                             logger.info("MovieBox: Clicked Watch Free button")
-                            time.sleep(8)  # Wait longer for streaming URL to load
+                            time.sleep(5)  # Wait for server options to appear
+                            
+                            # After clicking Watch Free, look for server selection buttons (FZM, lklk)
+                            logger.info("MovieBox: Looking for server selection buttons after clicking Watch Free...")
+                            
+                            # Enhanced server button selectors for FZM and lklk
+                            server_button_selectors = [
+                                # FZM server selectors
+                                "//button[contains(text(), 'FZM')]",
+                                "//div[contains(text(), 'FZM') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
+                                "//span[contains(text(), 'FZM')]",
+                                "//a[contains(text(), 'FZM')]",
+                                "//*[@data-server='FZM']",
+                                "//*[contains(@class, 'server') and contains(text(), 'FZM')]",
+                                
+                                # lklk server selectors
+                                "//button[contains(text(), 'lklk')]",
+                                "//div[contains(text(), 'lklk') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
+                                "//span[contains(text(), 'lklk')]",
+                                "//a[contains(text(), 'lklk')]",
+                                "//*[@data-server='lklk']",
+                                "//*[contains(@class, 'server') and contains(text(), 'lklk')]",
+                                "//button[contains(text(), 'LOKLOK')]",
+                                "//div[contains(text(), 'LOKLOK') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
+                                
+                                # Generic server selectors
+                                "//button[contains(text(), 'Server')]",
+                                "//div[contains(text(), 'Server') and (@onclick or contains(@class, 'btn'))]",
+                                "//*[contains(@class, 'server-btn')]",
+                                "//*[contains(@class, 'server-option')]",
+                                "//*[contains(@class, 'server-item')]"
+                            ]
+                            
+                            server_buttons_found = []
+                            
+                            # Look for server buttons
+                            for selector in server_button_selectors:
+                                try:
+                                    elements = driver.find_elements(By.XPATH, selector)
+                                    for element in elements:
+                                        try:
+                                            server_text = element.text.strip()
+                                            if server_text and len(server_text) < 50:  # Reasonable server name length
+                                                server_buttons_found.append((element, server_text, selector))
+                                                logger.info(f"MovieBox: Found server button: '{server_text}' using selector: {selector}")
+                                        except:
+                                            continue
+                                except:
+                                    continue
+                            
+                            # Click on server buttons to get streaming URLs
+                            if server_buttons_found:
+                                logger.info(f"MovieBox: Found {len(server_buttons_found)} server buttons, clicking each to get streaming URLs...")
+                                
+                                for server_element, server_text, selector in server_buttons_found[:3]:  # Try first 3 servers
+                                    try:
+                                        logger.info(f"MovieBox: Clicking server button: '{server_text}'")
+                                        
+                                        # Scroll to server button and click
+                                        driver.execute_script("arguments[0].scrollIntoView(true);", server_element)
+                                        time.sleep(1)
+                                        driver.execute_script("arguments[0].click();", server_element)
+                                        time.sleep(3)  # Wait for streaming URL to load
+                                        
+                                        # Check if URL changed to streaming URL
+                                        current_url = driver.current_url
+                                        if current_url != detail_url and not any(x in current_url.lower() for x in ['download', 'app', 'install']):
+                                            logger.info(f"MovieBox: Server '{server_text}' redirected to streaming URL: {current_url}")
+                                            
+                                            # Determine server type
+                                            server_type = "Unknown Server"
+                                            host = urlparse(current_url).netloc
+                                            if 'fmoviesunblocked.net' in current_url or 'FZM' in server_text.upper():
+                                                server_type = "FZM Streaming Server"
+                                                host = 'fmoviesunblocked.net'
+                                            elif 'lok-lok.cc' in current_url or any(x in server_text.upper() for x in ['LKLK', 'LOKLOK']):
+                                                server_type = "lklk Streaming Server"
+                                                host = 'lok-lok.cc'
+                                            
+                                            watch_buttons.append({
+                                                'text': f'Play Stream ({server_text})',
+                                                'url': current_url,
+                                                'host': host,
+                                                'quality': ['HD'],
+                                                'file_size': None,
+                                                'service_type': server_type
+                                            })
+                                            
+                                        # Also check for iframes after clicking server
+                                        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                                        for iframe in iframes:
+                                            iframe_src = iframe.get_attribute("src")
+                                            if iframe_src and any(domain in iframe_src for domain in ['fmoviesunblocked.net', 'lok-lok.cc', 'video', 'stream', 'play']):
+                                                logger.info(f"MovieBox: Server '{server_text}' loaded iframe: {iframe_src}")
+                                                
+                                                # Determine server type from iframe URL
+                                                server_type = "Unknown Server"
+                                                host = urlparse(iframe_src).netloc
+                                                if 'fmoviesunblocked.net' in iframe_src:
+                                                    server_type = "FZM Streaming Server"
+                                                    host = 'fmoviesunblocked.net'
+                                                elif 'lok-lok.cc' in iframe_src:
+                                                    server_type = "lklk Streaming Server"
+                                                    host = 'lok-lok.cc'
+                                                
+                                                watch_buttons.append({
+                                                    'text': f'Play Stream ({server_text} - Iframe)',
+                                                    'url': iframe_src,
+                                                    'host': host,
+                                                    'quality': ['HD'],
+                                                    'file_size': None,
+                                                    'service_type': server_type
+                                                })
+                                        
+                                        # Check page source for streaming URLs after clicking server
+                                        page_source = driver.page_source
+                                        import re
+                                        
+                                        # Look for FZM URLs
+                                        fzm_urls = re.findall(r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+', page_source)
+                                        for url in fzm_urls:
+                                            if url not in [btn['url'] for btn in watch_buttons]:
+                                                logger.info(f"MovieBox: Found FZM URL after clicking '{server_text}': {url}")
+                                                watch_buttons.append({
+                                                    'text': f'Play Stream (FZM - {server_text})',
+                                                    'url': url,
+                                                    'host': 'fmoviesunblocked.net',
+                                                    'quality': ['HD'],
+                                                    'file_size': None,
+                                                    'service_type': 'FZM Streaming Server'
+                                                })
+                                        
+                                        # Look for lklk URLs
+                                        lklk_urls = re.findall(r'https://lok-lok\.cc/spa/videoPlayPage/[^"\'>\s]+', page_source)
+                                        for url in lklk_urls:
+                                            if url not in [btn['url'] for btn in watch_buttons]:
+                                                logger.info(f"MovieBox: Found lklk URL after clicking '{server_text}': {url}")
+                                                watch_buttons.append({
+                                                    'text': f'Play Stream (lklk - {server_text})',
+                                                    'url': url,
+                                                    'host': 'lok-lok.cc',
+                                                    'quality': ['HD'],
+                                                    'file_size': None,
+                                                    'service_type': 'lklk Streaming Server'
+                                                })
+                                        
+                                    except Exception as e:
+                                        logger.warning(f"MovieBox: Error clicking server button '{server_text}': {e}")
+                                        continue
+                                
+                                if watch_buttons:
+                                    logger.info(f"MovieBox: Successfully extracted {len(watch_buttons)} streaming URLs from server buttons")
+                                else:
+                                    logger.warning("MovieBox: No streaming URLs found after clicking server buttons")
+                            else:
+                                logger.info("MovieBox: No server buttons found after clicking Watch Free, checking for direct streaming URLs...")
+                                time.sleep(3)  # Wait a bit more for content to load
                             
                             # Check if URL changed to streaming URL
                             current_url = driver.current_url
