@@ -583,9 +583,411 @@ class EnhancedDownloadHubAgent:
         match = re.search(size_pattern, text, re.IGNORECASE)
         return match.group() if match else None
     
+    def resolve_taazabull_link(self, url: str) -> str:
+        """Automate taazabull24.com shortlink resolution: Click to Continue -> Wait 10s -> Get links"""
+        if 'taazabull24.com' not in url.lower():
+            return url
+            
+        try:
+            logger.info(f"Resolving taazabull24.com shortlink: {url}")
+            
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            import time
+            
+            # Setup headless Chrome with better options
+            options = Options()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
+            driver = webdriver.Chrome(options=options)
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            driver.set_page_load_timeout(30)
+            
+            try:
+                # Load the taazabull shortlink page directly
+                logger.info(f"Loading taazabull shortlink: {url}")
+                driver.get(url)
+                
+                # Wait for page to load completely
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                time.sleep(3)  # Allow page to fully render
+                
+                current_url = driver.current_url
+                logger.info(f"Current URL after loading: {current_url}")
+                
+                # Debug: Log page title and some content
+                try:
+                    page_title = driver.title
+                    logger.info(f"Page title: {page_title}")
+                    
+                    # Check if we're already redirected to final destination
+                    if 'hblinks.dad' in current_url or 'archives' in current_url:
+                        logger.info(f"Already redirected to final URL: {current_url}")
+                        return current_url
+                        
+                except Exception as e:
+                    logger.warning(f"Error getting page info: {e}")
+                
+                # If we're redirected to homelander page, wait a bit more for it to fully load
+                if '/homelander/' in current_url:
+                    logger.info("Detected homelander page, waiting for full load...")
+                    time.sleep(3)
+                
+                # Step 1: Look for and click "Click to Continue" or similar button
+                continue_selectors = [
+                    "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+                    "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+                    "//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+                    "//span[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+                    "//*[@id='continue']",
+                    "//*[@class*='continue']",
+                    "//*[contains(@onclick, 'continue')]",
+                    "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'click')]",
+                    "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'click')]"
+                ]
+                
+                continue_button = None
+                # Try multiple times to find the button to handle dynamic loading
+                for attempt in range(3):
+                    logger.info(f"Looking for continue button (attempt {attempt + 1})...")
+                    
+                    for selector in continue_selectors:
+                        try:
+                            elements = driver.find_elements(By.XPATH, selector)
+                            for elem in elements:
+                                if elem.is_displayed() and elem.is_enabled():
+                                    elem_text = elem.text.strip()
+                                    logger.info(f"Found potential continue button: '{elem_text}' using selector: {selector}")
+                                    continue_button = elem
+                                    break
+                            if continue_button:
+                                break
+                        except Exception as e:
+                            continue
+                    
+                    if continue_button:
+                        break
+                    else:
+                        logger.info("Continue button not found yet, waiting 2 seconds...")
+                        time.sleep(2)
+                
+                # Track if we've already clicked continue to avoid clicking again after going back
+                continue_clicked = False
+                
+                if continue_button:
+                    try:
+                        # Store button info before clicking to avoid stale element
+                        button_text = continue_button.text.strip()
+                        button_selector = None
+                        
+                        # Find which selector worked for this button
+                        for selector in continue_selectors:
+                            try:
+                                elements = driver.find_elements(By.XPATH, selector)
+                                for elem in elements:
+                                    if elem.is_displayed() and elem.is_enabled() and elem.text.strip() == button_text:
+                                        button_selector = selector
+                                        break
+                                if button_selector:
+                                    break
+                            except:
+                                continue
+                        
+                        # Re-find the element to avoid stale reference
+                        fresh_button = None
+                        if button_selector:
+                            try:
+                                elements = driver.find_elements(By.XPATH, button_selector)
+                                for elem in elements:
+                                    if elem.is_displayed() and elem.is_enabled() and elem.text.strip() == button_text:
+                                        fresh_button = elem
+                                        break
+                            except:
+                                pass
+                        
+                        if fresh_button:
+                            # Scroll to button and click
+                            driver.execute_script("arguments[0].scrollIntoView(true);", fresh_button)
+                            time.sleep(1)
+                            driver.execute_script("arguments[0].click();", fresh_button)
+                            logger.info(f"Clicked continue button: '{button_text}'")
+                            continue_clicked = True
+                        else:
+                            # Fallback: try to click the original element
+                            driver.execute_script("arguments[0].scrollIntoView(true);", continue_button)
+                            time.sleep(1)
+                            driver.execute_script("arguments[0].click();", continue_button)
+                            logger.info(f"Clicked continue button (fallback): '{button_text}'")
+                            continue_clicked = True
+                        
+                        # Step 2: Wait for countdown (10-15 seconds)
+                        logger.info("Waiting for countdown timer (12 seconds)...")
+                        time.sleep(12)
+                        
+                        # Check if URL changed after clicking continue
+                        new_url = driver.current_url
+                        if new_url != current_url:
+                            logger.info(f"URL changed after continue click: {new_url}")
+                            
+                            # Check if we're redirected to final destination
+                            if 'hblinks.dad' in new_url or 'archives' in new_url:
+                                return new_url
+                            
+                            # Check if we're redirected to an intermediate ad page
+                            if 'stake.bet' in new_url or 'taazabull24.com' not in new_url:
+                                logger.info("Detected intermediate ad page, waiting for redirect back...")
+                                # Wait for potential redirect back to taazabull or final destination
+                                for wait_attempt in range(2):  # Wait up to 4 seconds
+                                    time.sleep(2)
+                                    current_check_url = driver.current_url
+                                    logger.info(f"Checking URL (attempt {wait_attempt + 1}): {current_check_url}")
+                                    
+                                    # Check if we're back on taazabull or at final destination
+                                    if 'hblinks.dad' in current_check_url or 'archives' in current_check_url:
+                                        logger.info(f"Redirected to final destination: {current_check_url}")
+                                        return current_check_url
+                                    elif 'taazabull24.com' in current_check_url:
+                                        logger.info(f"Redirected back to taazabull: {current_check_url}")
+                                        new_url = current_check_url
+                                        break
+                                    
+                                # If still on ad page, try to close it or go back
+                                if 'taazabull24.com' not in driver.current_url:
+                                    logger.info("Still on ad page, trying to go back...")
+                                    try:
+                                        driver.back()
+                                        time.sleep(3)
+                                        new_url = driver.current_url
+                                        logger.info(f"After going back: {new_url}")
+                                        
+                                        # If we're back on homelander page, we need to wait for countdown again
+                                        if '/homelander/' in new_url:
+                                            logger.info("Back on homelander page after ad redirect...")
+                                            
+                                            # Check if continue button is still there (meaning countdown hasn't started)
+                                            continue_still_there = False
+                                            try:
+                                                continue_elements = driver.find_elements(By.XPATH, "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]")
+                                                for elem in continue_elements:
+                                                    if elem.is_displayed() and elem.is_enabled():
+                                                        continue_still_there = True
+                                                        break
+                                            except:
+                                                pass
+                                            
+                                            if continue_still_there:
+                                                logger.info("Continue button still present, clicking it again...")
+                                                # Click continue button again since we're back to initial state
+                                                try:
+                                                    continue_elements = driver.find_elements(By.XPATH, "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]")
+                                                    for elem in continue_elements:
+                                                        if elem.is_displayed() and elem.is_enabled():
+                                                            driver.execute_script("arguments[0].click();", elem)
+                                                            logger.info("Clicked continue button after going back")
+                                                            break
+                                                except Exception as e:
+                                                    logger.warning(f"Could not click continue button after going back: {e}")
+                                            else:
+                                                logger.info("Continue button not found, countdown may already be running")
+                                            
+                                            logger.info("Waiting for countdown to complete...")
+                                            # Wait for countdown timer to complete (usually 10-15 seconds)
+                                            time.sleep(15)
+                                            
+                                    except:
+                                        logger.warning("Could not go back from ad page")
+                                        return url
+                        
+                        # Step 3: Look for "Get Links" or download button
+                        # First check if we're now on the final page after redirect handling
+                        final_check_url = driver.current_url
+                        if 'hblinks.dad' in final_check_url or 'archives' in final_check_url:
+                            logger.info(f"Already at final destination after redirect handling: {final_check_url}")
+                            return final_check_url
+                        
+                        get_links_selectors = [
+                            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'get') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'link')]",
+                            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'get') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'link')]",
+                            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'download')]",
+                            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'download')]",
+                            "//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'proceed')]",
+                            "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'proceed')]",
+                            "//*[@id='getlink']",
+                            "//*[@id='download']",
+                            "//*[@class*='getlink']",
+                            "//*[@class*='download']",
+                            "//input[@type='submit']",
+                            "//button[@type='submit']"
+                        ]
+                        
+                        get_links_button = None
+                        # Wait a bit more for the button to appear and become enabled
+                        for attempt in range(3):
+                            logger.info(f"Looking for Get Links button (attempt {attempt + 1})...")
+                            
+                            for selector in get_links_selectors:
+                                try:
+                                    elements = driver.find_elements(By.XPATH, selector)
+                                    for elem in elements:
+                                        if elem.is_displayed() and elem.is_enabled():
+                                            elem_text = elem.text.strip()
+                                            logger.info(f"Found enabled button: '{elem_text}' using: {selector}")
+                                            get_links_button = elem
+                                            break
+                                    if get_links_button:
+                                        break
+                                except:
+                                    continue
+                            
+                            if get_links_button:
+                                break
+                            else:
+                                logger.info("Button not found yet, waiting 2 more seconds...")
+                                time.sleep(2)
+                        
+                        if get_links_button:
+                            try:
+                                # Store button info to avoid stale element
+                                get_button_text = get_links_button.text.strip()
+                                get_button_selector = None
+                                
+                                # Find which selector worked for this button
+                                for selector in get_links_selectors:
+                                    try:
+                                        elements = driver.find_elements(By.XPATH, selector)
+                                        for elem in elements:
+                                            if elem.is_displayed() and elem.is_enabled() and elem.text.strip() == get_button_text:
+                                                get_button_selector = selector
+                                                break
+                                        if get_button_selector:
+                                            break
+                                    except:
+                                        continue
+                                
+                                # Re-find the element to avoid stale reference
+                                fresh_get_button = None
+                                if get_button_selector:
+                                    try:
+                                        elements = driver.find_elements(By.XPATH, get_button_selector)
+                                        for elem in elements:
+                                            if elem.is_displayed() and elem.is_enabled() and elem.text.strip() == get_button_text:
+                                                fresh_get_button = elem
+                                                break
+                                    except:
+                                        pass
+                                
+                                if fresh_get_button:
+                                    driver.execute_script("arguments[0].scrollIntoView(true);", fresh_get_button)
+                                    time.sleep(1)
+                                    driver.execute_script("arguments[0].click();", fresh_get_button)
+                                    logger.info(f"Clicked get links button: '{get_button_text}'")
+                                else:
+                                    # Fallback: try original element
+                                    driver.execute_script("arguments[0].scrollIntoView(true);", get_links_button)
+                                    time.sleep(1)
+                                    driver.execute_script("arguments[0].click();", get_links_button)
+                                    logger.info(f"Clicked get links button (fallback): '{get_button_text}'")
+                                
+                                # Wait for final redirect
+                                time.sleep(5)
+                                
+                                final_url = driver.current_url
+                                if final_url != url and final_url != current_url:
+                                    logger.info(f"Successfully resolved taazabull shortlink: {url} -> {final_url}")
+                                    return final_url
+                                else:
+                                    # Look for any download links on the page
+                                    download_links = driver.find_elements(By.XPATH, "//a[contains(@href, 'hblinks') or contains(@href, 'archives') or contains(@href, 'download')]")
+                                    for link in download_links:
+                                        href = link.get_attribute('href')
+                                        if href and href != url:
+                                            logger.info(f"Found download link: {href}")
+                                            return href
+                                            
+                            except Exception as e:
+                                logger.error(f"Error clicking get links button: {e}")
+                        else:
+                            logger.warning("Could not find 'Get Links' button after countdown")
+                            
+                            # Debug: Log what's actually on the page
+                            try:
+                                all_buttons = driver.find_elements(By.XPATH, "//button | //input[@type='button'] | //input[@type='submit']")
+                                all_links = driver.find_elements(By.XPATH, "//a[@href]")
+                                
+                                logger.info(f"DEBUG: Found {len(all_buttons)} buttons on page:")
+                                for i, btn in enumerate(all_buttons[:5]):
+                                    try:
+                                        btn_text = btn.text.strip()
+                                        btn_id = btn.get_attribute('id')
+                                        btn_class = btn.get_attribute('class')
+                                        btn_enabled = btn.is_enabled()
+                                        btn_displayed = btn.is_displayed()
+                                        logger.info(f"  Button {i+1}: text='{btn_text}', id='{btn_id}', class='{btn_class}', enabled={btn_enabled}, displayed={btn_displayed}")
+                                    except:
+                                        pass
+                                
+                                logger.info(f"DEBUG: Found {len(all_links)} links on page:")
+                                for i, link in enumerate(all_links[:5]):
+                                    try:
+                                        link_text = link.text.strip()
+                                        link_href = link.get_attribute('href')
+                                        logger.info(f"  Link {i+1}: text='{link_text}', href='{link_href}'")
+                                    except:
+                                        pass
+                            except Exception as debug_e:
+                                logger.error(f"Error during debug logging: {debug_e}")
+                                
+                    except Exception as e:
+                        logger.error(f"Error clicking continue button: {e}")
+                else:
+                    logger.warning("Could not find 'Click to Continue' button")
+                    
+                    # Debug: Log what buttons are available
+                    try:
+                        all_buttons = driver.find_elements(By.XPATH, "//button | //input[@type='button'] | //input[@type='submit'] | //a")
+                        logger.info(f"DEBUG: Found {len(all_buttons)} clickable elements:")
+                        for i, btn in enumerate(all_buttons[:10]):
+                            try:
+                                btn_text = btn.text.strip()
+                                btn_tag = btn.tag_name
+                                btn_id = btn.get_attribute('id')
+                                btn_class = btn.get_attribute('class')
+                                if btn_text and len(btn_text) < 50:
+                                    logger.info(f"  Element {i+1}: {btn_tag} text='{btn_text}', id='{btn_id}', class='{btn_class}'")
+                            except:
+                                pass
+                    except Exception as debug_e:
+                        logger.error(f"Error during initial debug logging: {debug_e}")
+                
+                return url
+                
+            finally:
+                driver.quit()
+                
+        except Exception as e:
+            logger.error(f"Error resolving taazabull shortlink: {e}")
+            return url
+
     def resolve_redirects(self, url: str, max_redirects: int = 5) -> str:
         """Follow redirects to get actual download URL"""
         try:
+            # Skip taazabull24.com resolution during extraction - will be resolved on-demand when user clicks
+            if 'taazabull24.com' in url.lower():
+                logger.info(f"Taazabull24.com link detected, will resolve on-demand: {url}")
+                return url  # Return as-is, resolve later when user clicks
+            
             for _ in range(max_redirects):
                 response = self.session.head(url, allow_redirects=False, timeout=10)
                 

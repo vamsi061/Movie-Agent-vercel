@@ -1003,6 +1003,47 @@ def check_links_health():
         print(f"DEBUG: Health check failed: {str(e)}")
         return jsonify({'error': f'Health check failed: {str(e)}'}), 500
 
+@app.route('/api/resolve_taazabull', methods=['POST'])
+def resolve_taazabull():
+    """Resolve taazabull24.com links on-demand when user clicks"""
+    try:
+        data = request.get_json()
+        url = data.get('url')
+        
+        if not url or 'taazabull24.com' not in url.lower():
+            return jsonify({'error': 'Invalid taazabull24.com URL'}), 400
+        
+        logger.info(f"On-demand taazabull resolution requested for: {url}")
+        
+        # Use the DownloadHub agent's taazabull resolution method
+        from agents.enhanced_downloadhub_agent import EnhancedDownloadHubAgent
+        agent = EnhancedDownloadHubAgent()
+        
+        # Resolve the taazabull link
+        resolved_url = agent.resolve_taazabull_link(url)
+        
+        if resolved_url and resolved_url != url:
+            logger.info(f"Successfully resolved taazabull link: {url} -> {resolved_url}")
+            return jsonify({
+                'success': True,
+                'original_url': url,
+                'resolved_url': resolved_url
+            })
+        else:
+            logger.warning(f"Could not resolve taazabull link: {url}")
+            return jsonify({
+                'success': False,
+                'original_url': url,
+                'error': 'Could not resolve the taazabull24.com link'
+            })
+        
+    except Exception as e:
+        logger.error(f"Error resolving taazabull link: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/resolve_download', methods=['POST'])
 @app.route('/api/resolve_download', methods=['POST'])
 def resolve_download():
