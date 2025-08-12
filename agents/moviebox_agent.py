@@ -1194,7 +1194,7 @@ class MovieBoxAgent:
             logger.info("MovieBox: Looking for streaming server options...")
             
             # Known server names to look for (including variations)
-            known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS']
+            known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS', 'FZMOVIES', 'LOKLOK']
             
             # Use Selenium to follow the correct MovieBox workflow
             logger.info("MovieBox: Using Selenium to follow correct MovieBox workflow...")
@@ -1798,29 +1798,58 @@ class MovieBoxAgent:
                 # Check all script tags
                 for script in soup.find_all('script'):
                     script_text = script.get_text()
-                    if 'fmoviesunblocked.net' in script_text or 'videoPlayPage' in script_text:
+                    # Check for both FZM (fmoviesunblocked.net) and lklk (lok-lok.cc) streaming URLs
+                    if ('fmoviesunblocked.net' in script_text or 'lok-lok.cc' in script_text or 'videoPlayPage' in script_text):
                         logger.info("MovieBox: Found streaming URL in script")
-                        # Extract the streaming URL from script
+                        # Extract streaming URLs from script
                         import re
-                        url_patterns = [
+                        
+                        # Patterns for FZM server (fmoviesunblocked.net)
+                        fzm_patterns = [
                             r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+',
                             r'["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
                             r'url["\']?\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']'
                         ]
-                        for pattern in url_patterns:
+                        
+                        # Patterns for lklk server (lok-lok.cc)
+                        lklk_patterns = [
+                            r'https://lok-lok\.cc/spa/videoPlayPage/[^"\'>\s]+',
+                            r'["\']https://lok-lok\.cc/spa/videoPlayPage/[^"\']+["\']',
+                            r'url["\']?\s*:\s*["\']https://lok-lok\.cc/spa/videoPlayPage/[^"\']+["\']'
+                        ]
+                        
+                        # Try FZM patterns first
+                        for pattern in fzm_patterns:
                             url_match = re.search(pattern, script_text)
                             if url_match:
                                 streaming_url = url_match.group(0).strip('"\'')
-                                logger.info(f"MovieBox: extracted streaming URL from script: {streaming_url}")
+                                logger.info(f"MovieBox: extracted FZM streaming URL from script: {streaming_url}")
                                 watch_buttons.append({
-                                    'text': 'Play Stream',
+                                    'text': 'Play Stream (FZM Server)',
                                     'url': streaming_url,
                                     'host': 'fmoviesunblocked.net',
                                     'quality': ['HD'],
                                     'file_size': None,
-                                    'service_type': 'Streaming'
+                                    'service_type': 'FZM Streaming Server'
                                 })
                                 break
+                        
+                        # Try lklk patterns
+                        for pattern in lklk_patterns:
+                            url_match = re.search(pattern, script_text)
+                            if url_match:
+                                streaming_url = url_match.group(0).strip('"\'')
+                                logger.info(f"MovieBox: extracted lklk streaming URL from script: {streaming_url}")
+                                watch_buttons.append({
+                                    'text': 'Play Stream (lklk Server)',
+                                    'url': streaming_url,
+                                    'host': 'lok-lok.cc',
+                                    'quality': ['HD'],
+                                    'file_size': None,
+                                    'service_type': 'lklk Streaming Server'
+                                })
+                                break
+                        
                         if watch_buttons:
                             break
                 
@@ -1841,22 +1870,38 @@ class MovieBoxAgent:
                             })
                             break
                 
-                # Check the entire page source for the streaming URL pattern
+                # Check the entire page source for both FZM and lklk streaming URL patterns
                 if not watch_buttons:
-                    logger.info("MovieBox: Checking entire page source for streaming URL...")
+                    logger.info("MovieBox: Checking entire page source for streaming URLs...")
                     page_source = str(soup)
                     import re
-                    url_match = re.search(r'https://fmoviesunblocked\.net/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
-                    if url_match:
-                        streaming_url = url_match.group(0)
-                        logger.info(f"MovieBox: found streaming URL in page source: {streaming_url}")
+                    
+                    # Check for FZM server URLs (fmoviesunblocked.net)
+                    fzm_url_match = re.search(r'https://fmoviesunblocked\.net/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
+                    if fzm_url_match:
+                        streaming_url = fzm_url_match.group(0)
+                        logger.info(f"MovieBox: found FZM streaming URL in page source: {streaming_url}")
                         watch_buttons.append({
-                            'text': 'Watch Free (Streaming)',
+                            'text': 'Watch Free (FZM Server)',
                             'url': streaming_url,
                             'host': 'fmoviesunblocked.net',
                             'quality': ['HD'],
                             'file_size': None,
-                            'service_type': 'Streaming'
+                            'service_type': 'FZM Streaming Server'
+                        })
+                    
+                    # Check for lklk server URLs (lok-lok.cc)
+                    lklk_url_match = re.search(r'https://lok-lok\.cc/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
+                    if lklk_url_match:
+                        streaming_url = lklk_url_match.group(0)
+                        logger.info(f"MovieBox: found lklk streaming URL in page source: {streaming_url}")
+                        watch_buttons.append({
+                            'text': 'Watch Free (lklk Server)',
+                            'url': streaming_url,
+                            'host': 'lok-lok.cc',
+                            'quality': ['HD'],
+                            'file_size': None,
+                            'service_type': 'lklk Streaming Server'
                         })
             
             # If still no streaming URL found, try to extract the real streaming URL from the page
