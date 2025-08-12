@@ -1194,7 +1194,7 @@ class MovieBoxAgent:
             logger.info("MovieBox: Looking for streaming server options...")
             
             # Known server names to look for (including variations)
-            known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS', 'FZMOVIES', 'LOKLOK']
+            known_servers = ['FZM', 'IKIK', 'lklk', 'Netflix', 'Plex', '1080P', 'HD', 'CAM', 'TS', 'LOKLOK']
             
             # Use Selenium to follow the correct MovieBox workflow
             logger.info("MovieBox: Using Selenium to follow correct MovieBox workflow...")
@@ -1236,119 +1236,28 @@ class MovieBoxAgent:
                     # (FZM server should be selected by default according to user)
                     logger.info("MovieBox: Looking for Watch Free button (FZM should be default)...")
                     
-                    # Dynamic and adaptive watch button detection for MovieBox
-                    # Generate comprehensive selectors to handle frequent site changes
-                    
-                    # Text variations MovieBox uses (they change these frequently)
-                    text_variations = [
-                        'Watch Free', 'WATCH FREE', 'watch free', 'Watch Now', 'WATCH NOW', 'watch now',
-                        'Play Free', 'PLAY FREE', 'play free', 'Play Now', 'PLAY NOW', 'play now',
-                        'Stream Free', 'STREAM FREE', 'stream free', 'Stream Now', 'STREAM NOW', 'stream now',
-                        'Watch Online', 'WATCH ONLINE', 'watch online', 'Play Online', 'PLAY ONLINE', 'play online',
-                        'Free Watch', 'FREE WATCH', 'free watch', 'Free Play', 'FREE PLAY', 'free play',
-                        'Start Watching', 'START WATCHING', 'start watching', 'Begin Watching', 'BEGIN WATCHING',
-                        'Watch Movie', 'WATCH MOVIE', 'watch movie', 'Play Movie', 'PLAY MOVIE', 'play movie',
-                        'Watch Film', 'WATCH FILM', 'watch film', 'Play Film', 'PLAY FILM', 'play film',
-                        'Free Streaming', 'FREE STREAMING', 'free streaming', 'Start Stream', 'START STREAM',
-                        'Watch HD', 'WATCH HD', 'watch hd', 'Play HD', 'PLAY HD', 'play hd',
-                        'Watch', 'WATCH', 'watch', 'Play', 'PLAY', 'play', 'Stream', 'STREAM', 'stream',
-                        'Free', 'FREE', 'free', 'Start', 'START', 'start', 'Begin', 'BEGIN', 'begin'
+                    # Look for Watch Free button with comprehensive selectors
+                    watch_free_selectors = [
+                        "//button[contains(text(), 'Watch Free')]",
+                        "//div[contains(text(), 'Watch Free') and (@onclick or parent::*[@onclick])]",
+                        "//span[contains(text(), 'Watch Free')]",
+                        "//*[contains(@class, 'watch') and contains(text(), 'Free')]",
+                        "//button[contains(text(), 'Watch Now')]",
+                        "//*[contains(@class, 'pc-watch-btn')]",
+                        "//*[contains(@class, 'watch-btn')]",
+                        "//*[contains(@class, 'play-btn')]",
+                        "//button[contains(@class, 'btn') and contains(text(), 'Watch')]",
+                        "//a[contains(text(), 'Watch Free')]",
+                        "//a[contains(text(), 'Watch Now')]",
+                        # More specific MovieBox selectors
+                        "//*[@class='pc-watch-btn']",
+                        "//*[contains(@class, 'watch-free')]",
+                        "//*[contains(@class, 'btn-watch')]",
+                        # Try variations
+                        "//button[text()='Watch Free']",
+                        "//div[text()='Watch Free']",
+                        "//*[@onclick and contains(text(), 'Watch')]"
                     ]
-                    
-                    # Element types that might contain the button
-                    element_types = ['button', 'div', 'span', 'a', 'p', 'input', 'label', 'li', 'td']
-                    
-                    # Generate comprehensive selectors
-                    watch_free_selectors = []
-                    
-                    # Text-based selectors (exact and contains)
-                    for text in text_variations:
-                        for elem_type in element_types:
-                            watch_free_selectors.extend([
-                                f"//{elem_type}[contains(text(), '{text}')]",
-                                f"//{elem_type}[text()='{text}']",
-                                f"//{elem_type}[contains(normalize-space(text()), '{text}')]",
-                                f"//{elem_type}[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text.lower()}')]"
-                            ])
-                    
-                    # Class-based selectors (MovieBox frequently changes these)
-                    class_patterns = [
-                        'watch', 'play', 'stream', 'free', 'movie', 'video', 'player', 'btn-watch',
-                        'btn-play', 'btn-stream', 'watch-btn', 'play-btn', 'stream-btn', 'free-btn',
-                        'movie-btn', 'video-btn', 'player-btn', 'pc-watch-btn', 'pc-play-btn',
-                        'watch-free', 'play-free', 'stream-free', 'btn-free', 'free-watch',
-                        'start', 'begin', 'launch', 'action', 'primary', 'main', 'cta',
-                        'call-to-action', 'streaming', 'online', 'view', 'open'
-                    ]
-                    
-                    for pattern in class_patterns:
-                        for elem_type in element_types:
-                            watch_free_selectors.extend([
-                                f"//{elem_type}[contains(@class, '{pattern}')]",
-                                f"//{elem_type}[contains(@class, '{pattern.upper()}')]",
-                                f"//{elem_type}[contains(@class, '{pattern.capitalize()}')]",
-                                f"//{elem_type}[@class='{pattern}']",
-                                f"//{elem_type}[@class='{pattern.upper()}']",
-                                f"//{elem_type}[@class='{pattern.capitalize()}']"
-                            ])
-                    
-                    # ID-based selectors
-                    id_patterns = ['watch', 'play', 'stream', 'free', 'movie', 'video', 'player', 'btn', 'button']
-                    for pattern in id_patterns:
-                        for elem_type in element_types:
-                            watch_free_selectors.extend([
-                                f"//{elem_type}[contains(@id, '{pattern}')]",
-                                f"//{elem_type}[contains(@id, '{pattern.upper()}')]",
-                                f"//{elem_type}[contains(@id, '{pattern.capitalize()}')]",
-                                f"//{elem_type}[@id='{pattern}']"
-                            ])
-                    
-                    # Attribute-based selectors (onclick, data attributes, etc.)
-                    attribute_patterns = ['watch', 'play', 'stream', 'movie', 'video', 'free']
-                    for pattern in attribute_patterns:
-                        watch_free_selectors.extend([
-                            f"//button[contains(@onclick, '{pattern}')]",
-                            f"//div[contains(@onclick, '{pattern}')]",
-                            f"//a[contains(@onclick, '{pattern}')]",
-                            f"//*[contains(@data-action, '{pattern}')]",
-                            f"//*[contains(@data-target, '{pattern}')]",
-                            f"//*[contains(@data-url, '{pattern}')]",
-                            f"//*[contains(@data-link, '{pattern}')]",
-                            f"//*[contains(@data-src, '{pattern}')]",
-                            f"//input[@type='button' and contains(@value, '{pattern}')]"
-                        ])
-                    
-                    # Special MovieBox-specific patterns (based on their common structures)
-                    watch_free_selectors.extend([
-                        # Role-based
-                        "//*[@role='button' and (contains(text(), 'Watch') or contains(text(), 'Play') or contains(text(), 'Free'))]",
-                        # Style-based (clickable elements)
-                        "//div[contains(@style, 'cursor:pointer') and (contains(text(), 'Watch') or contains(text(), 'Play'))]",
-                        "//span[contains(@style, 'cursor:pointer') and (contains(text(), 'Watch') or contains(text(), 'Play'))]",
-                        # Href-based
-                        "//*[contains(@href, 'watch') or contains(@href, 'play') or contains(@href, 'stream')]",
-                        # Modal triggers
-                        "//*[contains(@data-toggle, 'modal') and (contains(text(), 'Watch') or contains(text(), 'Play'))]",
-                        # Form elements
-                        "//input[@type='submit' and (contains(@value, 'Watch') or contains(@value, 'Play'))]",
-                        # Nested structures
-                        "//div[contains(@class, 'btn') or contains(@class, 'button')]//*[contains(text(), 'Watch') or contains(text(), 'Play')]",
-                        # Aria labels
-                        "//*[@aria-label and (contains(@aria-label, 'watch') or contains(@aria-label, 'play'))]",
-                        # Title attributes
-                        "//*[@title and (contains(@title, 'watch') or contains(@title, 'play'))]"
-                    ])
-                    
-                    # Remove duplicates while preserving order
-                    seen = set()
-                    unique_selectors = []
-                    for selector in watch_free_selectors:
-                        if selector not in seen:
-                            seen.add(selector)
-                            unique_selectors.append(selector)
-                    
-                    watch_free_selectors = unique_selectors
-                    logger.info(f"MovieBox: Generated {len(watch_free_selectors)} adaptive selectors for watch button detection")
                     
                     watch_free_element = None
                     for selector in watch_free_selectors:
@@ -1451,163 +1360,7 @@ class MovieBoxAgent:
                             # Click using JavaScript to avoid interception
                             driver.execute_script("arguments[0].click();", watch_free_element)
                             logger.info("MovieBox: Clicked Watch Free button")
-                            time.sleep(5)  # Wait for server options to appear
-                            
-                            # After clicking Watch Free, look for server selection buttons (FZM, lklk)
-                            logger.info("MovieBox: Looking for server selection buttons after clicking Watch Free...")
-                            
-                            # Enhanced server button selectors for FZM and lklk
-                            server_button_selectors = [
-                                # FZM server selectors
-                                "//button[contains(text(), 'FZM')]",
-                                "//div[contains(text(), 'FZM') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
-                                "//span[contains(text(), 'FZM')]",
-                                "//a[contains(text(), 'FZM')]",
-                                "//*[@data-server='FZM']",
-                                "//*[contains(@class, 'server') and contains(text(), 'FZM')]",
-                                
-                                # lklk server selectors
-                                "//button[contains(text(), 'lklk')]",
-                                "//div[contains(text(), 'lklk') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
-                                "//span[contains(text(), 'lklk')]",
-                                "//a[contains(text(), 'lklk')]",
-                                "//*[@data-server='lklk']",
-                                "//*[contains(@class, 'server') and contains(text(), 'lklk')]",
-                                "//button[contains(text(), 'LOKLOK')]",
-                                "//div[contains(text(), 'LOKLOK') and (@onclick or contains(@class, 'btn') or contains(@class, 'server'))]",
-                                
-                                # Generic server selectors
-                                "//button[contains(text(), 'Server')]",
-                                "//div[contains(text(), 'Server') and (@onclick or contains(@class, 'btn'))]",
-                                "//*[contains(@class, 'server-btn')]",
-                                "//*[contains(@class, 'server-option')]",
-                                "//*[contains(@class, 'server-item')]"
-                            ]
-                            
-                            server_buttons_found = []
-                            
-                            # Look for server buttons
-                            for selector in server_button_selectors:
-                                try:
-                                    elements = driver.find_elements(By.XPATH, selector)
-                                    for element in elements:
-                                        try:
-                                            server_text = element.text.strip()
-                                            if server_text and len(server_text) < 50:  # Reasonable server name length
-                                                server_buttons_found.append((element, server_text, selector))
-                                                logger.info(f"MovieBox: Found server button: '{server_text}' using selector: {selector}")
-                                        except:
-                                            continue
-                                except:
-                                    continue
-                            
-                            # Click on server buttons to get streaming URLs
-                            if server_buttons_found:
-                                logger.info(f"MovieBox: Found {len(server_buttons_found)} server buttons, clicking each to get streaming URLs...")
-                                
-                                for server_element, server_text, selector in server_buttons_found[:3]:  # Try first 3 servers
-                                    try:
-                                        logger.info(f"MovieBox: Clicking server button: '{server_text}'")
-                                        
-                                        # Scroll to server button and click
-                                        driver.execute_script("arguments[0].scrollIntoView(true);", server_element)
-                                        time.sleep(1)
-                                        driver.execute_script("arguments[0].click();", server_element)
-                                        time.sleep(3)  # Wait for streaming URL to load
-                                        
-                                        # Check if URL changed to streaming URL
-                                        current_url = driver.current_url
-                                        if current_url != detail_url and not any(x in current_url.lower() for x in ['download', 'app', 'install']):
-                                            logger.info(f"MovieBox: Server '{server_text}' redirected to streaming URL: {current_url}")
-                                            
-                                            # Determine server type
-                                            server_type = "Unknown Server"
-                                            host = urlparse(current_url).netloc
-                                            if 'fmoviesunblocked.net' in current_url or 'FZM' in server_text.upper():
-                                                server_type = "FZM Streaming Server"
-                                                host = 'fmoviesunblocked.net'
-                                            elif 'lok-lok.cc' in current_url or any(x in server_text.upper() for x in ['LKLK', 'LOKLOK']):
-                                                server_type = "lklk Streaming Server"
-                                                host = 'lok-lok.cc'
-                                            
-                                            watch_buttons.append({
-                                                'text': f'Play Stream ({server_text})',
-                                                'url': current_url,
-                                                'host': host,
-                                                'quality': ['HD'],
-                                                'file_size': None,
-                                                'service_type': server_type
-                                            })
-                                            
-                                        # Also check for iframes after clicking server
-                                        iframes = driver.find_elements(By.TAG_NAME, "iframe")
-                                        for iframe in iframes:
-                                            iframe_src = iframe.get_attribute("src")
-                                            if iframe_src and any(domain in iframe_src for domain in ['fmoviesunblocked.net', 'lok-lok.cc', 'video', 'stream', 'play']):
-                                                logger.info(f"MovieBox: Server '{server_text}' loaded iframe: {iframe_src}")
-                                                
-                                                # Determine server type from iframe URL
-                                                server_type = "Unknown Server"
-                                                host = urlparse(iframe_src).netloc
-                                                if 'fmoviesunblocked.net' in iframe_src:
-                                                    server_type = "FZM Streaming Server"
-                                                    host = 'fmoviesunblocked.net'
-                                                elif 'lok-lok.cc' in iframe_src:
-                                                    server_type = "lklk Streaming Server"
-                                                    host = 'lok-lok.cc'
-                                                
-                                                watch_buttons.append({
-                                                    'text': f'Play Stream ({server_text} - Iframe)',
-                                                    'url': iframe_src,
-                                                    'host': host,
-                                                    'quality': ['HD'],
-                                                    'file_size': None,
-                                                    'service_type': server_type
-                                                })
-                                        
-                                        # Check page source for streaming URLs after clicking server
-                                        page_source = driver.page_source
-                                        import re
-                                        
-                                        # Look for FZM URLs
-                                        fzm_urls = re.findall(r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+', page_source)
-                                        for url in fzm_urls:
-                                            if url not in [btn['url'] for btn in watch_buttons]:
-                                                logger.info(f"MovieBox: Found FZM URL after clicking '{server_text}': {url}")
-                                                watch_buttons.append({
-                                                    'text': f'Play Stream (FZM - {server_text})',
-                                                    'url': url,
-                                                    'host': 'fmoviesunblocked.net',
-                                                    'quality': ['HD'],
-                                                    'file_size': None,
-                                                    'service_type': 'FZM Streaming Server'
-                                                })
-                                        
-                                        # Look for lklk URLs
-                                        lklk_urls = re.findall(r'https://lok-lok\.cc/spa/videoPlayPage/[^"\'>\s]+', page_source)
-                                        for url in lklk_urls:
-                                            if url not in [btn['url'] for btn in watch_buttons]:
-                                                logger.info(f"MovieBox: Found lklk URL after clicking '{server_text}': {url}")
-                                                watch_buttons.append({
-                                                    'text': f'Play Stream (lklk - {server_text})',
-                                                    'url': url,
-                                                    'host': 'lok-lok.cc',
-                                                    'quality': ['HD'],
-                                                    'file_size': None,
-                                                    'service_type': 'lklk Streaming Server'
-                                                })
-                                        
-                                    except Exception as e:
-                                        logger.warning(f"MovieBox: Error clicking server button '{server_text}': {e}")
-                                        continue
-                                
-                                if watch_buttons:
-                                    logger.info(f"MovieBox: Successfully extracted {len(watch_buttons)} streaming URLs from server buttons")
-                                else:
-                                    logger.warning("MovieBox: No streaming URLs found after clicking server buttons")
-                            else:
-                                logger.info("MovieBox: No server buttons found after clicking Watch Free, checking for direct streaming URLs...")
-                                time.sleep(3)  # Wait a bit more for content to load
+                            time.sleep(8)  # Wait longer for streaming URL to load
                             
                             # Check if URL changed to streaming URL
                             current_url = driver.current_url
@@ -1666,168 +1419,21 @@ class MovieBoxAgent:
                     else:
                         logger.warning("MovieBox: Could not find Watch Free button on the page")
                         
-                        # Enhanced page type detection and recovery
+                        # Check if we're on a "Download App" page (wrong URL)
                         page_source = driver.page_source.lower()
-                        page_title = driver.title.lower()
-                        current_url = driver.current_url.lower()
-                        
-                        # Detect different problematic page types
-                        is_download_page = any(phrase in page_source for phrase in [
-                            'download app', 'download the app', 'get the app', 'install app',
-                            'app store', 'google play', 'download moviebox', 'mobile app',
-                            'download our app', 'get our app', 'install our app'
-                        ])
-                        
-                        is_blocked_page = any(phrase in page_source for phrase in [
-                            'access denied', 'blocked', 'not available', 'restricted',
-                            'vpn detected', 'proxy detected', 'geo-blocked', 'region blocked',
-                            'not available in your region', 'service unavailable'
-                        ])
-                        
-                        has_streaming_content = any(phrase in page_source for phrase in [
-                            'watch free', 'play free', 'stream free', 'watch now', 'play now',
-                            'stream now', 'watch online', 'play online', 'streaming', 'player',
-                            'video player', 'movie player'
-                        ])
-                        
-                        logger.info(f"MovieBox: Page analysis - Download: {is_download_page}, Blocked: {is_blocked_page}, Streaming: {has_streaming_content}")
-                        
-                        if is_download_page and not has_streaming_content:
+                        if 'download app' in page_source and 'watch free' not in page_source:
                             logger.error("MovieBox: This appears to be a 'Download App' page, not a movie streaming page!")
-                            logger.info("MovieBox: Attempting to find the correct streaming page...")
-                            
-                            streaming_found = False
-                            
-                            # Strategy 1: Look for streaming links on the current page
-                            streaming_link_selectors = [
-                                "//a[contains(@href, 'watch') and not(contains(@href, 'download'))]",
-                                "//a[contains(@href, 'play') and not(contains(@href, 'download'))]",
-                                "//a[contains(@href, 'stream') and not(contains(@href, 'download'))]",
-                                "//a[contains(text(), 'Watch') and not(contains(text(), 'Download'))]",
-                                "//a[contains(text(), 'Play') and not(contains(text(), 'Download'))]",
-                                "//a[contains(text(), 'Stream') and not(contains(text(), 'Download'))]",
-                                "//a[contains(@href, 'movie') and not(contains(@href, 'download'))]",
-                                "//a[contains(@class, 'watch') or contains(@class, 'play')]",
-                                "//*[@data-url and (contains(@data-url, 'watch') or contains(@data-url, 'play'))]",
-                                "//button[@onclick and (contains(@onclick, 'watch') or contains(@onclick, 'play'))]"
-                            ]
-                            
-                            for selector in streaming_link_selectors:
-                                try:
-                                    alternative_links = driver.find_elements(By.XPATH, selector)
-                                    logger.info(f"MovieBox: Found {len(alternative_links)} potential streaming links with selector: {selector}")
-                                    
-                                    for link in alternative_links[:3]:  # Try first 3 links
-                                        try:
-                                            alternative_url = link.get_attribute('href') or link.get_attribute('data-url')
-                                            link_text = link.text.strip()
-                                            
-                                            if alternative_url and alternative_url != driver.current_url:
-                                                # Validate the URL doesn't contain download-related terms
-                                                if not any(term in alternative_url.lower() for term in ['download', 'app', 'install', 'play.google', 'app.store']):
-                                                    logger.info(f"MovieBox: Trying streaming URL: {alternative_url} (text: '{link_text}')")
-                                                    
-                                                    # Open in new tab to avoid losing current page
-                                                    driver.execute_script("window.open(arguments[0], '_blank');", alternative_url)
-                                                    driver.switch_to.window(driver.window_handles[-1])
-                                                    time.sleep(3)
-                                                    
-                                                    # Check if new page has streaming content
-                                                    new_page_source = driver.page_source.lower()
-                                                    if any(phrase in new_page_source for phrase in ['watch free', 'play free', 'stream free', 'video player']):
-                                                        logger.info("MovieBox: Successfully found streaming page!")
-                                                        streaming_found = True
-                                                        break
-                                                    else:
-                                                        # Close tab and try next
-                                                        driver.close()
-                                                        driver.switch_to.window(driver.window_handles[0])
-                                        except Exception as e:
-                                            logger.warning(f"MovieBox: Error trying alternative link: {e}")
-                                            # Make sure we're back on the original tab
-                                            if len(driver.window_handles) > 1:
-                                                driver.close()
-                                                driver.switch_to.window(driver.window_handles[0])
-                                            continue
-                                    
-                                    if streaming_found:
-                                        break
-                                        
-                                except Exception as e:
-                                    logger.warning(f"MovieBox: Error with selector {selector}: {e}")
-                                    continue
-                            
-                            # Strategy 2: Try URL modifications if no links found
-                            if not streaming_found:
-                                logger.info("MovieBox: Trying URL modifications to find streaming page...")
-                                original_url = driver.current_url
-                                
-                                url_modifications = [
-                                    current_url.replace('download', 'watch'),
-                                    current_url.replace('app', 'watch'),
-                                    current_url.replace('/detail/', '/watch/'),
-                                    current_url.replace('/movie/', '/watch/'),
-                                    current_url + '/watch' if not current_url.endswith('/') else current_url + 'watch',
-                                    current_url.replace('?', '/watch?'),
-                                    # Try removing certain parameters
-                                    current_url.split('?')[0] + '/watch' if '?' in current_url else current_url + '/watch'
-                                ]
-                                
-                                for modified_url in url_modifications:
-                                    if modified_url != original_url and modified_url not in [original_url + '/watch']:
-                                        try:
-                                            logger.info(f"MovieBox: Trying modified URL: {modified_url}")
-                                            driver.get(modified_url)
-                                            time.sleep(3)
-                                            
-                                            new_page_source = driver.page_source.lower()
-                                            if any(phrase in new_page_source for phrase in ['watch free', 'play free', 'stream free', 'video player']):
-                                                logger.info("MovieBox: Successfully found streaming page via URL modification!")
-                                                streaming_found = True
-                                                break
-                                            
-                                        except Exception as e:
-                                            logger.warning(f"MovieBox: Error with modified URL {modified_url}: {e}")
-                                            continue
-                                
-                                if streaming_found:
-                                    # Continue with the new page
-                                    pass
-                                else:
-                                    # Go back to original page
-                                    driver.get(original_url)
-                                    time.sleep(2)
-                            
-                            if not streaming_found:
-                                logger.error("MovieBox: Could not find alternative streaming page")
-                                logger.error("MovieBox: The search result URL is incorrect - it leads to an app download page instead of streaming page")
-                                # Return an error indicating wrong URL
-                                watch_buttons.append({
-                                    'text': 'Wrong URL - App Download Page',
-                                    'url': detail_url,
-                                    'host': 'moviebox.ph',
-                                    'quality': ['N/A'],
-                                    'file_size': None,
-                                    'service_type': 'Error - This URL leads to app download page, not streaming',
-                                    'error': 'This MovieBox URL leads to an app download page instead of the movie streaming page. The search algorithm needs to select a different URL.'
-                                })
-                            else:
-                                logger.info("MovieBox: Successfully recovered from download page, continuing with streaming page...")
-                        
-                        elif is_blocked_page:
-                            logger.error("MovieBox: Page appears to be blocked or access denied")
+                            logger.error("MovieBox: The search result URL is incorrect - it leads to an app download page instead of streaming page")
+                            # Return an error indicating wrong URL
                             watch_buttons.append({
-                                'text': 'Access Blocked',
+                                'text': 'Wrong URL - App Download Page',
                                 'url': detail_url,
                                 'host': 'moviebox.ph',
                                 'quality': ['N/A'],
                                 'file_size': None,
-                                'service_type': 'Error - Access blocked or restricted',
-                                'error': 'Access to this MovieBox page is blocked or restricted. This might be due to geographic restrictions or VPN detection.'
+                                'service_type': 'Error - This URL leads to app download page, not streaming',
+                                'error': 'This MovieBox URL leads to an app download page instead of the movie streaming page. The search algorithm needs to select a different URL.'
                             })
-                        
-                        else:
-                            logger.info("MovieBox: Page appears to be valid, but no watch button found")
                     
                     # If no server-specific buttons found, try to find "Watch Free" button directly
                     if not watch_buttons:
@@ -1954,39 +1560,38 @@ class MovieBoxAgent:
                 # Check all script tags
                 for script in soup.find_all('script'):
                     script_text = script.get_text()
-                    # Check for both FZM (fmoviesunblocked.net) and lklk (lok-lok.cc) streaming URLs
-                    if ('fmoviesunblocked.net' in script_text or 'lok-lok.cc' in script_text or 'videoPlayPage' in script_text):
+                    if 'fmoviesunblocked.net' in script_text or 'lok-lok.cc' in script_text or 'videoPlayPage' in script_text:
                         logger.info("MovieBox: Found streaming URL in script")
-                        # Extract streaming URLs from script
+                        # Extract the streaming URL from script
                         import re
                         
-                        # Patterns for FZM server (fmoviesunblocked.net)
+                        # FZM server patterns
                         fzm_patterns = [
                             r'https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\'>\s]+',
                             r'["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']',
                             r'url["\']?\s*:\s*["\']https://fmoviesunblocked\.net/spa/videoPlayPage/[^"\']+["\']'
                         ]
                         
-                        # Patterns for lklk server (lok-lok.cc)
+                        # lklk server patterns
                         lklk_patterns = [
                             r'https://lok-lok\.cc/spa/videoPlayPage/[^"\'>\s]+',
                             r'["\']https://lok-lok\.cc/spa/videoPlayPage/[^"\']+["\']',
                             r'url["\']?\s*:\s*["\']https://lok-lok\.cc/spa/videoPlayPage/[^"\']+["\']'
                         ]
                         
-                        # Try FZM patterns first
+                        # Try FZM patterns
                         for pattern in fzm_patterns:
                             url_match = re.search(pattern, script_text)
                             if url_match:
                                 streaming_url = url_match.group(0).strip('"\'')
                                 logger.info(f"MovieBox: extracted FZM streaming URL from script: {streaming_url}")
                                 watch_buttons.append({
-                                    'text': 'Play Stream (FZM Server)',
+                                    'text': 'Play Stream (FZM)',
                                     'url': streaming_url,
                                     'host': 'fmoviesunblocked.net',
                                     'quality': ['HD'],
                                     'file_size': None,
-                                    'service_type': 'FZM Streaming Server'
+                                    'service_type': 'FZM Streaming'
                                 })
                                 break
                         
@@ -1997,12 +1602,12 @@ class MovieBoxAgent:
                                 streaming_url = url_match.group(0).strip('"\'')
                                 logger.info(f"MovieBox: extracted lklk streaming URL from script: {streaming_url}")
                                 watch_buttons.append({
-                                    'text': 'Play Stream (lklk Server)',
+                                    'text': 'Play Stream (lklk)',
                                     'url': streaming_url,
                                     'host': 'lok-lok.cc',
                                     'quality': ['HD'],
                                     'file_size': None,
-                                    'service_type': 'lklk Streaming Server'
+                                    'service_type': 'lklk Streaming'
                                 })
                                 break
                         
@@ -2026,38 +1631,38 @@ class MovieBoxAgent:
                             })
                             break
                 
-                # Check the entire page source for both FZM and lklk streaming URL patterns
+                # Check the entire page source for streaming URL patterns (FZM and lklk)
                 if not watch_buttons:
                     logger.info("MovieBox: Checking entire page source for streaming URLs...")
                     page_source = str(soup)
                     import re
                     
-                    # Check for FZM server URLs (fmoviesunblocked.net)
-                    fzm_url_match = re.search(r'https://fmoviesunblocked\.net/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
-                    if fzm_url_match:
-                        streaming_url = fzm_url_match.group(0)
+                    # Check for FZM URLs
+                    fzm_match = re.search(r'https://fmoviesunblocked\.net/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
+                    if fzm_match:
+                        streaming_url = fzm_match.group(0)
                         logger.info(f"MovieBox: found FZM streaming URL in page source: {streaming_url}")
                         watch_buttons.append({
-                            'text': 'Watch Free (FZM Server)',
+                            'text': 'Watch Free (FZM)',
                             'url': streaming_url,
                             'host': 'fmoviesunblocked.net',
                             'quality': ['HD'],
                             'file_size': None,
-                            'service_type': 'FZM Streaming Server'
+                            'service_type': 'FZM Streaming'
                         })
                     
-                    # Check for lklk server URLs (lok-lok.cc)
-                    lklk_url_match = re.search(r'https://lok-lok\.cc/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
-                    if lklk_url_match:
-                        streaming_url = lklk_url_match.group(0)
+                    # Check for lklk URLs
+                    lklk_match = re.search(r'https://lok-lok\.cc/spa/videoPlayPage/movies/[^"\'>\s]+', page_source)
+                    if lklk_match:
+                        streaming_url = lklk_match.group(0)
                         logger.info(f"MovieBox: found lklk streaming URL in page source: {streaming_url}")
                         watch_buttons.append({
-                            'text': 'Watch Free (lklk Server)',
+                            'text': 'Watch Free (lklk)',
                             'url': streaming_url,
                             'host': 'lok-lok.cc',
                             'quality': ['HD'],
                             'file_size': None,
-                            'service_type': 'lklk Streaming Server'
+                            'service_type': 'lklk Streaming'
                         })
             
             # If still no streaming URL found, try to extract the real streaming URL from the page
