@@ -921,33 +921,39 @@ class EnhancedDownloadHubAgent:
                         else:
                             logger.warning("Could not find 'Get Links' button after countdown")
                             
-                            # Debug: Log what's actually on the page
+                            # Check if "GET LINKS" is now a direct link instead of a button
                             try:
-                                all_buttons = driver.find_elements(By.XPATH, "//button | //input[@type='button'] | //input[@type='submit']")
                                 all_links = driver.find_elements(By.XPATH, "//a[@href]")
                                 
-                                logger.info(f"DEBUG: Found {len(all_buttons)} buttons on page:")
-                                for i, btn in enumerate(all_buttons[:5]):
-                                    try:
-                                        btn_text = btn.text.strip()
-                                        btn_id = btn.get_attribute('id')
-                                        btn_class = btn.get_attribute('class')
-                                        btn_enabled = btn.is_enabled()
-                                        btn_displayed = btn.is_displayed()
-                                        logger.info(f"  Button {i+1}: text='{btn_text}', id='{btn_id}', class='{btn_class}', enabled={btn_enabled}, displayed={btn_displayed}")
-                                    except:
-                                        pass
-                                
                                 logger.info(f"DEBUG: Found {len(all_links)} links on page:")
-                                for i, link in enumerate(all_links[:5]):
+                                for i, link in enumerate(all_links[:10]):
                                     try:
                                         link_text = link.text.strip()
                                         link_href = link.get_attribute('href')
                                         logger.info(f"  Link {i+1}: text='{link_text}', href='{link_href}'")
+                                        
+                                        # Check if this is the "GET LINKS" link with final URL
+                                        if (link_text.lower() == 'get links' and 
+                                            link_href and 
+                                            ('hblinks.dad' in link_href or 'archives' in link_href)):
+                                            logger.info(f"Found direct GET LINKS link: {link_href}")
+                                            return link_href
+                                            
                                     except:
                                         pass
+                                        
+                                # Also check for any hblinks.dad or archives links
+                                for link in all_links:
+                                    try:
+                                        link_href = link.get_attribute('href')
+                                        if link_href and ('hblinks.dad' in link_href or 'archives' in link_href):
+                                            logger.info(f"Found hblinks.dad/archives link: {link_href}")
+                                            return link_href
+                                    except:
+                                        pass
+                                        
                             except Exception as debug_e:
-                                logger.error(f"Error during debug logging: {debug_e}")
+                                logger.error(f"Error during link checking: {debug_e}")
                                 
                     except Exception as e:
                         logger.error(f"Error clicking continue button: {e}")

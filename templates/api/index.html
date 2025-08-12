@@ -1783,6 +1783,12 @@
         window.handleMoviezWapDownload = function(downloadUrl, buttonElement) {
             console.log('handleMoviezWapDownload called with URL:', downloadUrl);
             
+            // Skip if this button has already been resolved
+            if (buttonElement.getAttribute('data-taazabull-resolved') === 'true') {
+                console.log('Button already resolved, skipping...');
+                return;
+            }
+            
             // Handle MovieBox detail page URLs - extract server URLs first
             if (downloadUrl.includes('moviebox.ph') && downloadUrl.includes('/detail/')) {
                 console.log('MovieBox detail URL detected, extracting server URLs first:', downloadUrl);
@@ -1909,8 +1915,12 @@
                             // Check if this is a taazabull24.com link that needs special resolution
                             if (data.final_download_url.includes('taazabull24.com')) {
                                 console.log('Taazabull24.com link detected, starting on-demand resolution...');
-                                // Show loading message
-                                alert('Resolving taazabull24.com link... Please wait 10-15 seconds.');
+                                
+                                // Show loader instead of download button
+                                buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving Taazabull...';
+                                buttonElement.style.background = '#f59e0b';
+                                buttonElement.disabled = true;
+                                buttonElement.style.pointerEvents = 'none';
                                 
                                 // Call backend to resolve the taazabull link
                                 fetch('/api/resolve_taazabull', {
@@ -1926,18 +1936,81 @@
                                 .then(result => {
                                     if (result.success && result.resolved_url) {
                                         console.log('Taazabull link resolved:', result.resolved_url);
-                                        console.log('Link resolved! Opening in new tab...');
-                                        window.open(result.resolved_url, '_blank');
+                                        
+                                        // Clone the button to remove all event listeners
+                                        const newButton = buttonElement.cloneNode(true);
+                                        
+                                        // Update the new button
+                                        newButton.innerHTML = '<i class="fas fa-external-link-alt"></i> Download Ready';
+                                        newButton.style.background = '#28a745';
+                                        newButton.disabled = false;
+                                        newButton.style.pointerEvents = 'auto';
+                                        
+                                        // Remove any MoviezWap-related attributes and classes
+                                        newButton.removeAttribute('onclick');
+                                        newButton.removeAttribute('data-url');
+                                        newButton.classList.remove('moviezwap-link');
+                                        newButton.setAttribute('data-taazabull-resolved', 'true');
+                                        
+                                        // Add new click handler for the resolved URL
+                                        newButton.onclick = function(e) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('Opening resolved taazabull link:', result.resolved_url);
+                                            window.open(result.resolved_url, '_blank');
+                                            return false;
+                                        };
+                                        
+                                        // Replace the old button with the new one
+                                        buttonElement.parentNode.replaceChild(newButton, buttonElement);
+                                        
+                                        console.log('Link resolved! Click the button to open:', result.resolved_url);
                                     } else {
                                         console.log('Failed to resolve taazabull link, opening original URL');
-                                        console.log('Could not resolve link automatically. Opening original page...');
-                                        window.open(data.final_download_url, '_blank');
+                                        
+                                        // Update button to show error state
+                                        buttonElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Resolution Failed';
+                                        buttonElement.style.background = '#dc3545';
+                                        buttonElement.disabled = false;
+                                        buttonElement.style.pointerEvents = 'auto';
+                                        
+                                        // Remove any existing event listeners and data attributes
+                                        buttonElement.removeAttribute('onclick');
+                                        buttonElement.removeAttribute('data-url');
+                                        buttonElement.classList.remove('moviezwap-link');
+                                        
+                                        // Add click handler for original URL
+                                        buttonElement.onclick = function(e) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            console.log('Opening original taazabull URL:', data.final_download_url);
+                                            window.open(data.final_download_url, '_blank');
+                                            return false;
+                                        };
                                     }
                                 })
                                 .catch(error => {
                                     console.error('Error resolving taazabull link:', error);
-                                    console.log('Error resolving link. Opening original page...');
-                                    window.open(data.final_download_url, '_blank');
+                                    
+                                    // Update button to show error state
+                                    buttonElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Resolution Error';
+                                    buttonElement.style.background = '#dc3545';
+                                    buttonElement.disabled = false;
+                                    buttonElement.style.pointerEvents = 'auto';
+                                    
+                                    // Remove any existing event listeners and data attributes
+                                    buttonElement.removeAttribute('onclick');
+                                    buttonElement.removeAttribute('data-url');
+                                    buttonElement.classList.remove('moviezwap-link');
+                                    
+                                    // Add click handler for original URL
+                                    buttonElement.onclick = function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('Opening original taazabull URL after error:', data.final_download_url);
+                                        window.open(data.final_download_url, '_blank');
+                                        return false;
+                                    };
                                 });
                             } else {
                                 // Open other DownloadHub links in new tab directly
