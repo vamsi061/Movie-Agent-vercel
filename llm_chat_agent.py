@@ -415,6 +415,15 @@ REMEMBER: Always populate movie_titles array for any movie recommendation reques
                 "language": "telugu",
                 "genres": ["action", "drama"],
                 "search_variations": ["Pushpa", "Pushpa The Rise", "Pushpa movie"]
+            },
+            "mahavatar narsimha": {
+                "full_title": "Mahavatar Narsimha",
+                "release_year": "2000",
+                "alternate_names": ["Mahavatar Narasimha", "Narsimha Avatar"],
+                "key_details": "Telugu mythological film starring Nandamuri Balakrishna, directed by B. Gopal",
+                "language": "telugu",
+                "genres": ["mythology", "drama"],
+                "search_variations": ["Mahavatar Narsimha", "Mahavatar Narasimha", "Narsimha", "Mahavatar Narsimha 2000"]
             }
         }
         
