@@ -589,14 +589,24 @@ class EnhancedDownloadHubAgent:
             return url
             
         try:
+            # Check if Selenium is disabled
+            import os
+            if os.environ.get('DISABLE_SELENIUM', '').lower() == 'true':
+                logger.info("Taazabull resolution disabled via DISABLE_SELENIUM environment variable")
+                return None
+                
             logger.info(f"Resolving taazabull24.com shortlink: {url}")
             
-            from selenium import webdriver
-            from selenium.webdriver.chrome.options import Options
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            import time
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                from selenium.webdriver.common.by import By
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                import time
+            except ImportError as e:
+                logger.error(f"Selenium not available for taazabull resolution: {e}")
+                return None
             
             # Setup headless Chrome with better options
             options = Options()
@@ -982,7 +992,13 @@ class EnhancedDownloadHubAgent:
             finally:
                 driver.quit()
                 
+        except ImportError as e:
+            logger.error(f"Selenium not available for taazabull resolution: {e}")
+            return url
         except Exception as e:
+            if "Unable to obtain driver for chrome" in str(e) or "chrome" in str(e).lower():
+                logger.error(f"Chrome not available for taazabull resolution: {e}")
+                return url
             logger.error(f"Error resolving taazabull shortlink: {e}")
             return url
 
