@@ -762,11 +762,21 @@ class MoviezWapAgent:
         Returns the final direct download URL
         """
         try:
-            import undetected_chromedriver as uc
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            import time
+            # Check if Selenium is disabled (for deployment environments)
+            import os
+            if os.environ.get('DISABLE_SELENIUM', '').lower() == 'true':
+                logger.info("MoviezWap: Selenium disabled via environment variable")
+                return None
+                
+            try:
+                import undetected_chromedriver as uc
+                from selenium.webdriver.common.by import By
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                import time
+            except ImportError as e:
+                logger.error(f"MoviezWap: Selenium not available: {e}")
+                return None
             
             logger.info(f"MoviezWap: Resolving Fast Download Server for: {download_php_url}")
             
@@ -1012,7 +1022,13 @@ class MoviezWapAgent:
         except ImportError:
             logger.error("MoviezWap: Selenium not available for Fast Download Server resolution")
             return None
+        except ImportError as e:
+            logger.error(f"MoviezWap: Selenium not available: {e}")
+            return None
         except Exception as e:
+            if "Binary Location Must be a String" in str(e) or "chrome" in str(e).lower():
+                logger.error(f"MoviezWap: Chrome not available on this platform: {e}")
+                return None
             logger.error(f"MoviezWap: Unexpected error in Fast Download Server resolution: {str(e)}")
             return None
 
