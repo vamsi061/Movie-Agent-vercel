@@ -2184,6 +2184,16 @@ def enhanced_chat_extract():
                 
                 print(f"DEBUG: Agent initialized, extracting from {movie_url}")
                 
+                # Validate agent before extraction
+                if not agent:
+                    print(f"DEBUG: Agent is None for {movie_source}, cannot extract from {movie_url}")
+                    extraction_results[extraction_id] = {
+                        'status': 'error',
+                        'message': f'Agent for {movie_source} is disabled. Please enable it in admin panel.',
+                        'links': []
+                    }
+                    return
+                
                 # Use appropriate method based on agent type
                 if movie_source == 'MovieRulz':
                     result = agent.extract_download_links(movie_url)

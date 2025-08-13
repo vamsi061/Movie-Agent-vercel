@@ -92,38 +92,211 @@ class MovieBoxAgent:
         self.session.headers.update(headers)
         self.session.timeout = 30
 
-    def _get_rendered_html(self, url: str, wait: int = 15) -> Optional[str]:
+    def _extract_real_urls_with_selenium(self, search_url: str, movie_name: str) -> List[Dict[str, str]]:
+        """Extract REAL URLs with dynamic tokens from MovieBox search page using Selenium."""
         try:
             import undetected_chromedriver as uc
+            from webdriver_manager.chrome import ChromeDriverManager
             from selenium.webdriver.common.by import By
             from selenium.webdriver.support.ui import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
             import time
+            
+            options = uc.ChromeOptions()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
+            driver = None
+            real_urls = []
+            
+            try:
+                # Use webdriver-manager to automatically get the correct ChromeDriver version
+                logger.info("MovieBox: Using webdriver-manager to get correct ChromeDriver version")
+                driver_path = ChromeDriverManager().install()
+                logger.info(f"MovieBox: ChromeDriver installed at: {driver_path}")
+                
+                driver = uc.Chrome(driver_executable_path=driver_path, options=options)
+                driver.set_page_load_timeout(30)
+                
+                logger.info(f"MovieBox: Loading search page to extract REAL URLs: {search_url}")
+                driver.get(search_url)
+                
+                # Wait for page to load
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                
+                # Wait for JavaScript to render movie cards
+                time.sleep(10)
+                
+                logger.info("MovieBox: Looking for movie cards with REAL clickable URLs...")
+                
+                # Try different strategies to find movie cards
+                card_strategies = [
+                    # Strategy 1: Look for clickable elements with movie titles
+                    {
+                        'name': 'clickable_cards',
+                        'selector': '*[onclick], a[href*="detail"], div[data-href], *[data-url]'
+                    },
+                    # Strategy 2: Look for movie card containers
+                    {
+                        'name': 'movie_cards', 
+                        'selector': 'div[class*="card"], div[class*="item"], div[class*="movie"]'
+                    },
+                    # Strategy 3: Look for any clickable elements
+                    {
+                        'name': 'all_clickable',
+                        'selector': '*[onclick*="detail"], *[onclick*="movie"], *[onclick*="watch"]'
+                    }
+                ]
+                
+                for strategy in card_strategies:
+                    try:
+                        logger.info(f"MovieBox: Trying strategy '{strategy['name']}'...")
+                        elements = driver.find_elements(By.CSS_SELECTOR, strategy['selector'])
+                        logger.info(f"MovieBox: Found {len(elements)} elements with strategy '{strategy['name']}'")
+                        
+                        for element in elements[:20]:  # Check first 20 elements
+                            try:
+                                # Get element text to check if it matches our movie
+                                element_text = element.text.strip()
+                                
+                                # Check if this element is related to our movie
+                                if movie_name and movie_name.lower() in element_text.lower():
+                                    logger.info(f"MovieBox: Found matching element: '{element_text}'")
+                                    
+                                    # Try to get href attribute
+                                    href = element.get_attribute('href')
+                                    if href and '/detail/' in href:
+                                        real_urls.append({
+                                            'title': element_text,
+                                            'detail_url': href
+                                        })
+                                        logger.info(f"MovieBox: Extracted REAL URL from href: '{element_text}' -> {href}")
+                                        continue
+                                    
+                                    # Try to get onclick attribute and extract URL
+                                    onclick = element.get_attribute('onclick')
+                                    if onclick:
+                                        import re
+                                        # Look for URLs in onclick
+                                        url_patterns = [
+                                            r"['\"]([^'\"]*detail[^'\"]*)['\"]",
+                                            r"location\.href\s*=\s*['\"]([^'\"]+)['\"]",
+                                            r"window\.open\s*\(\s*['\"]([^'\"]+)['\"]"
+                                        ]
+                                        
+                                        for pattern in url_patterns:
+                                            matches = re.findall(pattern, onclick)
+                                            for match in matches:
+                                                if '/detail/' in match:
+                                                    full_url = match if match.startswith('http') else urljoin(self.base_url, match)
+                                                    real_urls.append({
+                                                        'title': element_text,
+                                                        'detail_url': full_url
+                                                    })
+                                                    logger.info(f"MovieBox: Extracted REAL URL from onclick: '{element_text}' -> {full_url}")
+                                                    break
+                                        continue
+                                    
+                                    # Try clicking the element to see where it navigates
+                                    try:
+                                        current_url = driver.current_url
+                                        driver.execute_script("arguments[0].click();", element)
+                                        time.sleep(3)
+                                        new_url = driver.current_url
+                                        
+                                        if new_url != current_url and '/detail/' in new_url:
+                                            real_urls.append({
+                                                'title': element_text,
+                                                'detail_url': new_url
+                                            })
+                                            logger.info(f"MovieBox: Extracted REAL URL by clicking: '{element_text}' -> {new_url}")
+                                            
+                                            # Go back to search page
+                                            driver.back()
+                                            time.sleep(2)
+                                    except Exception as click_error:
+                                        logger.warning(f"MovieBox: Click failed: {click_error}")
+                                        continue
+                                        
+                            except Exception as element_error:
+                                continue
+                        
+                        # If we found URLs with this strategy, stop trying other strategies
+                        if real_urls:
+                            logger.info(f"MovieBox: Strategy '{strategy['name']}' found {len(real_urls)} REAL URLs")
+                            break
+                            
+                    except Exception as strategy_error:
+                        logger.warning(f"MovieBox: Strategy '{strategy['name']}' failed: {strategy_error}")
+                        continue
+                
+                # Remove duplicates
+                seen_urls = set()
+                unique_urls = []
+                for item in real_urls:
+                    if item['detail_url'] not in seen_urls:
+                        seen_urls.add(item['detail_url'])
+                        unique_urls.append(item)
+                
+                logger.info(f"MovieBox: Successfully extracted {len(unique_urls)} unique REAL URLs")
+                return unique_urls
+                
+            finally:
+                if driver:
+                    driver.quit()
+                    
+        except Exception as e:
+            logger.error(f"MovieBox: REAL URL extraction failed: {e}")
+            return []
+
+    def _get_rendered_html(self, url: str, wait: int = 15) -> Optional[str]:
+        try:
+            import undetected_chromedriver as uc
+            from webdriver_manager.chrome import ChromeDriverManager
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            import time
+            
             options = uc.ChromeOptions()
             options.headless = True
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            
             driver = None
             try:
                 try:
-                    driver = uc.Chrome(options=options)
+                    # Use webdriver-manager to automatically get the correct ChromeDriver version
+                    driver_path = ChromeDriverManager().install()
+                    driver = uc.Chrome(driver_executable_path=driver_path, options=options)
                 except Exception as e:
-                    # Retry with version_main if mismatch
-                    import re as _re
-                    m = _re.search(r"Current browser version is\s*(\d+)", str(e))
-                    if m:
-                        ver = int(m.group(1))
-                        options_retry = uc.ChromeOptions()
-                        options_retry.headless = True
-                        options_retry.add_argument("--no-sandbox")
-                        options_retry.add_argument("--disable-dev-shm-usage")
-                        options_retry.add_argument("--disable-blink-features=AutomationControlled")
-                        options_retry.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                        driver = uc.Chrome(options=options_retry, version_main=ver)
-                    else:
-                        raise
+                    # Fallback to the old method if webdriver-manager fails
+                    logger.warning(f"MovieBox: webdriver-manager failed, trying fallback: {e}")
+                    try:
+                        driver = uc.Chrome(options=options)
+                    except Exception as e2:
+                        # Retry with version_main if mismatch
+                        import re as _re
+                        m = _re.search(r"Current browser version is\s*(\d+)", str(e2))
+                        if m:
+                            ver = int(m.group(1))
+                            options_retry = uc.ChromeOptions()
+                            options_retry.headless = True
+                            options_retry.add_argument("--no-sandbox")
+                            options_retry.add_argument("--disable-dev-shm-usage")
+                            options_retry.add_argument("--disable-blink-features=AutomationControlled")
+                            options_retry.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                            driver = uc.Chrome(options=options_retry, version_main=ver)
+                        else:
+                            raise
                 driver.set_page_load_timeout(30)
                 driver.get(url)
                 
@@ -565,42 +738,23 @@ class MovieBoxAgent:
                             if not found_url:
                                 logger.info(f"MovieBox: no direct URLs found for '{title_text}', attempting to construct detail URL")
                                 
-                                # Since we can't extract real MovieBox URLs, try known working patterns
-                                # For RRR specifically, try the real URL pattern you provided
-                                clean_title = title_text.lower().replace('[', '').replace(']', '').strip()
+                                # For other movies, fall back to constructed URLs
+                                clean_title = re.sub(r'[^a-z0-9\s]', '', title_text.lower().replace('[', '').replace(']', '').strip())
+                                slug = clean_title.replace(' ', '-')
                                 
-                                # Try to match known movies with their real URLs
-                                if 'rrr' in clean_title:
-                                    if 'telugu' in clean_title:
-                                        # Use the real RRR Telugu URL you provided
-                                        constructed_url = f"{self.base_url}/detail/rrr-telugu-E0g5J2CfkR2?id=2400486105926845904&scene=&page_from=search_detail&type=/movie/detail&utm_source="
-                                    elif 'hindi' in clean_title:
-                                        # Guess Hindi version URL (similar pattern)
-                                        constructed_url = f"{self.base_url}/detail/rrr-hindi-E0g5J2CfkR2?id=2400486105926845905&scene=&page_from=search_detail&type=/movie/detail&utm_source="
-                                    elif 'bengali' in clean_title:
-                                        # Guess Bengali version URL (similar pattern)
-                                        constructed_url = f"{self.base_url}/detail/rrr-bengali-E0g5J2CfkR2?id=2400486105926845906&scene=&page_from=search_detail&type=/movie/detail&utm_source="
-                                    else:
-                                        # Default RRR URL
-                                        constructed_url = f"{self.base_url}/detail/rrr-E0g5J2CfkR2?id=2400486105926845907&scene=&page_from=search_detail&type=/movie/detail&utm_source="
-                                else:
-                                    # For other movies, fall back to constructed URLs
-                                    clean_title = re.sub(r'[^a-z0-9\s]', '', clean_title)
-                                    slug = clean_title.replace(' ', '-')
-                                    
-                                    # Generate a hash in MovieBox format (base64-like, 11 characters)
-                                    import hashlib
-                                    import base64
-                                    hash_input = f"{title_text}{slug}".encode()
-                                    hash_bytes = hashlib.md5(hash_input).digest()
-                                    # Convert to base64 and take first 11 chars, replace problematic chars
-                                    title_hash = base64.b64encode(hash_bytes).decode()[:11].replace('+', 'A').replace('/', 'B').replace('=', 'C')
-                                    
-                                    # Generate a realistic movie ID (13-19 digits like the real one)
-                                    movie_id = str(abs(hash(title_text)) % 10000000000000000000)  # 19 digits max
-                                    
-                                    # Construct URL with all the real parameters
-                                    constructed_url = f"{self.base_url}/detail/{slug}-{title_hash}?id={movie_id}&scene=&page_from=search_detail&type=/movie/detail&utm_source="
+                                # Generate a hash in MovieBox format (base64-like, 11 characters)
+                                import hashlib
+                                import base64
+                                hash_input = f"{title_text}{slug}".encode()
+                                hash_bytes = hashlib.md5(hash_input).digest()
+                                # Convert to base64 and take first 11 chars, replace problematic chars
+                                title_hash = base64.b64encode(hash_bytes).decode()[:11].replace('+', 'A').replace('/', 'B').replace('=', 'C')
+                                
+                                # Generate a realistic movie ID (13-19 digits like the real one)
+                                movie_id = str(abs(hash(title_text)) % 10000000000000000000)  # 19 digits max
+                                
+                                # Construct URL with all the real parameters
+                                constructed_url = f"{self.base_url}/detail/{slug}-{title_hash}?id={movie_id}&scene=&page_from=search_detail&type=/movie/detail&utm_source="
                                 
                                 moviebox_titles.append({
                                     'title': self._clean_title(title_text),
@@ -841,31 +995,28 @@ class MovieBoxAgent:
                                 logger.warning(f"MovieBox: URL {url} returning mostly generic content ({real_movie_count} real titles), forcing JS rendering")
                                 candidate_items = []  # Force JavaScript rendering
                         
-                        # If none found, try headless-rendered HTML for this candidate URL
+                        # Always try to extract REAL URLs using Selenium first
+                        logger.info("MovieBox: attempting to extract REAL URLs using Selenium")
+                        logger.info(f"MovieBox: DEBUG - current candidate_items count: {len(candidate_items)}")
+                        logger.info(f"MovieBox: DEBUG - search URL: {url}")
+                        logger.info(f"MovieBox: DEBUG - movie_name: {movie_name}")
+                        
+                        real_urls = self._extract_real_urls_with_selenium(url, movie_name)
+                        logger.info(f"MovieBox: DEBUG - Selenium returned {len(real_urls) if real_urls else 0} real URLs")
+                        
+                        if real_urls:
+                            logger.info(f"MovieBox: SUCCESS - replacing {len(candidate_items)} fake URLs with {len(real_urls)} REAL URLs")
+                            candidate_items = real_urls
+                            logger.info(f"MovieBox: extracted {len(real_urls)} REAL URLs using Selenium")
+                        else:
+                            logger.warning(f"MovieBox: Selenium extraction failed or returned no URLs, keeping {len(candidate_items)} constructed URLs")
+                        
                         if len(candidate_items) == 0:
+                            # Fallback to rendered HTML parsing only if no candidates found
                             rendered = self._get_rendered_html(url)
                             if rendered:
                                 soup_r = BeautifulSoup(rendered, 'html.parser')
-                                logger.info("MovieBox: attempting rendered HTML parse")
-                                
-                                # Try to extract JSON data from rendered HTML first
-                                logger.info("MovieBox: looking for JSON data in rendered HTML")
-                                for script in soup_r.find_all('script'):
-                                    script_text = script.get_text()
-                                    if 'window.__NUXT__' in script_text or '__NUXT_DATA__' in script_text:
-                                        logger.info(f"MovieBox: found Nuxt.js data in rendered HTML")
-                                        # Try to extract movie data
-                                        try:
-                                            # Look for movie data patterns
-                                            if '"items"' in script_text and '"id"' in script_text:
-                                                logger.info(f"MovieBox: script contains movie items data")
-                                                # Try to extract real movie URLs from the JSON
-                                                import json
-                                                # This is a simplified approach - in reality we'd need to parse the complex Nuxt data
-                                                logger.info(f"MovieBox: found potential movie data in script")
-                                        except Exception as e:
-                                            logger.warning(f"MovieBox: failed to parse JSON data: {e}")
-                                
+                                logger.info("MovieBox: attempting rendered HTML parse as fallback")
                                 candidate_items = extract_candidates_from_soup(soup_r)
                                 logger.info(f"MovieBox: parsed candidate items (rendered): {len(candidate_items)}")
                                 
@@ -992,21 +1143,31 @@ class MovieBoxAgent:
                                 # Check if query matches title (case insensitive)
                                 query_matches = False
                                 
-                                # Direct substring match
+                                # Direct substring match (most reliable)
                                 if q in t:
                                     query_matches = True
                                     logger.info(f"MovieBox: '{title}' matches '{q}' (substring)")
                                 
-                                # Individual word matching (for multi-word queries)
-                                elif any(word.lower() in t for word in q.split() if len(word) >= 2):
-                                    query_matches = True
-                                    logger.info(f"MovieBox: '{title}' matches '{q}' (word match)")
+                                # For short queries (3 chars or less), be more strict
+                                elif len(q) <= 3:
+                                    # For very short queries like "rrr", only match if:
+                                    # 1. Title starts with the query, OR
+                                    # 2. Title contains the query as a whole word (not individual letters)
+                                    if t.startswith(q):
+                                        query_matches = True
+                                        logger.info(f"MovieBox: '{title}' matches '{q}' (starts with)")
+                                    elif f" {q} " in f" {t} " or f" {q}[" in f" {t} " or f"]{q} " in f" {t} ":
+                                        # Match as whole word with word boundaries
+                                        query_matches = True
+                                        logger.info(f"MovieBox: '{title}' matches '{q}' (whole word)")
                                 
-                                # For very short queries like "rrr", also check if title starts with the query
-                                elif len(q) <= 3 and t.startswith(q):
-                                    query_matches = True
-                                    logger.info(f"MovieBox: '{title}' matches '{q}' (starts with)")
-                                
+                                # For longer queries, use word matching but with minimum word length
+                                elif len(q) > 3:
+                                    # Split query into words and only match words that are 3+ characters
+                                    query_words = [word for word in q.split() if len(word) >= 3]
+                                    if query_words and any(word in t for word in query_words):
+                                        query_matches = True
+                                        logger.info(f"MovieBox: '{title}' matches '{q}' (word match)")
                                 
                                 if not query_matches:
                                     if i < 3:  # Log why first few were filtered
@@ -1120,9 +1281,43 @@ class MovieBoxAgent:
         try:
             logger.info(f"MovieBox: extracting from {detail_url}")
             
-            # Check if this is a search URL instead of a detail page URL
+            # DEBUG MODE: If this is a search URL, show all search results as links for debugging
             if 'searchResult' in detail_url or ('search' in detail_url and '/detail/' not in detail_url):
-                logger.warning(f"MovieBox: Received search URL instead of detail page URL: {detail_url}")
+                logger.info(f"MovieBox: DEBUG MODE - Received search URL, will show all search results: {detail_url}")
+                
+                # Extract the search query from the URL
+                import urllib.parse as urlparse
+                parsed_url = urlparse.urlparse(detail_url)
+                query_params = urlparse.parse_qs(parsed_url.query)
+                search_query = query_params.get('keyword', [''])[0]
+                
+                if search_query:
+                    logger.info(f"MovieBox: DEBUG - Performing search for '{search_query}' to show all result URLs")
+                    # Perform the search to get all results
+                    search_results = self.search_movies(search_query, per_page=10)
+                    
+                    if search_results.get('success') and search_results.get('movies'):
+                        debug_links = []
+                        for i, movie in enumerate(search_results['movies']):
+                            debug_links.append({
+                                'text': f"DEBUG: {movie['title']}",
+                                'url': movie['url'],
+                                'host': 'moviebox.ph',
+                                'quality': ['DEBUG'],
+                                'file_size': None,
+                                'service_type': f'Search Result #{i+1}',
+                                'instructions': f'This is search result #{i+1}. Click to test this specific URL.'
+                            })
+                        
+                        return {
+                            'title': f'DEBUG: Search Results for "{search_query}"',
+                            'url': detail_url,
+                            'download_links': debug_links,
+                            'total_links': len(debug_links),
+                            'source': 'MovieBox',
+                            'debug_mode': True
+                        }
+                
                 return {
                     'title': 'Search Page',
                     'url': detail_url,
@@ -1271,8 +1466,45 @@ class MovieBoxAgent:
                         except:
                             continue
                     
-                    # If no Watch Free button found, debug what's actually on the page
+                    # If no Watch Free button found, check if this is an app download page
                     if not watch_free_element:
+                        # First check if this is an app download page
+                        page_source = driver.page_source.lower()
+                        page_title = driver.title.lower()
+                        
+                        # Check for app download indicators
+                        app_download_indicators = [
+                            'download app', 'download the app', 'get the app', 'install app',
+                            'app store', 'play store', 'google play', 'moviebox app',
+                            'mobile app', 'download moviebox', 'get moviebox'
+                        ]
+                        
+                        is_app_download_page = any(indicator in page_source for indicator in app_download_indicators)
+                        has_watch_free = 'watch free' in page_source or 'watch now' in page_source
+                        
+                        if is_app_download_page and not has_watch_free:
+                            logger.error("MovieBox: This appears to be a 'Download App' page, not a movie streaming page!")
+                            logger.error("MovieBox: The search result URL is incorrect - it leads to an app download page instead of streaming page")
+                            # Return an error indicating wrong URL
+                            watch_buttons.append({
+                                'text': 'Wrong URL - App Download Page',
+                                'url': detail_url,
+                                'host': 'moviebox.ph',
+                                'quality': ['N/A'],
+                                'file_size': None,
+                                'service_type': 'Error - This URL leads to app download page, not streaming',
+                                'error': 'This MovieBox URL leads to an app download page instead of the movie streaming page. The search algorithm needs to select a different URL.'
+                            })
+                            # Don't continue with further processing
+                            logger.info(f"MovieBox: Selenium found {len(watch_buttons)} real server URLs")
+                            return {
+                                'title': title,
+                                'url': detail_url,
+                                'download_links': watch_buttons,
+                                'total_links': len(watch_buttons),
+                                'source': 'MovieBox'
+                            }
+                        
                         logger.info("MovieBox: Debugging - looking for all buttons and clickable elements...")
                         try:
                             # Find all buttons
@@ -1418,22 +1650,6 @@ class MovieBoxAgent:
                             logger.error(f"MovieBox: Error clicking Watch Free button: {click_error}")
                     else:
                         logger.warning("MovieBox: Could not find Watch Free button on the page")
-                        
-                        # Check if we're on a "Download App" page (wrong URL)
-                        page_source = driver.page_source.lower()
-                        if 'download app' in page_source and 'watch free' not in page_source:
-                            logger.error("MovieBox: This appears to be a 'Download App' page, not a movie streaming page!")
-                            logger.error("MovieBox: The search result URL is incorrect - it leads to an app download page instead of streaming page")
-                            # Return an error indicating wrong URL
-                            watch_buttons.append({
-                                'text': 'Wrong URL - App Download Page',
-                                'url': detail_url,
-                                'host': 'moviebox.ph',
-                                'quality': ['N/A'],
-                                'file_size': None,
-                                'service_type': 'Error - This URL leads to app download page, not streaming',
-                                'error': 'This MovieBox URL leads to an app download page instead of the movie streaming page. The search algorithm needs to select a different URL.'
-                            })
                     
                     # If no server-specific buttons found, try to find "Watch Free" button directly
                     if not watch_buttons:

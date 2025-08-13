@@ -635,27 +635,31 @@ REMEMBER: Always populate movie_titles array for any movie recommendation reques
                     future = executor.submit(self._safe_search, agent, agent_name, query)
                     future_to_agent[future] = (agent_name, query, i)
             
-            # Collect results with timeout
-            for future in as_completed(future_to_agent, timeout=60):  # 60 second total timeout
-                agent_name, query, variation_index = future_to_agent[future]
-                try:
-                    result = future.result(timeout=30)  # 30 second per agent timeout
-                    if result and result.get('movies'):
-                        all_results.extend(result['movies'])
-                        source_info = f"{agent_name} (query: '{query}')"
-                        if source_info not in search_summary["successful_sources"]:
-                            search_summary["successful_sources"].append(source_info)
-                        logger.info(f"Found {len(result['movies'])} movies from {agent_name} using query: '{query}'")
-                    
-                    search_info = f"{agent_name} (variation {variation_index + 1})"
-                    if search_info not in search_summary["sources_searched"]:
-                        search_summary["sources_searched"].append(search_info)
-                    
-                except Exception as e:
-                    logger.error(f"Error searching {agent_name} with query '{query}': {str(e)}")
-                    error_info = f"{agent_name} ('{query}') - FAILED"
-                    if error_info not in search_summary["sources_searched"]:
-                        search_summary["sources_searched"].append(error_info)
+            # Collect results with timeout - use try-catch for each future
+            try:
+                for future in as_completed(future_to_agent, timeout=90):  # Increased total timeout to 90 seconds
+                    agent_name, query, variation_index = future_to_agent[future]
+                    try:
+                        result = future.result(timeout=45)  # Increased per agent timeout to 45 seconds
+                        if result and result.get('movies'):
+                            all_results.extend(result['movies'])
+                            source_info = f"{agent_name} (query: '{query}')"
+                            if source_info not in search_summary["successful_sources"]:
+                                search_summary["successful_sources"].append(source_info)
+                            logger.info(f"Found {len(result['movies'])} movies from {agent_name} using query: '{query}'")
+                        
+                        search_info = f"{agent_name} (variation {variation_index + 1})"
+                        if search_info not in search_summary["sources_searched"]:
+                            search_summary["sources_searched"].append(search_info)
+                        
+                    except Exception as e:
+                        logger.error(f"Error searching {agent_name} with query '{query}': {str(e)}")
+                        error_info = f"{agent_name} ('{query}') - FAILED: {str(e)}"
+                        if error_info not in search_summary["sources_searched"]:
+                            search_summary["sources_searched"].append(error_info)
+            except Exception as timeout_error:
+                logger.warning(f"Overall search timeout reached: {str(timeout_error)}")
+                # Continue with whatever results we have so far
         
         # Remove duplicates and sort
         unique_movies = self._remove_duplicate_movies(all_results)

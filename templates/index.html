@@ -3279,7 +3279,25 @@
 
         function displayModalDownloadLinks(data, movieTitle) {
             const modalContent = document.getElementById('modalContent');
-            const links = data.result || data.download_links || [];
+            console.log('DEBUG: displayModalDownloadLinks called with data:', data);
+            console.log('DEBUG: data.result:', data.result);
+            console.log('DEBUG: data.download_links:', data.download_links);
+            
+            // Extract links with proper validation
+            let links = [];
+            if (data.result && Array.isArray(data.result)) {
+                links = data.result;
+            } else if (data.download_links && Array.isArray(data.download_links)) {
+                links = data.download_links;
+            } else if (data.result && typeof data.result === 'object') {
+                // If result is an object, try to extract links from it
+                links = data.result.links || data.result.download_links || [];
+            } else {
+                console.error('DEBUG: No valid links array found in data:', data);
+                links = [];
+            }
+            
+            console.log('DEBUG: Final links array:', links, 'Type:', typeof links, 'IsArray:', Array.isArray(links));
             
             if (links.length === 0) {
                 modalContent.innerHTML = `
@@ -3292,12 +3310,12 @@
                 return;
             }
             
-            // Sort links to show priority links first
-            const sortedLinks = links.sort((a, b) => {
+            // Sort links to show priority links first (ensure links is an array)
+            const sortedLinks = Array.isArray(links) ? links.sort((a, b) => {
                 if (a.is_priority && !b.is_priority) return -1;
                 if (!a.is_priority && b.is_priority) return 1;
                 return 0;
-            });
+            }) : [];
             
             let content = '<div class="download-links-container">';
             
