@@ -1,0 +1,15 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "always"
+
+[env]
+FLASK_ENV = "production"
+DISABLE_SELENIUM = "true"
+PORT = "8080"
+MAX_MOVIES_PER_SEARCH = "10"
+DISABLE_CACHING = "true"
+FORCE_GC = "true"

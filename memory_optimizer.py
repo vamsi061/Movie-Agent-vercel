@@ -33,7 +33,7 @@ class MemoryOptimizer:
         return collected
     
     @staticmethod
-    def limit_movie_results(movies: List[Dict[str, Any]], max_results: int = 20) -> List[Dict[str, Any]]:
+    def limit_movie_results(movies: List[Dict[str, Any]], max_results: int = 10) -> List[Dict[str, Any]]:
         """Limit movie results to prevent memory overflow"""
         if len(movies) > max_results:
             logger.info(f"Limiting results from {len(movies)} to {max_results} to save memory")
