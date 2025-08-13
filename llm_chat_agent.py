@@ -951,49 +951,67 @@ REMEMBER: Always populate movie_titles array for any movie recommendation reques
             
             movie_details = intent.get("movie_details", {})
             search_query = movie_details.get("search_query", user_message.strip())
+            user_intent_analysis = intent.get("user_intent_analysis", {})
+            is_specific_movie = user_intent_analysis.get("is_specific_movie", False)
             
-            # If no specific search query, use the user message directly
-            if not search_query.strip():
-                search_query = user_message.strip()
+            # Check if LLM provided movie titles for selection
+            movie_titles = movie_details.get("movie_titles", [])
             
-            logger.info(f"Performing movie search using /search endpoint for: {search_query}")
-            
-            # Use the same search endpoint that /api uses
-            search_results = self._search_via_api_endpoint(search_query)
-            found_movies = search_results.get("movies", [])
-            
-            if found_movies:
-                # SUCCESS: Found movies using the API endpoint
-                response_data["movies"] = found_movies
-                response_data["search_performed"] = True
-                response_data["search_level"] = "API_SUCCESS"
-                
-                # Set movie context for follow-ups
-                if session_id and found_movies:
-                    top = found_movies[0]
-                    try:
-                        session_manager.set_movie_context(session_id, {
-                            'title': top.get('title'),
-                            'year': top.get('year'),
-                            'source': top.get('source'),
-                            'url': top.get('url') or top.get('detail_url')
-                        })
-                    except Exception:
-                        pass
-                
-                # Generate download-focused response
-                response_data["response_text"] = self._generate_simple_movie_response(user_message, intent, found_movies)
-            
-            else:
-                # No movies found
-                logger.info(f"No movies found for: {search_query}")
+            # If LLM provided movie titles and this is NOT a specific movie request,
+            # show selection chips instead of searching immediately
+            if movie_titles and len(movie_titles) > 1 and not is_specific_movie:
+                logger.info(f"Showing movie selection chips for: {movie_titles}")
                 
                 response_data["movies"] = []
-                response_data["search_performed"] = True
-                response_data["search_level"] = "NO_RESULTS_FOUND"
+                response_data["search_performed"] = False
+                response_data["search_level"] = "SHOWING_SELECTION"
                 
-                # Generate no results response
-                response_data["response_text"] = self._generate_no_results_response(user_message, intent, search_query)
+                # Generate response that explains the selection
+                response_data["response_text"] = self._generate_selection_response(user_message, intent, movie_titles)
+                
+            else:
+                # For specific movie requests or when no titles provided, search directly
+                if not search_query.strip():
+                    search_query = user_message.strip()
+                
+                logger.info(f"Performing movie search using /search endpoint for: {search_query}")
+                
+                # Use the same search endpoint that /api uses
+                search_results = self._search_via_api_endpoint(search_query)
+                found_movies = search_results.get("movies", [])
+                
+                if found_movies:
+                    # SUCCESS: Found movies using the API endpoint
+                    response_data["movies"] = found_movies
+                    response_data["search_performed"] = True
+                    response_data["search_level"] = "API_SUCCESS"
+                    
+                    # Set movie context for follow-ups
+                    if session_id and found_movies:
+                        top = found_movies[0]
+                        try:
+                            session_manager.set_movie_context(session_id, {
+                                'title': top.get('title'),
+                                'year': top.get('year'),
+                                'source': top.get('source'),
+                                'url': top.get('url') or top.get('detail_url')
+                            })
+                        except Exception:
+                            pass
+                    
+                    # Generate download-focused response
+                    response_data["response_text"] = self._generate_simple_movie_response(user_message, intent, found_movies)
+                
+                else:
+                    # No movies found
+                    logger.info(f"No movies found for: {search_query}")
+                    
+                    response_data["movies"] = []
+                    response_data["search_performed"] = True
+                    response_data["search_level"] = "NO_RESULTS_FOUND"
+                    
+                    # Generate no results response
+                    response_data["response_text"] = self._generate_no_results_response(user_message, intent, search_query)
         else:
             # If user simply confirms (e.g. "yes") and we have a previous movie context, reuse it to search
             if is_affirmation and session_id:
@@ -1258,6 +1276,42 @@ Be helpful, specific, and always confirm when dealing with specific movie reques
             else:
                 return "I'd love to help you find some great movies! Could you tell me more about what you're looking for? Maybe a specific genre, actor, or type of mood you're in?"
     
+    def _generate_selection_response(self, user_message: str, intent: Dict[str, Any], movie_titles: List[str]) -> str:
+        """Generate a response that explains movie selection chips"""
+        try:
+            if not self.has_api_key:
+                # Simple fallback response when no API key
+                return f"I found several great movies for you! Please click on one of the movie titles below to search for it specifically."
+            
+            system_prompt = f"""You are a movie recommendation assistant. The user asked for movie recommendations and you've provided a list of movie titles for them to choose from.
+
+USER REQUEST: "{user_message}"
+MOVIE TITLES PROVIDED: {', '.join(movie_titles)}
+
+RESPOND WITH:
+1. Acknowledge their request for movie recommendations
+2. Mention that you've provided several great options
+3. Ask them to click on one of the movie titles below to search for it
+4. Be enthusiastic and helpful
+
+Keep response concise and focused on guiding them to select a specific movie."""
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error generating selection response: {str(e)}")
+            # Fallback response
+            return f"I found several great movies for you! Please click on one of the movie titles below to search for it specifically."
+
     def _generate_simple_movie_response(self, user_message: str, intent: Dict[str, Any], movies: List[Dict[str, Any]]) -> str:
         """Generate a simple response for found movies without listing them individually"""
         try:
