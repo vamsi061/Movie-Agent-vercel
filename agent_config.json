@@ -11,7 +11,7 @@
     },
     "moviezwap": {
       "name": "MoviezWap Agent",
-      "enabled": false,
+      "enabled": true,
       "description": "Searches and extracts download links from MoviezWap",
       "base_url": "https://www.moviezwap.blue/",
       "search_url": "https://www.moviezwap.blue/search.php?q=",
@@ -47,7 +47,7 @@
     },
     "movies4u": {
       "name": "Movies4U Agent",
-      "enabled": false,
+      "enabled": true,
       "description": "Searches and extracts download links from Movies4U with verification handling",
       "base_url": "https://movies4u.bh/",
       "search_url": "https://movies4u.bh/?s={}&ct_post_type=post%3Apage",
@@ -56,7 +56,7 @@
     },
     "moviebox": {
       "name": "MovieBox Agent",
-      "enabled": true,
+      "enabled": false,
       "description": "Searches and extracts links from moviebox.ph",
       "base_url": "https://moviebox.ph",
       "search_url": "https://moviebox.ph/web/searchResult?keyword={}&utm_source=",

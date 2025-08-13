@@ -2898,7 +2898,7 @@
                             ${link.host ? `<span style="background: rgba(255, 255, 255, 0.2); padding: 3px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 500; color: white;">Host: ${link.host}</span>` : ''}
                         </div>
                         <a href="${linkUrl}" target="_blank" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; text-decoration: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
-                            <i class="fas fa-${movieTitle.includes('MovieBox') ? 'play' : 'download'}"></i> ${movieTitle.includes('MovieBox') ? 'Play Stream' : 'Download Now'}
+                            <i class="fas fa-${movieTitle.includes('MovieBox') ? 'play' : 'download'}"></i> ${(movieTitle.includes('MovieBox') || movieTitle.includes('MovieRulz')) ? 'Play Stream' : 'Download Now'}
                         </a>
                     </div>
                 `;
@@ -3346,13 +3346,13 @@
                                 </button>
                             ` : `
                                 ${linkUrl.includes('downloadhub') || linkUrl.includes('hdhub4u') || linkUrl.includes('taazabull') || linkUrl.includes('hubdrive') ? 
-                                    `<button class="download-link-button ${isPriority ? 'priority' : ''}" onclick="event.stopPropagation(); window.open('${linkUrl}', '_blank');" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
+                                    `<button class="download-link-button ${isPriority ? 'priority' : ''}" onclick="event.stopPropagation(); handleDownloadHubLink('${linkUrl}', ${index});" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; padding: 10px 18px; border-radius: 15px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease;">
                                         <i class="fas fa-external-link-alt"></i>
                                         ${isPriority ? 'Open Link (Priority)' : 'Open Link'}
                                     </button>` :
                                     `<a href="${linkUrl}" target="_blank" class="download-link-button ${isPriority ? 'priority' : ''}">
                                         <i class="fas fa-${movieTitle.includes('MovieBox') ? 'play' : 'download'}"></i>
-                                        ${movieTitle.includes('MovieBox') ? (isPriority ? 'Play Stream (Priority)' : 'Play Stream') : (isPriority ? 'Download Now (Priority)' : 'Download Now')}
+                                        ${(movieTitle.includes('MovieBox') || movieTitle.includes('MovieRulz')) ? (isPriority ? 'Play Stream (Priority)' : 'Play Stream') : (isPriority ? 'Download Now (Priority)' : 'Download Now')}
                                     </a>`
                                 }
                             `}
@@ -3369,6 +3369,86 @@
         }
 
         // Unlock shortlink in modal
+        function handleDownloadHubLink(url, index) {
+            console.log('Handling DownloadHub link:', url);
+            
+            // Check if this is a taazabull24.com link that needs special resolution
+            if (url.includes('taazabull24.com')) {
+                console.log('Taazabull link detected, resolving automatically:', url);
+                
+                // Update button to show resolving status
+                const downloadSection = document.getElementById(`modal-download-section-${index}`);
+                if (downloadSection) {
+                    const button = downloadSection.querySelector('button');
+                    if (button) {
+                        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resolving...';
+                        button.disabled = true;
+                        button.style.background = '#6b7280';
+                    }
+                }
+                
+                // Call backend to resolve the taazabull link
+                fetch('/api/resolve_taazabull', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success && result.resolved_url) {
+                        console.log('Successfully resolved taazabull link:', result.resolved_url);
+                        
+                        // Update the download section with resolved link
+                        if (downloadSection) {
+                            downloadSection.innerHTML = `
+                                <a href="${result.resolved_url}" target="_blank" class="download-link-button" style="background: #28a745;">
+                                    <i class="fas fa-download"></i> Download Now (Resolved)
+                                </a>
+                            `;
+                        }
+                        
+                        // Automatically open the resolved link
+                        window.open(result.resolved_url, '_blank');
+                    } else {
+                        console.log('Failed to resolve taazabull link, opening original URL');
+                        
+                        // Reset button and open original URL
+                        if (downloadSection) {
+                            downloadSection.innerHTML = `
+                                <button class="download-link-button" onclick="window.open('${url}', '_blank')" style="background: #f59e0b;">
+                                    <i class="fas fa-external-link-alt"></i> Open Manually
+                                </button>
+                            `;
+                        }
+                        
+                        // Open original URL for manual handling
+                        window.open(url, '_blank');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error resolving taazabull link:', error);
+                    
+                    // Reset button and open original URL
+                    if (downloadSection) {
+                        downloadSection.innerHTML = `
+                            <button class="download-link-button" onclick="window.open('${url}', '_blank')" style="background: #f59e0b;">
+                                <i class="fas fa-external-link-alt"></i> Open Manually
+                            </button>
+                        `;
+                    }
+                    
+                    // Open original URL as fallback
+                    window.open(url, '_blank');
+                });
+            } else {
+                // For non-taazabull DownloadHub links, open directly
+                console.log('Non-taazabull DownloadHub link, opening directly:', url);
+                window.open(url, '_blank');
+            }
+        }
+
         function unlockModalShortlink(index, url) {
             const linkDiv = document.getElementById(`modal-link-${index}`);
             const downloadSection = document.getElementById(`modal-download-section-${index}`);
@@ -3388,13 +3468,80 @@
                 `;
             }
             
-            // Call backend to unlock
+            const decodedUrl = decodeURIComponent(url);
+            
+            // Check if this is a taazabull24.com link that needs special resolution
+            if (decodedUrl.includes('taazabull24.com')) {
+                console.log('Taazabull link detected, resolving automatically:', decodedUrl);
+                
+                // Call backend to resolve the taazabull link
+                fetch('/api/resolve_taazabull', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: decodedUrl })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success && result.resolved_url) {
+                        console.log('Successfully resolved taazabull link:', result.resolved_url);
+                        
+                        // Update the download section with resolved link
+                        if (downloadSection) {
+                            downloadSection.innerHTML = `
+                                <a href="${result.resolved_url}" target="_blank" class="download-link-button" style="background: #28a745;">
+                                    <i class="fas fa-download"></i> Download Now (Resolved)
+                                </a>
+                            `;
+                        }
+                        
+                        // Mark as resolved
+                        linkDiv.setAttribute('data-unlock-status', 'resolved');
+                        
+                        // Automatically open the resolved link
+                        window.open(result.resolved_url, '_blank');
+                    } else {
+                        console.log('Failed to resolve taazabull link, opening original URL');
+                        
+                        // Update button to show manual action needed
+                        if (downloadSection) {
+                            downloadSection.innerHTML = `
+                                <button class="download-link-button" onclick="window.open('${decodedUrl}', '_blank')" style="background: #f59e0b;">
+                                    <i class="fas fa-external-link-alt"></i> Open Manually
+                                </button>
+                            `;
+                        }
+                        
+                        // Open original URL for manual handling
+                        window.open(decodedUrl, '_blank');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error resolving taazabull link:', error);
+                    
+                    // Fallback to opening original URL
+                    if (downloadSection) {
+                        downloadSection.innerHTML = `
+                            <button class="download-link-button" onclick="window.open('${decodedUrl}', '_blank')" style="background: #f59e0b;">
+                                <i class="fas fa-external-link-alt"></i> Open Manually
+                            </button>
+                        `;
+                    }
+                    
+                    window.open(decodedUrl, '_blank');
+                });
+                
+                return; // Exit early for taazabull links
+            }
+            
+            // For non-taazabull links, use the original unlock logic
             fetch('/unlock_shortlink', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ url: decodeURIComponent(url) })
+                body: JSON.stringify({ url: decodedUrl })
             })
             .then(response => response.json())
             .then(data => {

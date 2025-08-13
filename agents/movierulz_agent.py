@@ -328,23 +328,16 @@ class MovieRulzAgent:
             
             for container in movie_containers[:per_page]:
                 try:
-                    # Check if container has multiple movie links
-                    movie_links = container.find_all('a', href=True)
-                    movie_links = [link for link in movie_links 
-                                 if link.get('href') and 
-                                 any(keyword in link.get('href').lower() 
-                                     for keyword in ['movie', 'watch', 'download'])]
-                    
-                    if len(movie_links) > 1:
-                        # Container has multiple movie links, extract each one
-                        for link in movie_links:
-                            movie_data = self._extract_movie_data_from_link(link, current_url)
-                            if movie_data and self._is_relevant_movie(movie_data, movie_name):
-                                all_movies.append(movie_data)
-                    else:
-                        # Single movie container, use original method
-                        movie_data = self._extract_movie_data(container, current_url)
-                        if movie_data and self._is_relevant_movie(movie_data, movie_name):
+                    # Extract movie data from container (use single movie per container approach)
+                    movie_data = self._extract_movie_data(container, current_url)
+                    if movie_data and self._is_relevant_movie(movie_data, movie_name):
+                        # Check for duplicates before adding
+                        is_duplicate = any(
+                            existing['title'].lower().strip() == movie_data['title'].lower().strip() and
+                            existing['url'] == movie_data['url']
+                            for existing in all_movies
+                        )
+                        if not is_duplicate:
                             all_movies.append(movie_data)
                 except Exception as e:
                     logger.warning(f"Error extracting movie data: {e}")
@@ -513,22 +506,40 @@ class MovieRulzAgent:
         return metadata
 
     def _is_relevant_movie(self, movie_data: Dict[str, Any], search_query: str) -> bool:
-        """Check if movie is relevant to search query"""
-        title = movie_data.get('title', '').lower()
-        search_query = search_query.lower()
+        """Check if movie is relevant to search query with stricter matching"""
+        title = movie_data.get('title', '').lower().strip()
+        search_query = search_query.lower().strip()
         
-        # Basic relevance check
+        # Skip empty or very short titles
+        if not title or len(title) < 3:
+            return False
+        
+        # Skip obviously irrelevant content
+        irrelevant_keywords = ['advertisement', 'ads', 'banner', 'popup', 'click here', 'download now', 'watch now']
+        if any(keyword in title for keyword in irrelevant_keywords):
+            return False
+        
+        # Exact match (highest priority)
+        if search_query == title:
+            return True
+        
+        # Direct substring match
         if search_query in title:
             return True
         
-        # Check individual words
-        search_words = search_query.split()
+        # Check individual words with stricter criteria
+        search_words = [word for word in search_query.split() if len(word) > 2]  # Ignore short words
         title_words = title.split()
         
-        matching_words = sum(1 for word in search_words if any(word in title_word for title_word in title_words))
+        if not search_words:
+            return False
         
-        # Consider relevant if at least 50% of search words match
-        return matching_words >= len(search_words) * 0.5
+        # Count exact word matches (not partial)
+        exact_matches = sum(1 for word in search_words if word in title_words)
+        
+        # Require at least 70% of search words to match exactly for relevance
+        relevance_threshold = 0.7
+        return exact_matches >= len(search_words) * relevance_threshold
 
     def _extract_quality_from_text(self, text: str) -> str:
         """Extract quality information from text"""
