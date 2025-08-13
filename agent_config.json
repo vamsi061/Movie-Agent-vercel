@@ -20,7 +20,7 @@
     },
     "movierulz": {
       "name": "MovieRulz Agent",
-      "enabled": false,
+      "enabled": true,
       "description": "Searches and extracts download links from MovieRulz",
       "base_url": "https://www.5movierulz.pizza/",
       "search_url": "https://www.5movierulz.pizza/search_movies?s=",

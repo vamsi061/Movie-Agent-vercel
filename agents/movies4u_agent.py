@@ -60,6 +60,12 @@ class Movies4UAgent:
             return self.driver
             
         try:
+            # Check if Selenium is disabled (for deployment environments)
+            import os
+            if os.environ.get('DISABLE_SELENIUM', '').lower() == 'true':
+                logger.info("Selenium disabled via environment variable")
+                return None
+                
             options = uc.ChromeOptions()
             options.add_argument("--headless")
             options.add_argument("--disable-web-security")

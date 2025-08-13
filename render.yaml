@@ -2,13 +2,20 @@ services:
   - type: web
     name: movie-agent
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn web_interface:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    buildCommand: |
+      pip install -r requirements.txt
+      mkdir -p data
+      mkdir -p config
+    startCommand: python start_render.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: FLASK_ENV
         value: production
+      - key: PORT
+        value: 10000
+      - key: DISABLE_SELENIUM
+        value: "true"
       - key: FLASK_SECRET_KEY
         generateValue: true
     disk:
