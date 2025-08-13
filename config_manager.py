@@ -21,8 +21,11 @@ class ConfigManager:
         try:
             with open(self.llm_config_path, 'r') as f:
                 return json.load(f)
+        except FileNotFoundError:
+            logger.info("LLM config file not found, using default configuration")
+            return self._get_default_llm_config()
         except Exception as e:
-            logger.error(f"Error loading LLM config: {e}")
+            logger.warning(f"Error loading LLM config: {e}, using default configuration")
             return self._get_default_llm_config()
     
     def save_llm_config(self, config: Dict[str, Any]) -> bool:
