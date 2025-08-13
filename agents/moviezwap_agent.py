@@ -70,7 +70,6 @@ class MoviezWapAgent:
                 search_urls = [
                     f"{self.base_url}/search.php?q={quote(movie_name)}",
                     f"{self.base_url}/?s={quote(movie_name)}",
-                    f"{self.base_url}/category/Telugu-(2025)-Movies.html",  # Fallback to category
                 ]
                 
                 response = None
@@ -86,8 +85,8 @@ class MoviezWapAgent:
                         continue
                 
                 if not response or response.status_code != 200:
-                    # If search fails, try browsing recent movies
-                    search_url = f"{self.base_url}/category/Telugu-(2025)-Movies.html"
+                    logger.warning(f"All search URLs failed for MoviezWap")
+                    raise requests.exceptions.RequestException("No valid search response")
                 
                 # Add retry-specific headers
                 self.session.headers.update({
@@ -239,16 +238,43 @@ class MoviezWapAgent:
         return has_movie_url and has_movie_text and not is_excluded and is_proper_length
     
     def _is_relevant_to_search(self, text: str, search_term: str) -> bool:
-        """Check if the link text is relevant to the search term"""
-        text_lower = text.lower()
-        search_lower = search_term.lower()
+        """Check if the link text is relevant to the search term with stricter filtering"""
+        text_lower = text.lower().strip()
+        search_lower = search_term.lower().strip()
         
-        # Check if search words appear in the text
-        search_words = search_lower.split()
+        # Skip obviously irrelevant content
+        irrelevant_keywords = ['advertisement', 'ads', 'banner', 'popup', 'click here', 'download now', 'watch now', 'category', 'page', 'join telegram', 'bookmark']
+        if any(keyword in text_lower for keyword in irrelevant_keywords):
+            return False
+        
+        # Skip very short titles
+        if len(text_lower) < 10:
+            return False
+        
+        # Direct exact match (highest priority)
+        if search_lower == text_lower:
+            return True
+        
+        # Direct substring match
+        if search_lower in text_lower:
+            return True
+        
+        # Word-based matching with stricter criteria
+        search_words = [word for word in search_lower.split() if len(word) > 2]  # Skip short words
         text_words = text_lower.split()
         
-        matching_words = sum(1 for word in search_words if any(word in text_word for text_word in text_words))
-        return matching_words >= len(search_words) * 0.4  # 40% match threshold
+        if not search_words:
+            return False
+        
+        # Count exact word matches (not partial)
+        exact_matches = 0
+        for search_word in search_words:
+            if search_word in text_words:
+                exact_matches += 1
+        
+        # Require at least 70% of search words to match exactly
+        relevance_threshold = 0.7
+        return exact_matches >= len(search_words) * relevance_threshold
     
     def _extract_image_from_container(self, container) -> Optional[str]:
         """Extract image URL from container"""
