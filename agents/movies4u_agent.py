@@ -13,11 +13,23 @@ from urllib.parse import urljoin, urlparse, quote, unquote
 from fake_useragent import UserAgent
 import logging
 from typing import Dict, List, Optional, Any
-import undetected_chromedriver as uc
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+try:
+    import undetected_chromedriver as uc
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    uc = None
+    By = None
+    WebDriverWait = None
+    expected_conditions = None
+    SELENIUM_AVAILABLE = False
+try:
+    from selenium.common.exceptions import TimeoutException, NoSuchElementException
+except ImportError:
+    TimeoutException = Exception
+    NoSuchElementException = Exception
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
